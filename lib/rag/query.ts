@@ -1,5 +1,5 @@
 import { foldDiacritics, MAX_SEARCH_TERMS, queryTerms, tokenize } from "./normalize";
-import type { DocType, SectionType } from "./schemas";
+import type { DocType, SearchFocus, SectionType } from "./schemas";
 
 /**
  * English banking terms -> the folded Romanian words the website uses, for the keyword leg of hybrid search.
@@ -162,5 +162,27 @@ export function planQuery(question: string, maxTerms: number = MAX_SEARCH_TERMS)
     intents,
     preferredSections,
     ...(intents.includes("cost") ? { preferredDocType: "tarife" as const } : {}),
+  };
+}
+
+const FOCUS_INTENT: Record<Exclude<SearchFocus, "any">, Intent> = {
+  costs: "cost",
+  interest_rates: "interest",
+  eligibility: "eligibility",
+  documents: "documents",
+  representative_example: "example",
+};
+
+/** Add the focus the agent asked for to the intents detected from the query text. */
+export function withFocus(plan: QueryPlan, focus: SearchFocus): QueryPlan {
+  if (focus === "any") return plan;
+  const intent = FOCUS_INTENT[focus];
+  if (plan.intents.includes(intent)) return plan;
+  const preferredSections = [...new Set([...plan.preferredSections, ...INTENT_SECTIONS[intent]])];
+  return {
+    ...plan,
+    intents: [...plan.intents, intent],
+    preferredSections,
+    ...(intent === "cost" ? { preferredDocType: "tarife" as const } : {}),
   };
 }

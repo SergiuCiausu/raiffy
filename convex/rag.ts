@@ -2,15 +2,17 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, type ActionCtx, internalQuery } from "./_generated/server";
+import { embedTexts } from "./openai";
 import { toSearchText } from "../lib/rag/normalize";
-import { planQuery } from "../lib/rag/query";
-import { searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
+import { planQuery, withFocus } from "../lib/rag/query";
+import { SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
 import { rankHits, type StoredChunk } from "../lib/rag/search";
 import { visibilityField } from "../lib/rag/visibility";
 
 const CANDIDATES = 32;
 
-const trackArg = v.union(v.literal("personal"), v.literal("business"));
+export const trackArg = v.union(v.literal("personal"), v.literal("business"));
+const focusArg = v.union(...SEARCH_FOCUS.map((focus) => v.literal(focus)));
 
 /** Keyword leg: full-text search over the folded text, scoped to the track. */
 export const textSearch = internalQuery({
@@ -37,30 +39,16 @@ export const getChunks = internalQuery({
   },
 });
 
-/** Embeds a question with the same model the chunks were indexed with (local service, see tools/rag). */
-async function embedQuery(question: string): Promise<number[]> {
-  const url = process.env.EMBEDDINGS_URL ?? "http://127.0.0.1:8765";
-  const response = await fetch(`${url}/embed`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ texts: [question], kind: "query" }),
-  });
-  if (!response.ok) throw new Error(`Embedding service returned ${response.status}`);
-  const body = (await response.json()) as { vectors: number[][] };
-  const vector = body.vectors[0];
-  if (!vector) throw new Error("Embedding service returned no vector");
-  return vector;
-}
-
+/** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to the track, fused in code. */
 export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
-  const { question, track, k } = searchArgsSchema.parse(input);
-  const plan = planQuery(question);
+  const { question, track, k, focus } = searchArgsSchema.parse(input);
+  const plan = withFocus(planQuery(question), focus);
   const field = visibilityField(track);
 
   const [dense, lexicalIds] = await Promise.all([
-    embedQuery(question).then((vector) =>
+    embedTexts([question]).then(([vector]) =>
       ctx.vectorSearch("ragChunks", "by_embedding", {
-        vector,
+        vector: vector!,
         limit: CANDIDATES,
         filter: (q) => q.eq(field, true),
       }),
@@ -79,8 +67,8 @@ export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<S
   return rankHits(denseIds, lexicalIds, byId, plan, { k });
 }
 
-/** Hybrid search over the public product chunks, scoped to the caller's track. Public data only. */
+/** Retrieval only (used by starter/eval.py --backend convex). Public product data, no customer data. */
 export const search = action({
-  args: { question: v.string(), track: trackArg, k: v.optional(v.number()) },
+  args: { question: v.string(), track: trackArg, k: v.optional(v.number()), focus: v.optional(focusArg) },
   handler: async (ctx, args): Promise<SearchHit[]> => searchChunks(ctx, args),
 });

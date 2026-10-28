@@ -39,7 +39,7 @@ Use `/setup-app` for bootstrap details. Where it defaults to Supabase, **Convex 
 
 - Schema lives in `convex/schema.ts`, and types flow from it. Queries and mutations handle data. Actions handle anything external (LLM calls, embeddings, fetches).
 - **RAG:** store chunks with `.vectorIndex()` (fixed `dimensions`, plus `filterFields` such as language, productId and isActive) and use `.searchIndex()` for the keyword half of hybrid search. `ctx.vectorSearch` runs only inside actions.
-- The embedding model isn't chosen yet, and Anthropic has no embeddings API. Ask before picking a provider, since the spec requires EU hosting.
+- Embeddings: **OpenAI `text-embedding-3-small`** (1536 dimensions), called only from Convex actions with `OPENAI_API_KEY` from the Convex environment. Anthropic has no embeddings API. Claude does the reasoning, tool calls and answers. OpenAI's EU data residency needs approval, so EU hosting for embeddings is still open for production.
 - Product numbers come from the catalog tables, never from the vector store. See `raiffy-spec/CLAUDE.md`.
 - Use the Convex MCP only, pointed at a dev deployment. The deploy key goes in `.env.local`, never in code or `NEXT_PUBLIC_*`.
 

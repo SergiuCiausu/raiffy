@@ -1,13 +1,13 @@
 import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
 import { assembleCitations, checkNumbers, citedSegments, ragAnswerSchema } from "./answer";
-import { buildUserContent, toSearchResult } from "./prompt";
+import { toSearchResult, toToolResult } from "./prompt";
 import type { SearchHit } from "./schemas";
 
 const hit = (id: string, url: string, text: string): SearchHit => ({
   chunkId: id,
   text,
-  embeddingModel: "test",
+  embedded: true,
   visiblePersonal: true,
   visibleBusiness: false,
   sourceType: "product_page",
@@ -42,19 +42,19 @@ const response = [
 ] as unknown as BetaContentBlock[];
 
 describe("prompt building", () => {
-  it("splits a chunk into one citable block per line, with citations on", () => {
+  it("splits a chunk into one citable block per line, after the collection date", () => {
     const result = toSearchResult(hits[0]!);
-    expect(result.content.map((b) => b.text)).toEqual(["Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an"]);
+    expect(result.content.map((b) => b.text)).toEqual([
+      "Collected on 2026-10-28.", "Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an",
+    ]);
     expect(result.citations).toEqual({ enabled: true });
     expect(result.title).toBe("Depozite la termen · Dobânzi");
   });
 
-  it("puts a dated header first and the question last", () => {
-    const content = buildUserContent({ question: "Rate?", hits, firstTurn: true });
-    expect(content[0]).toMatchObject({ type: "text" });
-    expect((content[0] as { text: string }).text).toContain("2026-10-28");
-    expect(content.filter((b) => b.type === "search_result")).toHaveLength(3);
-    expect((content.at(-1) as { text: string }).text).toMatch(/AI assistant[\s\S]*Customer question: Rate\?/);
+  it("returns only search results in a tool result, or a note when there are none", () => {
+    const withHits = toToolResult("t1", hits);
+    expect(Array.isArray(withHits.content) && withHits.content.every((b) => b.type === "search_result")).toBe(true);
+    expect(toToolResult("t2", []).content).toMatch(/No results/);
   });
 });
 
@@ -82,7 +82,8 @@ describe("answer assembly", () => {
       status: "answered",
       checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 },
       model: "claude-sonnet-5-5",
-      promptVersion: "rag-answer@1",
+      promptVersion: "rag-agent@1",
+      searches: [{ query: "dobanda depozit", focus: "interest_rates", results: 3 }],
       retrieval: [{ chunkId: "d#1", score: 0.03, denseRank: 1 }],
     })).not.toThrow();
   });

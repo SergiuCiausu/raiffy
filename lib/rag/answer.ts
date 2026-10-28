@@ -2,7 +2,7 @@ import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages
 import { z } from "zod";
 import { findUngroundedNumbers } from "./numbers";
 import { resultTitle } from "./prompt";
-import { docTypeSchema, sectionTypeSchema, type SearchHit } from "./schemas";
+import { docTypeSchema, searchFocusSchema, sectionTypeSchema, type SearchHit } from "./schemas";
 
 export const ragSourceSchema = z.object({
   id: z.string(),
@@ -35,6 +35,9 @@ export const ragAnswerSchema = z.object({
   }),
   model: z.string(),
   promptVersion: z.string(),
+  /** The searches the agent ran, in order. */
+  searches: z.array(z.object({ query: z.string(), focus: searchFocusSchema, results: z.number().int().nonnegative() })),
+  /** Every fragment shown to the model, in the order it saw them. */
   retrieval: z.array(
     z.object({
       chunkId: z.string(),
