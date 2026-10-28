@@ -24,12 +24,21 @@ const RESPONSES: Partial<Record<RoutePlan["handler"], string>> = {
 
 export function routeResponse(plan: RoutePlan): RagAnswer {
   const text = plan.reason === "explicit_memory_request" ? RESPONSES.memory!
+    : plan.reason === "catalog_required" ? "The reviewed product-terms catalog is not connected yet, so I cannot verify exact rates, fees or amounts. Please check the bank's official product page or an adviser. I can help explain sourced conditions and documents."
     : plan.reason === "confirm_track_before_access" ? "Is this about a product for you personally or for a business? This chat uses your personal banking profile."
     : plan.reason === "uncertain_goal_count" ? "Which financial goal would you like us to work through first?"
     : RESPONSES[plan.handler] ?? RESPONSES.unavailable!;
   return ragAnswerSchema.parse({ status: "no_results", text, segments: [{ text, sourceIds: [] }], sources: [],
     checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 },
     model: "deterministic", promptVersion: "route-response@1", searches: [], retrieval: [] });
+}
+
+/** Exact financial figures require the reviewed catalog, even when a number occurs in a RAG passage. */
+export function containsFinancialFigure(text: string): boolean {
+  const normalized = text.normalize("NFKC");
+  return /\d[\d.,\s]*(?:%|RON\b|EUR\b|lei\b|leu\b|euros?\b|basis points?\b)/i.test(normalized)
+    || /\b(?:APR|DAE|interest rate|fee|commission|comision|dobanda)\b[^.!?\n]{0,40}\d/i.test(normalized)
+    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\s+(?:percent|lei|euros?)\b/i.test(normalized);
 }
 
 /** Build the UI contract from checked evidence; the model cannot invent block kinds or actions. */

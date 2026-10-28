@@ -11,7 +11,7 @@ import { requireAgentScope, requireAgentThread } from "./agentAuth";
 import { screenChat } from "../lib/agent/privacy";
 import { requestJev } from "./jevTransport";
 import { planAgentRoute, type RoutePlan } from "../lib/agent/route";
-import { composeAnswer, routeResponse } from "../lib/agent/composer";
+import { composeAnswer, containsFinancialFigure, routeResponse } from "../lib/agent/composer";
 import { unavailableResult } from "../lib/rag/knowledge";
 import { namedBanks } from "../lib/rag/query";
 
@@ -196,9 +196,12 @@ export const run = action({
       let answer: RagAnswer;
       if (!plan.model || !["answer", "orchestrator"].includes(plan.handler)) answer = routeResponse(plan);
       else answer = await generate(ctx, question, input.history, plan, messageId);
-      const verification = { status: answer.status, checks: answer.checks, searches: answer.searches, model: answer.model };
+      const requiresCatalog = answer.status === "answered" && containsFinancialFigure(answer.text);
+      const verification = { status: answer.status, checks: answer.checks, searches: answer.searches, model: answer.model,
+        financialTermsSupported: !requiresCatalog };
       // Failed drafts are neither shown nor retained. Only the checked final response reaches the UI.
       if (answer.status === "failed_checks" || answer.status === "refused") answer = routeResponse({ ...plan, handler: "unavailable" });
+      if (requiresCatalog) answer = routeResponse({ ...plan, handler: "unavailable", reason: "catalog_required" });
       if (answer.sources.length > 0) {
         const notice = "This is dated public information, not a binding offer; check the source dates below.";
         answer = { ...answer, text: `${answer.text}\n\n${notice}`, segments: [...answer.segments, { text: ` ${notice}`, sourceIds: [] }] };
@@ -231,7 +234,7 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       if (state.message.status !== "streaming") throw new ConvexError("reply_stopped");
       return client.beta.messages.create({ model: plan.model!.id, max_tokens: 8000,
         output_config: { effort: plan.model!.effort }, system: [...system, { type: "text", text:
-          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, account data, saved memory or approved offers are connected. Never invent their results or approve a discount. For negotiation, explain sourced terms and offer adviser review without claiming an appointment was booked.` }], tools, messages });
+          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog, account data, saved memory or approved offers are connected. Exact rates, fees, monetary amounts and credit limits are unavailable: do not quote them from RAG, even with citations. Explain sourced non-price conditions and documents instead. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` }], tools, messages });
     },
     search: async raw => {
       if (!plan.collections.includes(raw.collection)) return unavailableResult(raw.collection, "collection_not_connected", raw.limit);

@@ -68,6 +68,15 @@ describe("UI to Jev to RAG pipeline", () => {
     expect(searchMock).not.toHaveBeenCalled();
   });
 
+  it("withholds exact financial figures until a reviewed catalog is connected", async () => {
+    runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "The interest rate is 5.5%." });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(result.answer.text).not.toContain("5.5");
+    expect(result.answer.text).toContain("catalog is not connected");
+    expect(result.answer.verification.financialTermsSupported).toBe(false);
+    expect(result.answer.ui.mode).toBe("degraded");
+  });
+
   it("hardship suppresses sales before Claude and exposes the controlled UI envelope", async () => {
     const c = classification(); Object.assign(c.answers, { hardship: { type: "noul", noul: 0.9 } });
     jevMock.mockResolvedValue({ status: "classified", classification: c });
