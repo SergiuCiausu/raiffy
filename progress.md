@@ -2,7 +2,15 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 (backend integration review). Branch: `codex/backend-integration-20261028`.
+Last updated: 2026-10-28 (retrieval merge review). Branch: `main`.
+
+## Retrieval merge review 2026-10-28
+
+- PR #6 is merged into `main` at `4ff485b`, including retrieval commit `caf9614` and conflict-resolution merge `a747345`. Removed the obsolete `visibilityField` import left in `convex/rag.ts`; it caused the merged Convex TypeScript check to fail.
+- Authentication remains in the shared `searchChunks` path before embedding/search calls. Memory tables, thread ownership, citation checks, incomplete-answer rejection and private-persistence gates are preserved.
+- Rebuilt the import locally: 9,334 eligible documents; 37 withdrawn and 729 out-of-scope chunks excluded. Collection/track counts match Andrei's handoff. The generated file is ignored under `.convex/acceptance/`; it was not imported or embedded during this review.
+- Read-only check of the configured cloud dev target (`andrei-cazacu:raiffy:dev/andrei-cazacu`, `diligent-rhinoceros-830`) found **no `ragChunks` rows**. The handoff's imported/embedded corpus is not present in this deployment. Transfer/import and embedding verification are required here before live retrieval acceptance; no running deployment or customer data was changed during this review.
+- Validation: root and Convex TypeScript checks, generated agent setup consistency and diff whitespace checks pass. No unit suite or paid provider calls rerun. Task 2 steps 2–6 remain unfinished: scoped tool handler, reviewed structured catalog and terms lookup, competitor/catalog/isolation evals, and English retrieval improvement. Then connect the Jev route plan, composer and app for chatbot acceptance.
 
 ## Backend integration review 2026-10-28
 

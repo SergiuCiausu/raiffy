@@ -7,7 +7,6 @@ import { toSearchText } from "../lib/rag/normalize";
 import { planQuery, withFocus } from "../lib/rag/query";
 import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
 import { rankHits, type StoredChunk } from "../lib/rag/search";
-import { visibilityField } from "../lib/rag/visibility";
 import { requireAgentScope } from "./agentAuth";
 
 const CANDIDATES = 32;
