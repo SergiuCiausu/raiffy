@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { type AgentDeps, type ModelRequest, runAgent } from "./agent";
 import { MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
 import { ragAnswerSchema } from "./answer";
+import { buildKnowledgeResult, isPublicCollection, unavailableResult } from "./knowledge";
 import type { SearchHit } from "./schemas";
+
+const NOW = Date.parse("2026-11-01T12:00:00Z");
 
 const hit = (id: string, text: string): SearchHit => ({
   chunkId: id,
@@ -48,9 +51,10 @@ function fakeDeps(responses: BetaMessage[], results: SearchHit[][] = []) {
       if (!next) throw new Error("no more scripted responses");
       return next;
     },
-    search: async ({ query }) => {
+    search: async ({ collection, query, limit }) => {
       queries.push(query);
-      return results.shift() ?? [];
+      if (!isPublicCollection(collection)) return unavailableResult(collection, "collection_not_connected", limit);
+      return buildKnowledgeResult({ collection, query, limit, hits: results.shift() ?? [], now: NOW });
     },
   };
   return { deps, requests, queries };
@@ -62,7 +66,7 @@ describe("runAgent", () => {
   it("searches, then answers with citations mapped to the fragments it saw", async () => {
     const { deps, requests, queries } = fakeDeps(
       [
-        message("tool_use", [toolUse("t1", { query: "dobanda depozit 3 luni", focus: "interest_rates" })]),
+        message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "dobanda depozit 3 luni", limit: 5 })]),
         message("end_turn", [cited("The 3-month deposit pays 4.70% a year.", 0)]),
       ],
       [[hit("dep", "3 luni: dobândă 4.70% pe an")]],
@@ -72,7 +76,7 @@ describe("runAgent", () => {
     expect(answer.status).toBe("answered");
     expect(answer.text).toBe("The 3-month deposit pays 4.70% a year.");
     expect(answer.sources.map((s) => s.chunkIds)).toEqual([["dep"]]);
-    expect(answer.searches).toEqual([{ query: "dobanda depozit 3 luni", focus: "interest_rates", results: 1 }]);
+    expect(answer.searches).toEqual([{ query: "dobanda depozit 3 luni", collection: "bank_product_docs", status: "ok", results: 1 }]);
     // The second request carries the assistant tool call and a tool result made of search_result blocks.
     const last = requests[1]!.messages.at(-1)!;
     expect(last.role).toBe("user");
@@ -84,7 +88,7 @@ describe("runAgent", () => {
   it("retries once when the answer states a number the fragments don't contain", async () => {
     const { deps, requests } = fakeDeps(
       [
-        message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+        message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
         message("end_turn", [cited("It pays 5.10% a year.", 0)]),
         message("end_turn", [cited("It pays 4.70% a year.", 0)]),
       ],
@@ -99,7 +103,7 @@ describe("runAgent", () => {
   it("reports failed checks when the retry is still ungrounded", async () => {
     const { deps } = fakeDeps(
       [
-        message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+        message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
         message("end_turn", [cited("It pays 5.10%.", 0)]),
         message("end_turn", [cited("It pays 5.20%.", 0)]),
       ],
@@ -112,7 +116,7 @@ describe("runAgent", () => {
 
   it("turns bad tool calls into error results instead of crashing", async () => {
     const { deps, requests, queries } = fakeDeps([
-      message("tool_use", [toolUse("t1", { query: "" , focus: "any" }), toolUse("t2", {}, "transfer_money")]),
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "", limit: 5 }), toolUse("t2", {}, "transfer_money")]),
       message("end_turn", [{ type: "text", text: "I can't help with that here." }]),
     ]);
     const answer = await runAgent(input, deps);
@@ -124,7 +128,7 @@ describe("runAgent", () => {
 
   it("stops searching after the limit", async () => {
     const calls = Array.from({ length: MAX_SEARCHES + 1 }, (_, i) =>
-      message("tool_use", [toolUse(`t${i}`, { query: `q${i}`, focus: "any" })]));
+      message("tool_use", [toolUse(`t${i}`, { collection: "bank_product_docs", query: `q${i}`, limit: 5 })]));
     const { deps, queries } = fakeDeps([...calls, message("end_turn", [{ type: "text", text: "Done." }])]);
     await runAgent(input, deps);
     expect(queries).toHaveLength(MAX_SEARCHES);
@@ -133,9 +137,9 @@ describe("runAgent", () => {
   it("asks for one more search when a single search ends in an uncited answer", async () => {
     const { deps, requests, queries } = fakeDeps(
       [
-        message("tool_use", [toolUse("t1", { query: "descoperit de cont IMM", focus: "any" })]),
+        message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "descoperit de cont IMM", limit: 5 })]),
         message("end_turn", [{ type: "text", text: "I couldn't find that." }]),
-        message("tool_use", [toolUse("t2", { query: "linie de credit overdraft IMM", focus: "any" })]),
+        message("tool_use", [toolUse("t2", { collection: "bank_product_docs", query: "linie de credit overdraft IMM", limit: 5 })]),
         message("end_turn", [cited("Up to 35% of last year's turnover.", 1)]),
       ],
       [[hit("pkg", "Pachete de cont IMM")], [hit("od", "maximum 35% din cifra de afaceri")]],
@@ -154,7 +158,7 @@ describe("runAgent", () => {
 
   it("never marks a truncated cited answer as answered", async () => {
     const { deps } = fakeDeps([
-      message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
       message("max_tokens", [cited("It pays 4.70%", 0)]),
     ], [[hit("dep", "dobândă 4.70%")]]);
     const answer = await runAgent(input, deps);
@@ -172,7 +176,7 @@ describe("runAgent", () => {
 
   it("retries a financial value present only in the question or an uncited hit", async () => {
     const { deps } = fakeDeps([
-      message("tool_use", [toolUse("t1", { query: "depozite", focus: "any" })]),
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozite", limit: 5 })]),
       message("end_turn", [cited("It pays 5.10%.", 0)]),
       message("end_turn", [cited("It pays 4.70%.", 0)]),
     ], [[hit("dep", "dobândă 4.70%"), hit("other", "dobândă 5.10%")]]);
@@ -182,7 +186,7 @@ describe("runAgent", () => {
 
   it("fails invalid citation indexes even when the text contains no numbers", async () => {
     const { deps, requests } = fakeDeps([
-      message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
       message("end_turn", [cited("An unsupported banking fact.", 99)]),
       message("end_turn", [cited("Still an unsupported fact.", -1)]),
     ], [[hit("dep", "dobândă 4.70%")]]);
@@ -192,6 +196,41 @@ describe("runAgent", () => {
     expect(answer.sources).toEqual([]);
     expect(String(requests[2]!.messages.at(-1)!.content)).toContain("unavailable search results");
     expect(() => ragAnswerSchema.parse(answer)).not.toThrow();
+  });
+
+  it("uses Denis's search_knowledge contract as the only tool", async () => {
+    const { deps, requests } = fakeDeps([message("end_turn", [{ type: "text", text: "Hello." }])]);
+    await runAgent(input, deps);
+    const tool = requests[0]!.tools[0]!;
+    expect(requests[0]!.tools).toHaveLength(1);
+    expect(tool.name).toBe("search_knowledge");
+    expect(Object.keys((tool.input_schema as { properties: object }).properties).sort()).toEqual(["collection", "limit", "query"]);
+    expect(tool.input_schema).not.toHaveProperty("$schema");
+  });
+
+  it("returns user_memory as unavailable and never substitutes another collection", async () => {
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "user_memory", query: "my goals", limit: 3 })]),
+      message("end_turn", [{ type: "text", text: "I can't see saved goals here." }]),
+    ], [[hit("dep", "dobândă 4.70%")]]);
+    const answer = await runAgent(input, deps);
+    const toolResult = (requests[1]!.messages.at(-1)!.content as { content: unknown }[])[0]!;
+    expect(String(toolResult.content)).toMatch(/user_memory collection is unavailable/);
+    expect(answer.searches).toEqual([{ query: "my goals", collection: "user_memory", status: "unavailable", results: 0 }]);
+    expect(answer.retrieval).toEqual([]);
+  });
+
+  it("adds coverage gaps as a separate system note after the tool results", async () => {
+    const ing = hit("ing", "ING Personal: dobândă fixă între 5,99% - 15,99%");
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "competitor_docs", query: "ING personal loan APR", limit: 5 })]),
+      message("end_turn", [cited("ING's fixed rate is between 5,99% - 15,99%.", 0)]),
+    ], [[{ ...ing, bank: "ing", url: "https://ing.ro/persoane-fizice/credite/ing-personal" }]]);
+    await runAgent(input, deps);
+    const sent = requests[1]!.messages;
+    expect(sent.at(-2)!.role).toBe("user");
+    expect(sent.at(-1)).toMatchObject({ role: "system" });
+    expect(String(sent.at(-1)!.content)).toMatch(/ING's fee and rate PDFs were not collected/);
   });
 
   it("sends earlier turns as plain text and skips the disclosure after the first turn", async () => {

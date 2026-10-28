@@ -3,7 +3,8 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery, query } from "./_generated/server";
-import { trackArg, searchChunks } from "./rag";
+import { searchKnowledge } from "./knowledge";
+import { trackArg } from "./rag";
 import { runAgent, type HistoryTurn } from "../lib/rag/agent";
 import { ragAnswerSchema, type RagAnswer } from "../lib/rag/answer";
 import { requireAgentScope, requireAgentThread } from "./agentAuth";
@@ -11,7 +12,6 @@ import { requireAgentScope, requireAgentThread } from "./agentAuth";
 const DEFAULT_MODEL = "claude-sonnet-5-5";
 type Effort = "low" | "medium" | "high";
 const HISTORY_TURNS = 10;
-const RESULTS_PER_SEARCH = 5;
 
 export const createThread = internalMutation({
   args: { track: trackArg, title: v.string() },
@@ -108,7 +108,7 @@ export const ask = action({
             tools,
             messages,
           }),
-        search: ({ query, focus }) => searchChunks(ctx, { question: query, track, k: RESULTS_PER_SEARCH, focus }),
+        search: (input) => searchKnowledge(ctx, track, input),
       },
     );
 

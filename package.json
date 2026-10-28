@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "convex:dev": "convex dev",
     "rag:build-import": "tsx scripts/build-rag-import.ts",
+    "rag:eval": "tsx scripts/eval-retrieval.ts",
     "agent:build-setup": "tsx scripts/build-agent-setup.ts",
     "agent:check-setup": "tsx scripts/build-agent-setup.ts --check",
     "memory:check-mcp": "tsx scripts/check-memory-mcp.ts",
