@@ -7,6 +7,8 @@ import { toSearchText } from "../lib/rag/normalize";
 import { planQuery, withFocus } from "../lib/rag/query";
 import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
 import { rankHits, type StoredChunk } from "../lib/rag/search";
+import { visibilityField } from "../lib/rag/visibility";
+import { requireAgentScope } from "./agentAuth";
 
 const CANDIDATES = 32;
 
@@ -42,6 +44,7 @@ export const getChunks = internalQuery({
 /** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to one track and collection, fused in code. */
 export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
   const { question, track, collection, k, focus } = searchArgsSchema.parse(input);
+  await requireAgentScope(ctx, track);
   const plan = withFocus(planQuery(question), focus);
   const field = scopeField(track, collection);
 

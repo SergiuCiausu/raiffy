@@ -80,6 +80,45 @@ describe("answer assembly", () => {
     expect(checks.uncitedSegmentsWithNumbers).toBe(1);
   });
 
+  it("rejects a value found only in an unrelated retrieved fragment", () => {
+    expect(checkNumbers([{ text: "The deposit pays 6.20%.", hitIndexes: [0] }], hits, "q").ungroundedNumbers).toEqual(["6.20"]);
+  });
+
+  it("does not let the customer's question establish a financial number", () => {
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [0] }], hits, "Can I get 7.10%?").ungroundedNumbers).toEqual(["7.10"]);
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [] }], hits, "Can I get 7.10%?")).toMatchObject({
+      ungroundedNumbers: ["7.10"], uncitedSegmentsWithNumbers: 1,
+    });
+  });
+
+  it("requires numeric evidence for each segment's own citation", () => {
+    expect(checkNumbers([
+      { text: "It pays 4.70%.", hitIndexes: [0] },
+      { text: "Another deposit pays 4.70%.", hitIndexes: [2] },
+    ], hits, "q").ungroundedNumbers).toEqual(["4.70"]);
+  });
+
+  it.each([-1, 0.5, 99, Number.NaN, Number.POSITIVE_INFINITY])("rejects invalid citation index %s even without numbers", (index) => {
+    expect(checkNumbers([{ text: "A banking fact.", hitIndexes: [index] }], hits, "q")).toMatchObject({ invalidCitationIndexes: 1 });
+  });
+
+  it("does not let an invalid citation stand in for valid evidence", () => {
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [99] }], hits, "q")).toEqual({
+      ungroundedNumbers: ["4.70"], uncitedSegmentsWithNumbers: 1, invalidCitationIndexes: 1,
+    });
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [0, 99] }], hits, "q")).toEqual({
+      ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, invalidCitationIndexes: 1,
+    });
+  });
+
+  it("accepts a cited collection date without allowing an unrelated snapshot's date", () => {
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], hits, "q")).toEqual({
+      ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0,
+    });
+    const distinctDate = { ...hits[0]!, scrapedAt: "2025-09-17T00:00:00Z" };
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], [distinctDate, hits[1]!], "q").ungroundedNumbers).toEqual(["2026", "10", "28"]);
+  });
+
   it("produces an answer the schema accepts", () => {
     const assembled = assembleCitations(citedSegments(response), hits);
     expect(() => ragAnswerSchema.parse({

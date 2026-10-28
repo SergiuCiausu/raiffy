@@ -27,10 +27,12 @@ export const ragAnswerSchema = z.object({
   segments: z.array(ragSegmentSchema),
   sources: z.array(ragSourceSchema),
   checks: z.object({
-    /** Numbers in the text that no retrieved fragment, the question or the collection date contains. */
+    /** Numbers absent from the segment's valid cited fragments and their collection dates. */
     ungroundedNumbers: z.array(z.string()),
     /** Segments that state a number but cite nothing. */
     uncitedSegmentsWithNumbers: z.number().int().nonnegative(),
+    /** Additive diagnostic: absent on older responses and when every citation index is valid. */
+    invalidCitationIndexes: z.number().int().nonnegative().optional(),
     attempts: z.number().int().positive(),
   }),
   model: z.string(),
@@ -97,13 +99,29 @@ export function assembleCitations(segments: readonly CitedSegment[], hits: reado
   return { text: out.map((s) => s.text).join("").trim(), segments: out, sources };
 }
 
-/** Deterministic output checks: every number grounded, and no number stated without a citation. */
-export function checkNumbers(segments: readonly CitedSegment[], hits: readonly SearchHit[], question: string) {
-  const allowed = [...hits.map((hit) => hit.text), question, ...hits.map((hit) => hit.scrapedAt.slice(0, 10))];
-  const text = segments.map((s) => s.text).join("");
-  const ungroundedNumbers = findUngroundedNumbers(text, allowed);
-  const uncitedSegmentsWithNumbers = segments.filter(
-    (s) => s.hitIndexes.length === 0 && findUngroundedNumbers(s.text, [question, ...allowed.slice(-hits.length)]).length > 0,
-  ).length;
-  return { ungroundedNumbers, uncitedSegmentsWithNumbers };
+/**
+ * Numeric presence is checked per cited fragment, never against the question or unrelated hits.
+ * This is not a verifier of financial meaning, units, product identity or semantic entailment.
+ * Keep the question argument for compatibility with existing callers.
+ */
+export function checkNumbers(segments: readonly CitedSegment[], hits: readonly SearchHit[], _question: string) {
+  const ungroundedNumbers: string[] = [];
+  let uncitedSegmentsWithNumbers = 0;
+  let invalidCitationIndexes = 0;
+  for (const segment of segments) {
+    const citedHits: SearchHit[] = [];
+    for (const index of segment.hitIndexes) {
+      const hit = Number.isInteger(index) && index >= 0 ? hits[index] : undefined;
+      if (hit) citedHits.push(hit);
+      else invalidCitationIndexes++;
+    }
+    const allowed = citedHits.flatMap((hit) => [hit.text, hit.scrapedAt.slice(0, 10)]);
+    ungroundedNumbers.push(...findUngroundedNumbers(segment.text, allowed));
+    if (!citedHits.length && findUngroundedNumbers(segment.text, []).length > 0) uncitedSegmentsWithNumbers++;
+  }
+  return {
+    ungroundedNumbers,
+    uncitedSegmentsWithNumbers,
+    ...(invalidCitationIndexes ? { invalidCitationIndexes } : {}),
+  };
 }

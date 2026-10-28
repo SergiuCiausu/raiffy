@@ -1,6 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { BANKS, type ScopeField, scopeFlagsSchema, SECTION_TYPES } from "../lib/rag/schemas";
+import { memoryKind, memoryScopeFields } from "./memoryValidators";
+
 
 /** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
 export const EMBEDDING_DIMENSIONS = 1536;
@@ -14,6 +16,28 @@ const SCOPE_FIELDS = Object.keys(scopeFlagsSchema.shape) as ScopeField[];
 const scopeFlags = Object.fromEntries(SCOPE_FIELDS.map((field) => [field, v.boolean()])) as Record<ScopeField, ReturnType<typeof v.boolean>>;
 
 export default defineSchema({
+  conversations: defineTable({ ...memoryScopeFields, createdAt: v.number(), expiresAt: v.number() })
+    .index("by_scope", ["ownerKey", "track", "organizationKey"])
+    .index("by_expiry", ["expiresAt"]),
+  messages: defineTable({
+    ...memoryScopeFields, conversationId: v.id("conversations"), role: v.literal("customer"),
+    maskedText: v.string(), memoryEligible: v.boolean(), createdAt: v.number(), expiresAt: v.number(),
+  }).index("by_conversation", ["conversationId"]).index("by_expiry", ["expiresAt"]),
+  memoryProposals: defineTable({
+    ...memoryScopeFields, status: v.union(v.literal("pending"), v.literal("confirmed")),
+    operation: v.union(v.literal("remember"), v.literal("update")), kind: memoryKind, text: v.string(),
+    customerQuote: v.string(), sourceMessageId: v.id("messages"), replacesMemoryId: v.optional(v.id("userMemories")),
+    replacesUpdatedAt: v.optional(v.number()), memoryId: v.optional(v.id("userMemories")),
+    createdAt: v.number(), expiresAt: v.number(), confirmedAt: v.optional(v.number()),
+  }).index("by_scope_status", ["ownerKey", "track", "organizationKey", "status"])
+    .index("by_source", ["sourceMessageId"]).index("by_memory", ["memoryId"]).index("by_replacement", ["replacesMemoryId"])
+    .index("by_expiry", ["expiresAt"]),
+  userMemories: defineTable({
+    ...memoryScopeFields, kind: memoryKind, text: v.string(), sourceMessageId: v.id("messages"),
+    consentEventId: v.id("memoryProposals"), status: v.literal("active"),
+    statedAt: v.number(), updatedAt: v.number(), expiresAt: v.number(),
+  }).index("by_scope_status", ["ownerKey", "track", "organizationKey", "status"])
+    .index("by_expiry", ["expiresAt"]),
   ragChunks: defineTable({
     chunkId: v.string(),
     bank,
@@ -57,7 +81,10 @@ export default defineSchema({
   ragThreads: defineTable({
     track,
     title: v.string(),
-  }),
+    /** Optional only for legacy schema migration; authorization rejects unowned records. */
+    ownerKey: v.optional(v.string()),
+    organizationKey: v.optional(v.union(v.null(), v.string())),
+  }).index("by_owner_scope", ["ownerKey", "track", "organizationKey"]),
 
   ragMessages: defineTable({
     threadId: v.id("ragThreads"),

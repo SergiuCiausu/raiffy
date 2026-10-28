@@ -1,0 +1,11 @@
+{
+  "description": "Fault cases exercised with mocked fetch in convex/jev.test.ts. Thresholds uncalibrated; no live Jev results.",
+  "cases": [
+    { "id": "JEV-T01", "scenario": "Provider disabled, key missing or input too large", "expect": "unavailable without network call" },
+    { "id": "JEV-T02", "scenario": "Valid stored masked source", "expect": "one fixed HTTPS endpoint, server bearer key, pinned jev-1.14.0, bounded same-conversation context" },
+    { "id": "JEV-T03", "scenario": "HTTP 401/429/500 or network exception", "expect": "unavailable; no retry, alternate provider, raw error or generation call" },
+    { "id": "JEV-T04", "scenario": "Fetch hangs, ignores cancellation or body stalls", "expect": "timeout at 2500 ms; abort signaled" },
+    { "id": "JEV-T05", "scenario": "Invalid JSON, missing answers, oversized body or changed version", "expect": "unavailable; never route untrusted classifier result" },
+    { "id": "JEV-T06", "scenario": "Source foreign, expired or unscreened", "expect": "unavailable before provider call" }
+  ]
+}

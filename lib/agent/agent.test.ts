@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_POLICY } from "./config";
-import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema, MEMORY_OPERATIONS, SCOPES } from "./jev";
-import { memoryProposalSchema, selectUserMemories } from "./memory";
+import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema, MEMORY_CANDIDATES, MEMORY_OPERATIONS, SCOPES } from "./jev";
+import { memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
 
@@ -19,7 +19,8 @@ function response() {
     answers: {
       inquiry: choice(INQUIRIES, "negotiation"), scope: choice(SCOPES, "compare"),
       complexity: choice(COMPLEXITIES, "complex"), audience: choice(AUDIENCES, "personal"),
-      memory_operation: choice(MEMORY_OPERATIONS, "none"),
+      memory_operation: choice(MEMORY_OPERATIONS, "none"), memory_candidate: choice(MEMORY_CANDIDATES, "none"),
+      memory_durable: { type: "noul", noul: 0.1 }, special_category: { type: "noul", noul: 0.01 },
       multi_goal: { type: "noul", noul: 0.05 }, crisis: { type: "noul", noul: 0.01 },
       fraud: { type: "noul", noul: 0.01 }, hardship: { type: "noul", noul: 0.01 },
       aml_evasion: { type: "noul", noul: 0.01 }, prompt_injection: { type: "noul", noul: 0.01 },
@@ -36,6 +37,9 @@ describe("Jev request and provider validation", () => {
     expect(request.state).toEqual({ message: "Can you match their offer?", recentContext: "" });
     expect(request.questions.inquiry.type).toBe("choice");
     expect(request.questions).toHaveProperty("hardship.type", "noul");
+    expect(request.questions.memory_candidate.criteria).toEqual(MEMORY_CANDIDATES);
+    expect(request.questions).toHaveProperty("memory_durable.type", "noul");
+    expect(request.questions).toHaveProperty("special_category.type", "noul");
     expect(() => buildJevRequest({ message: "x".repeat(4001) })).toThrow();
   });
 
@@ -126,6 +130,47 @@ describe("backend route policy", () => {
   });
 });
 
+describe("memory candidates from Jev", () => {
+  function stated(kind: keyof typeof MEMORY_CANDIDATES, durable = 0.9) {
+    const raw = response();
+    raw.answers.memory_candidate = choice(MEMORY_CANDIDATES, kind);
+    raw.answers.memory_durable.noul = durable;
+    return raw;
+  }
+
+  it("adds a proposal tool to the answer without changing the handler or model", () => {
+    const plan = planAgentRoute(stated("goal"), full);
+    expect(plan).toMatchObject({ handler: "orchestrator", model: AGENT_POLICY.complexModel, memoryCandidate: { kind: "goal" } });
+    expect(plan.memoryCandidate!.score).toBeCloseTo(0.96 * 0.9);
+    expect(plan.tools).toContain("propose_memory_change");
+    expect(plan.tools).toContain("get_approved_offers");
+  });
+
+  it("ignores statements that only matter for this question", () => {
+    const plan = planAgentRoute(stated("stated_financial", 0.3), full);
+    expect(plan.memoryCandidate).toBeNull();
+    expect(plan.tools).not.toContain("propose_memory_change");
+  });
+
+  it("never proposes from special-category, risky or explicitly handled messages", () => {
+    const sensitive = stated("goal"); sensitive.answers.special_category.noul = 0.2;
+    expect(scoreMemoryCandidate(jevResponseSchema.parse(sensitive).answers)).toBeNull();
+    const hardship = stated("goal"); hardship.answers.hardship.noul = 0.31;
+    expect(scoreMemoryCandidate(jevResponseSchema.parse(hardship).answers)).toBeNull();
+    expect(planAgentRoute(hardship, full)).toMatchObject({ handler: "hardship", memoryCandidate: null, tools: [] });
+    const explicit = stated("goal"); explicit.answers.memory_operation = choice(MEMORY_OPERATIONS, "remember");
+    expect(planAgentRoute(explicit, full)).toMatchObject({ handler: "memory", memoryCandidate: null, tools: ["propose_memory_change"] });
+  });
+
+  it("records the proposal tool as unavailable instead of dropping the candidate silently", () => {
+    const plan = planAgentRoute(stated("constraint"), { ...full, availableTools: full.availableTools.filter((t) => t !== "propose_memory_change") });
+    expect(plan.handler).toBe("orchestrator");
+    expect(plan.memoryCandidate).toMatchObject({ kind: "constraint" });
+    expect(plan.tools).not.toContain("propose_memory_change");
+    expect(plan.unavailable).toContain("propose_memory_change");
+  });
+});
+
 describe("user memory boundaries", () => {
   const now = 2000;
   const record = {
@@ -156,6 +201,8 @@ describe("user memory boundaries", () => {
     expect(memoryProposalSchema.safeParse(proposal).success).toBe(true);
     expect(memoryProposalSchema.safeParse({ ...proposal, approved: true, ownerKey: "user-b" }).success).toBe(false);
     expect(memoryProposalSchema.safeParse({ ...proposal, sourceMessageId: "" }).success).toBe(false);
+    expect(memoryProposalSchema.safeParse({ ...proposal, kind: "stated_financial", text: "Net income 7,500 lei a month." }).success).toBe(true);
+    expect(memoryProposalSchema.safeParse({ ...proposal, kind: "risk_profile" }).success).toBe(false);
   });
 });
 

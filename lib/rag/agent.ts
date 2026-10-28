@@ -104,7 +104,18 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
       continue;
     }
 
-    // end_turn or max_tokens: this is the answer.
+    // A truncated or otherwise unfinished response is never a complete answer, even if its numbers pass.
+    if (response.stop_reason !== "end_turn") {
+      return result({
+        status: "failed_checks",
+        text: "",
+        segments: [],
+        sources: [],
+        checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: Math.max(attempts, 1) },
+      });
+    }
+
+    // Only end_turn is a completed answer candidate.
     const segments = citedSegments(response.content);
     // A single search that ends in an uncited "not found" gets one more chance to search with other words.
     const cites = segments.some((segment) => segment.hitIndexes.length > 0);
@@ -116,10 +127,15 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
     }
     attempts++;
     const checks = checkNumbers(segments, hits, question);
-    const passed = checks.ungroundedNumbers.length === 0 && checks.uncitedSegmentsWithNumbers === 0;
+    const passed = checks.ungroundedNumbers.length === 0 && checks.uncitedSegmentsWithNumbers === 0
+      && !checks.invalidCitationIndexes;
     if (!passed && attempts < MAX_ANSWER_ATTEMPTS) {
       messages.push({ role: "assistant", content: response.content });
-      messages.push({ role: "user", content: retryNoteForNumbers(checks.ungroundedNumbers) });
+      const retryNotes = [
+        ...(checks.ungroundedNumbers.length ? [retryNoteForNumbers(checks.ungroundedNumbers)] : []),
+        ...(checks.invalidCitationIndexes ? ["A previous draft cited unavailable search results. Cite only the search results supplied in this conversation."] : []),
+      ];
+      messages.push({ role: "user", content: retryNotes.join("\n") });
       continue;
     }
     const status = !passed ? "failed_checks" : hits.length ? "answered" : "no_results";
@@ -131,7 +147,7 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
     text: "",
     segments: [],
     sources: [],
-    checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts },
+    checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: Math.max(attempts, 1) },
   });
 }
 

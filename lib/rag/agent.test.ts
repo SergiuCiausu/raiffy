@@ -2,6 +2,7 @@ import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/mess
 import { describe, expect, it } from "vitest";
 import { type AgentDeps, type ModelRequest, runAgent } from "./agent";
 import { MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
+import { ragAnswerSchema } from "./answer";
 import type { SearchHit } from "./schemas";
 
 const hit = (id: string, text: string): SearchHit => ({
@@ -149,6 +150,48 @@ describe("runAgent", () => {
   it("returns a refusal without an answer", async () => {
     const { deps } = fakeDeps([message("refusal", [])]);
     expect((await runAgent(input, deps)).status).toBe("refused");
+  });
+
+  it("never marks a truncated cited answer as answered", async () => {
+    const { deps } = fakeDeps([
+      message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+      message("max_tokens", [cited("It pays 4.70%", 0)]),
+    ], [[hit("dep", "dobândă 4.70%")]]);
+    const answer = await runAgent(input, deps);
+    expect(answer).toMatchObject({ status: "failed_checks", text: "", segments: [], sources: [] });
+    expect(() => ragAnswerSchema.parse(answer)).not.toThrow();
+  });
+
+  it("returns a schema-valid failure when only paused turns exhaust the model-call budget", async () => {
+    const { deps } = fakeDeps(Array.from({ length: MAX_SEARCHES + 5 }, () => message("pause_turn", [])));
+    const answer = await runAgent(input, deps);
+    expect(answer.status).toBe("failed_checks");
+    expect(answer.checks.attempts).toBeGreaterThan(0);
+    expect(() => ragAnswerSchema.parse(answer)).not.toThrow();
+  });
+
+  it("retries a financial value present only in the question or an uncited hit", async () => {
+    const { deps } = fakeDeps([
+      message("tool_use", [toolUse("t1", { query: "depozite", focus: "any" })]),
+      message("end_turn", [cited("It pays 5.10%.", 0)]),
+      message("end_turn", [cited("It pays 4.70%.", 0)]),
+    ], [[hit("dep", "dobândă 4.70%"), hit("other", "dobândă 5.10%")]]);
+    const answer = await runAgent({ ...input, question: "Could I get 5.10%?" }, deps);
+    expect(answer.status).toBe("answered"); expect(answer.checks.attempts).toBe(2);
+  });
+
+  it("fails invalid citation indexes even when the text contains no numbers", async () => {
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("t1", { query: "depozit", focus: "any" })]),
+      message("end_turn", [cited("An unsupported banking fact.", 99)]),
+      message("end_turn", [cited("Still an unsupported fact.", -1)]),
+    ], [[hit("dep", "dobândă 4.70%")]]);
+    const answer = await runAgent(input, deps);
+    expect(answer.status).toBe("failed_checks");
+    expect(answer.checks.invalidCitationIndexes).toBe(1);
+    expect(answer.sources).toEqual([]);
+    expect(String(requests[2]!.messages.at(-1)!.content)).toContain("unavailable search results");
+    expect(() => ragAnswerSchema.parse(answer)).not.toThrow();
   });
 
   it("sends earlier turns as plain text and skips the disclosure after the first turn", async () => {

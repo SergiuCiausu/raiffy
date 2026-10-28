@@ -21,6 +21,9 @@ importers:
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
+      convex-test:
+        specifier: ^0.0.65
+        version: 0.0.65(convex@1.48.0)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -630,6 +633,11 @@ packages:
   chai@6.3.0:
     resolution: {integrity: sha512-XWAtwJ6OHO+tj0EKCs0Y2UamnyOxseZWltU4x2U2wh8g4AigdjwvtUjvLP2tqkA/avxHEtzxNaqGq/YGNwckKg==}
     engines: {node: '>=18'}
+
+  convex-test@0.0.65:
+    resolution: {integrity: sha512-2FgHlLGraM2O3tEVpOfvoHSleK0x92J8xjQ/qClWzNJX3NcmgvuNeWBrmma7sLJ8lB3ENPxx6ykJTfvZmWg3BQ==}
+    peerDependencies:
+      convex: ^1.43.0
 
   convex@1.48.0:
     resolution: {integrity: sha512-M9jEgTvCN8ziP/VgQQUH+j0ijM7g+NmQd8tFlvETK8/HMC/aaqHZwcu4hBO30X5DV2VIyYK4mOoLQGIb1766ew==}
@@ -1261,6 +1269,10 @@ snapshots:
   assertion-error@2.0.1: {}
 
   chai@6.3.0: {}
+
+  convex-test@0.0.65(convex@1.48.0):
+    dependencies:
+      convex: 1.48.0
 
   convex@1.48.0:
     dependencies:

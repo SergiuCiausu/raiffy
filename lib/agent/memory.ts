@@ -1,9 +1,14 @@
 import { z } from "zod";
 import { trackSchema } from "../rag/schemas";
+import { AGENT_POLICY, type AgentPolicy } from "./config";
+import { RISKS, type JevResponse } from "./jev";
+
+/** A stated figure is the customer's own claim with a date, never evidence for a bank rate or account balance. */
+export const MEMORY_KINDS = ["goal", "preference", "constraint", "stated_financial"] as const;
 
 export const memoryProposalSchema = z.object({
   operation: z.enum(["remember", "update", "forget"]),
-  kind: z.enum(["goal", "preference", "constraint"]),
+  kind: z.enum(MEMORY_KINDS),
   text: z.string().trim().min(1).max(500),
   sourceMessageId: z.string().min(1),
   /** Verbatim customer evidence. The host must check it against its stored, redacted message. */
@@ -18,7 +23,7 @@ export const memoryRecordSchema = z.object({
   track: trackSchema,
   /** Business records require an authorized organization scope; personal records have null. */
   organizationKey: z.string().min(1).nullable(),
-  kind: z.enum(["goal", "preference", "constraint"]),
+  kind: z.enum(MEMORY_KINDS),
   text: z.string().trim().min(1).max(500),
   sourceMessageId: z.string().min(1),
   consentEventId: z.string().min(1),
@@ -56,15 +61,42 @@ export function selectUserMemories(input: {
   }).slice(0, limit);
 }
 
+export const memoryCandidateSchema = z.object({
+  kind: z.enum(MEMORY_KINDS),
+  /** P(kind) × P(durable). It ranks proposals; it is never consent. */
+  score: z.number().min(0).max(1),
+}).strict();
+export type MemoryCandidate = z.infer<typeof memoryCandidateSchema>;
+
+/**
+ * Whether a message states something worth proposing for memory without the customer asking.
+ * A candidate only lets Claude propose a change; nothing persists until the customer confirms it.
+ */
+export function scoreMemoryCandidate(answers: JevResponse["answers"], policy: AgentPolicy = AGENT_POLICY): MemoryCandidate | null {
+  // Explicit requests have their own path; distress, fraud and sensitive messages are never mined for memory.
+  if (answers.memory_operation.choice !== "none") return null;
+  if (RISKS.some((risk) => answers[risk].noul >= policy.thresholds.riskReviewProbability)) return null;
+  if (answers.special_category.noul >= policy.thresholds.specialCategoryProbability) return null;
+  const kind = answers.memory_candidate.choice;
+  if (kind === "none") return null;
+  const score = (answers.memory_candidate.probabilities[kind] ?? 0) * answers.memory_durable.noul;
+  return score >= policy.thresholds.memoryCandidate ? { kind, score } : null;
+}
+
 /** Write gate stays disabled until auth, PII screening, consent and deletion are implemented together. */
 export const MEMORY_POLICY = {
   persistenceEnabled: false,
-  consent: "explicit_user_request",
+  candidates: "explicit_request_or_jev_classifier",
+  consent: "customer_confirms_each_memory",
   toolWrites: "proposals_only",
-  retain: ["user_stated_goals", "user_stated_preferences", "user_stated_constraints"],
-  exclude: ["credentials", "CNP", "card_numbers", "IBAN", "sensitive_merchant_details", "inferred_traits", "other_people_data"],
+  retain: ["user_stated_goals", "user_stated_preferences", "user_stated_constraints", "user_stated_financials"],
+  exclude: ["credentials", "CNP", "card_numbers", "IBAN", "sensitive_merchant_details", "special_category_data", "inferred_traits", "other_people_data"],
   ownerScope: "server_derived_user_and_authorized_organization",
-  retention: "must_be_configured_before_enabling_persistence",
+  retention: "configured_for_dev_synthetic_demo_only",
+  retentionDays: { goal: 365, preference: 365, constraint: 180, stated_financial: 90 },
+  proposalRetentionDays: 7,
+  sourceRetentionDays: 30,
+  devDemo: "explicit_identity_and_persistence_flags_plus_verified_dev_deployment_url_pin",
   corrections: "supersede_and_remove_old_embedding",
   deletion: "delete_record_embedding_and_user_caches",
 } as const;
