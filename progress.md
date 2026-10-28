@@ -18,7 +18,9 @@ Last updated: 2026-10-28 15:10 (Bucharest). Branch: `backend/rag-foundation`.
 
 - Plan agreed: `raiffy-spec/docs/plans/retrieval.md`. It uses Denis's architecture and contracts (`search_knowledge`, `get_product_terms`), OpenAI embeddings, `banks-data-package/` as the single data source (Raiffeisen, ING, BCR) and `comparatie.csv` as the catalog seed.
 - Added `banks-data-package/` (10,100 chunks, snapshot 2026-10-28). Scope rule confirmed: tools get their scope only from a server-side `resolveScope`; Denis's auth work (task 1) plugs in there once it's on GitHub.
-- Step 1 in progress: three-bank schemas, segment-to-track mapping (incl. BCR `micro` and `business (micro, IMM, corporate)`), six track-by-collection filter fields, provenance and freshness rules (`lib/rag/provenance.ts`), and the import builder. The import has 9,334 docs (37 withdrawn and 729 corporate chunks left out). The re-import into Convex and re-embedding are still to do.
+- Step 1 in progress: three-bank schemas, segment-to-track mapping (incl. BCR `micro` and `business (micro, IMM, corporate)`), six track-by-collection filter fields, provenance and freshness rules (`lib/rag/provenance.ts`), and the import builder. The import has 9,334 docs (37 withdrawn and 729 corporate chunks left out).
+- Step 1 done: all 9,334 docs are re-imported into Convex and embedded with OpenAI. Personal: 2,308 bank, 3,906 competitor, 255 banking help. Business: 761 bank, 2,502 competitor, 50 banking help. Retrieval on the bank collection, hit@5: 8/8 original, 26/33 extended, 31/41 English (before: 8/8, 27/33, 30/41).
+- Fix: `embeddings:saveEmbeddings` now writes 16 vectors per transaction. 64 hit Convex's "too many system operations" limit once there were six filter fields.
 - Fixed `pnpm agent:check-setup` on Windows: `.gitattributes` keeps `agents/` in LF.
 
 ## Decisions so far
