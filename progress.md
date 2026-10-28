@@ -2,7 +2,7 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 13:05 (Bucharest).
+Last updated: 2026-10-28 13:40 (Bucharest). Branch: `backend/rag-foundation`.
 
 ## Decisions so far
 
@@ -24,14 +24,24 @@ Last updated: 2026-10-28 13:05 (Bucharest).
 | --- | --- | --- |
 | TypeScript project (pnpm 12, TypeScript strict, Vitest, tsx; Zod 4.6, `@anthropic-ai/sdk` 1.3, Convex 1.48) | `package.json`, `tsconfig.json`, `vitest.config.ts`, `pnpm-workspace.yaml` (allows the esbuild build script) | Done |
 | Git ignores for secrets, Convex local data, RAG build artifacts and the Python venv | `.gitignore` | Done |
-| RAG Zod schemas: raw chunk, the stored Convex document, search hit, search arguments | `lib/rag/schemas.ts` | Done, tests pending |
-| Text normalization: diacritic folding, tokens, Romanian and English stopwords, the 16-term search cap | `lib/rag/normalize.ts` | Done, tests pending |
-| Track visibility derived from segments and linked products | `lib/rag/visibility.ts` | Done, tests pending |
-| Query plan: English-to-Romanian keyword expansion for the keyword leg, intent detection (cost, interest, documents, eligibility, example), soft section preferences | `lib/rag/query.ts` | Done, tests pending |
-| Reciprocal rank fusion of the vector and keyword rankings | `lib/rag/fusion.ts` | Done, tests pending |
-| Number grounding: every number in an answer must appear in the sources (reads `50.000` and `50,000` as the same value) | `lib/rag/numbers.ts` | Done, tests pending |
+| RAG Zod schemas: raw chunk, the stored Convex document, search hit, search arguments | `lib/rag/schemas.ts` | Done, tested |
+| Text normalization: diacritic folding, tokens, Romanian and English stopwords, the 16-term search cap | `lib/rag/normalize.ts` | Done, tested |
+| Track visibility derived from segments and linked products | `lib/rag/visibility.ts` | Done, tested |
+| Query plan: English-to-Romanian keyword expansion for the keyword leg, intent detection (cost, interest, documents, eligibility, example), soft section preferences | `lib/rag/query.ts` | Done, tested |
+| Reciprocal rank fusion of the vector and keyword rankings | `lib/rag/fusion.ts` | Done, tested |
+| Number grounding: every number in an answer must appear in the sources (reads `50.000` and `50,000` as the same value) | `lib/rag/numbers.ts` | Done, tested |
 | Retrieval eval sets: the package's original 8 questions (unchanged), 33 extended questions (no diacritics, typos, informal, business, cross-segment, tariff PDFs, eligibility, documents) and an English set of all 41 (the POC answers in English) | `raiffeisen-rag-package/starter/eval_questions.json`, `eval_questions_extended.json`, `eval_questions_en.json` | Done. Every expected source and text was checked against `chunks.jsonl` |
 | Python venv for the starter and benchmarks (reuses the system torch 2.11 CPU build; adds sentence-transformers 6.2 and the Convex Python client) | `raiffeisen-rag-package/.venv` | Done |
+| Hybrid ranking: fusion plus soft section and tariff-PDF preference, top-k hits | `lib/rag/search.ts` | Done, tested |
+| Prompt: cached system prompt with a track overlay; chunks as `search_result` blocks (one citable block per line); dated header; retry note | `lib/rag/prompt.ts` | Done, tested |
+| Answer assembly: citations to one source per page, number grounding checks, `RagAnswer` Zod schema | `lib/rag/answer.ts` | Done, tested |
+| Convex schema: `ragChunks` with a 768-dim vector index and full-text index, both filtered by `visiblePersonal`/`visibleBusiness` | `convex/schema.ts` | Done, pushed to the local deployment |
+| Convex search action `rag:search` (query embedding, vector + keyword legs scoped to the track, fusion) | `convex/rag.ts` | Done, not yet run on data |
+| Convex answer action `ragAnswer:answer` (Claude Sonnet 5.5, effort low, `fallbacks: "default"`, refusal handling, number check with one retry) | `convex/ragAnswer.ts` | Done, needs `ANTHROPIC_API_KEY` |
+| Embedding tools: shared embedder (e5 prefixes), chunk embedder, local query-embedding service on 127.0.0.1:8765 | `tools/rag/embedding.py`, `embed_chunks.py`, `embed_server.py` | Done |
+| Convex import builder (Zod-validated docs, track visibility, search text) | `scripts/build-rag-import.ts` | Done |
+| `starter/eval.py`: `--questions` and `--backend convex` options (default behaviour unchanged) | `raiffeisen-rag-package/starter/eval.py` | Done |
+| Local Convex deployment (anonymous, no account) | `.env.local`, `.convex/` | Running on http://127.0.0.1:3210 |
 | Model downloader that fetches only the files sentence-transformers needs | `tools/rag/download_models.py` | Done; downloads running |
 
 ## In progress
