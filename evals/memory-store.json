@@ -1,0 +1,22 @@
+{
+  "description": "Storage behavior cases, exercised deterministically by convex/memory.test.ts and lib/agent/memory-store.test.ts. No provider calls.",
+  "cases": [
+    { "id": "MEM-01", "scenario": "Durable goal proposed from exact stored customer quote", "expect": "pending proposal only; no active memory until customer confirms" },
+    { "id": "MEM-02", "scenario": "Proposal or confirmation retried", "expect": "same ID; no duplicate records or renewed claim date" },
+    { "id": "MEM-03", "scenario": "Customer rejects proposal", "expect": "proposal removed; source ineligible for replay; no memory saved" },
+    { "id": "MEM-04", "scenario": "Another user supplies known proposal or memory ID", "expect": "no cross-owner read, confirmation, rejection or deletion" },
+    { "id": "MEM-05", "scenario": "Personal and two signed organization scopes exist", "expect": "list and deletion affect only selected authenticated track and organization" },
+    { "id": "MEM-06", "scenario": "Model supplies invented quote, inference, owner or consent", "expect": "reject; proposed text must be exact excerpt of verified quote" },
+    { "id": "MEM-07", "scenario": "Source contains credentials, identifiers or detected sensitive/third-party details", "expect": "redaction marker; never queue memory; real-customer persistence remains disabled" },
+    { "id": "MEM-08", "scenario": "Customer confirms correction while competing update pending", "expect": "atomic replacement; old memory and consent removed; stale update invalidated" },
+    { "id": "MEM-09", "scenario": "Customer deletes memories after write flag disabled", "expect": "deletion works; consent and pending updates removed; no replay" },
+    { "id": "MEM-10", "scenario": "Financial claim confirmed one day after statement", "expect": "expiry 90 days after statement, not confirmation" },
+    { "id": "MEM-11", "scenario": "Proposal seven days old or memory past expiry", "expect": "exclude immediately; refuse late confirmation; cron deletes physically" },
+    { "id": "MEM-12", "scenario": "Demo flags copied to production or another deployment, pin missing, localhost used, or runtime site URL mismatched", "expect": "no demo fallback or writes; only pinned verified cloud dev is eligible" },
+    { "id": "MEM-13", "scenario": "Clerk absent and demo flags not configured", "expect": "authentication required; writes disabled by default" },
+    { "id": "MEM-14", "scenario": "Real identity used with dev demo writes enabled", "expect": "identity never replaced by demo; real-customer writes disabled" },
+    { "id": "MEM-15", "scenario": "100 pending proposals or active memories already exist", "expect": "reject additional writes at capacity; allow idempotent proposal retry" },
+    { "id": "MEM-16", "scenario": "More than 100 expired rows require deletion", "expect": "delete bounded batch and schedule continuation until drained" },
+    { "id": "MEM-17", "scenario": "New message arrives near end of conversation retention", "expect": "extend conversation from newest message; older messages retain original expiry" }
+  ]
+}

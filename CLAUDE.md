@@ -42,6 +42,7 @@ Use `/setup-app` for bootstrap details. Where it defaults to Supabase, **Convex 
 - Embeddings: **OpenAI `text-embedding-3-small`** (1536 dimensions), called only from Convex actions with `OPENAI_API_KEY` from the Convex environment. Anthropic has no embeddings API. Claude does the reasoning, tool calls and answers. OpenAI's EU data residency needs approval, so EU hosting for embeddings is still open for production.
 - Product numbers come from the catalog tables, never from the vector store. See `raiffy-spec/CLAUDE.md`.
 - Use the Convex MCP only, pointed at a dev deployment. The deploy key goes in `.env.local`, never in code or `NEXT_PUBLIC_*`.
+- Development runs on the team's **EU cloud Convex deployment**, selected in `.env.local`. Do not initialize or start an anonymous/local backend. Before MCP mutations, verify that its dev URL matches the configured `CONVEX_URL`. Use the saved Convex login; never copy account tokens into repository files.
 
 ### Clerk
 

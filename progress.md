@@ -2,17 +2,55 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 15:10 (Bucharest). Branch: `backend/rag-foundation`.
+Last updated: 2026-10-28 (retrieval merge review). Branch: `main`.
+
+## Retrieval merge review 2026-10-28
+
+- PR #6 is merged into `main` at `4ff485b`, including retrieval commit `caf9614` and conflict-resolution merge `a747345`. Removed the obsolete `visibilityField` import left in `convex/rag.ts`; it caused the merged Convex TypeScript check to fail.
+- Authentication remains in the shared `searchChunks` path before embedding/search calls. Memory tables, thread ownership, citation checks, incomplete-answer rejection and private-persistence gates are preserved.
+- Rebuilt the import locally: 9,334 eligible documents; 37 withdrawn and 729 out-of-scope chunks excluded. Collection/track counts match Andrei's handoff. The generated file is ignored under `.convex/acceptance/`; it was not imported or embedded during this review.
+- Read-only check of the configured cloud dev target (`andrei-cazacu:raiffy:dev/andrei-cazacu`, `diligent-rhinoceros-830`) found **no `ragChunks` rows**. The handoff's imported/embedded corpus is not present in this deployment. Transfer/import and embedding verification are required here before live retrieval acceptance; no running deployment or customer data was changed during this review.
+- Validation: root and Convex TypeScript checks, generated agent setup consistency and diff whitespace checks pass. No unit suite or paid provider calls rerun. Task 2 steps 2–6 remain unfinished: scoped tool handler, reviewed structured catalog and terms lookup, competitor/catalog/isolation evals, and English retrieval improvement. Then connect the Jev route plan, composer and app for chatbot acceptance.
+
+## Backend integration review 2026-10-28
+
+- Combined local memory/Jev work with teammate PR #4 (already merged into main at `2bb0b37`). Preserved memory/provenance tables and added RAG threads plus 1536-dimensional OpenAI embeddings from the PR. UI source was identical to main and was not rewritten; the raw competitor package and design references remain outside this source commit.
+- Closed unauthenticated paid agent/search entry points and enforced user/organization ownership on every thread path. Legacy unowned threads fail closed. Capped history and message reads.
+- Bound numeric presence checks to valid cited fragments, rejected invalid citations and truncated model replies, and made exhausted-loop fallback schema-valid. Semantic financial fact validation remains open.
+- Read-only cloud audit verified the three provider-key names are set, public RAG and memory tables are empty, and the running deployment initially used the earlier public-product action. Deployed the tested merged backend to the same cloud dev target; verified `agent:ask` and `rag:search` reject unauthenticated calls. No provider calls or corpus embedding were run for this assessment.
+- Validation: 138 backend tests and root/Convex type checks pass; generated setup is consistent. The separate `ui/agent-chat` streaming branch remains unmerged and must retain the new ownership guards.
+- Current status and shortest path to in-app testing: `raiffy-spec/docs/plans/backend-integration-status.md`. The live UI, Clerk/PII pipeline, Jev-to-answer connection, combined-bank importer, structured calculators/catalog/offers and real-user memory acceptance remain unfinished.
+
+## Memory store and Jev transport 2026-10-28
+
+- Owner approved a dev-only synthetic identity and confirmed that everyone uses cloud Convex. Implemented `memoryProposals`, `userMemories` and minimal masked conversation/message provenance in Convex, separate from public RAG. Ownership is derived server-side; organization scope comes from signed identity claims. The demo identity is personal-only and requires explicit flags plus an exact pin to the MCP-verified cloud dev URL and matching site URL. Production/other deployments reject copied flags; real-customer writes remain disabled.
+- Internal proposal validation checks an exact stored quote and requires proposed text to be an excerpt. Customer `confirm`, `reject`, `listMine`, `forgetOne` and `forgetAll` enforce scope. Confirm retries are idempotent; corrections replace atomically; deletion clears consent/pending updates and revokes source eligibility. No memory embeddings or private caches exist.
+- Configured synthetic-demo retention: financial statements 90 days, constraints 180, goals/preferences 365, pending proposals 7 and source provenance 30. Dates run from the statement, not confirmation. Reads exclude expired rows immediately; an hourly cron deletes in bounded batches. The pattern-based demo privacy screen is not a complete privacy pipeline; production persistence stays off.
+- Added internal stored-source Jev action and server transport pinned to `jev-1.14.0`: 2500 ms total deadline, 64 KiB response cap, validated output, no automatic retry or provider fallback. `RAIFFY_JEV_ENABLED` defaults off. No live Jev call, measured accuracy or threshold calibration.
+- Authenticated the Convex MCP using this machine's saved Convex login and registered it in Codex as `convex`. Verified dev `diligent-rhinoceros-830` in EU West (`andrei-cazacu:raiffy:dev/andrei-cazacu`). Stopped the previous local dev process; `.env.local` selects cloud dev. New root guidance explicitly excludes anonymous/local backends.
+- Added `convex-test` lifecycle and transport fault tests, `evals/memory-store.json`, `evals/jev-transport.json`, `pnpm convex:typecheck`, and the cloud dev `pnpm memory:check-mcp` check. Published the updated functions to cloud dev. Through MCP, verified tables, a synthetic proposal, customer confirmation, idempotent re-confirmation and deletion; restored the original demo settings and deployment pin afterward. No pre-existing demo memories were deleted.
+- Validation: 107 Vitest tests pass; root and Convex TypeScript checks, generated setup consistency, and diff whitespace checks pass. Live cloud MCP memory lifecycle check passes. Jev tests use mocked transport only; no live provider calls.
+- Jev-to-RAG orchestration, UI confirmation, real Clerk/PII integration, structured catalog/comparison and approved offers remain next. Source checkpoint preserved in commit `9c94852`; combined with PR #4 during backend integration.
 
 ## Agent foundation update 2026-10-28
 
 - Refreshed backend through `e480df3`. Added pure TypeScript Jev request/response contracts, deterministic routing, model policy and memory retrieval boundaries in `lib/agent/`.
 - The current owner request adds **TypeSafe Jev for inquiry classification**, while Claude remains the generator. This is separate from the previously rejected Jev Router gateway below.
 - Generated console-style setup is in `agents/raiffy.agent.yaml`; request and policy examples sit alongside it. Regenerate with `pnpm agent:build-setup`; check with `pnpm agent:check-setup`.
-- Setup guide: `raiffy-spec/docs/plans/agent-foundation.md`. Initial assumptions are the existing Convex/Messages API runtime and memory only on explicit user request. Sonnet remains the default; optional Opus escalation is disabled.
-- Tool declarations are contracts, not implemented handlers. No new provider transport, full agent loop, auth/PII adapter, expense connection, competitor collection or private memory persistence is enabled. The existing public-product RAG action remains separate.
+- Setup guide: `raiffy-spec/docs/plans/agent-foundation.md`. Initial assumptions are the existing Convex/Messages API runtime and memory proposals confirmed by the customer (see the memory candidates entry below). Sonnet remains the default; optional Opus escalation is disabled.
+- Tool declarations remain unwired to the full agent loop. The later local memory/transport implementation is recorded above; no real auth/PII adapter, expense connection, competitor collection or private memory persistence is enabled. The existing public-product RAG action remains separate.
 - Added labeled EN/RO routing examples under `evals/agent-routing.json`. These are not measured Jev results. Confidence thresholds are provisional and need calibration.
 - Validation: generated setup matches its sources; TypeScript checks pass. Unit tests cover routing, risk overrides, capability checks and memory isolation. No live provider or in-app acceptance run yet.
+- **Memory candidates from Jev (policy `raiffy-agent@2`).** Jev now also asks what the customer stated about themselves (`memory_candidate`: goal, preference, constraint, stated figure), whether it is durable and whether the message has special-category or third-party details. `scoreMemoryCandidate` in `lib/agent/memory.ts` accepts a candidate when P(kind) × P(durable) ≥ 0.6 and no risk, special-category or explicit memory operation applies. The route planner then adds `propose_memory_change` to the normal answer without changing the handler or model. The customer confirms every memory; persistence stays disabled. Thresholds are provisional; new labeled cases are in `evals/agent-routing.json`.
+
+## Task 2: retrieval and catalog (Andrei), 2026-10-28
+
+- Plan agreed: `raiffy-spec/docs/plans/retrieval.md`. It uses Denis's architecture and contracts (`search_knowledge`, `get_product_terms`), OpenAI embeddings, `banks-data-package/` as the single data source (Raiffeisen, ING, BCR) and `comparatie.csv` as the catalog seed.
+- Added `banks-data-package/` (10,100 chunks, snapshot 2026-10-28). Scope rule confirmed: tools get their scope only from a server-side `resolveScope`; Denis's auth work (task 1) plugs in there once it's on GitHub.
+- Step 1 in progress: three-bank schemas, segment-to-track mapping (incl. BCR `micro` and `business (micro, IMM, corporate)`), six track-by-collection filter fields, provenance and freshness rules (`lib/rag/provenance.ts`), and the import builder. The import has 9,334 docs (37 withdrawn and 729 corporate chunks left out).
+- Step 1 done: all 9,334 docs are re-imported into Convex and embedded with OpenAI. Personal: 2,308 bank, 3,906 competitor, 255 banking help. Business: 761 bank, 2,502 competitor, 50 banking help. Retrieval on the bank collection, hit@5: 8/8 original, 26/33 extended, 31/41 English (before: 8/8, 27/33, 30/41).
+- Fix: `embeddings:saveEmbeddings` now writes 16 vectors per transaction. 64 hit Convex's "too many system operations" limit once there were six filter fields.
+- Fixed `pnpm agent:check-setup` on Windows: `.gitattributes` keeps `agents/` in LF.
 
 ## Decisions so far
 

@@ -1,5 +1,5 @@
 {
-  "version": "raiffy-agent@1",
+  "version": "raiffy-agent@2",
   "classifierModel": "jev-1.14.0",
   "standardModel": {
     "id": "claude-sonnet-5-5",
@@ -17,7 +17,9 @@
   "thresholds": {
     "routingConfidence": 0.8,
     "riskReviewProbability": 0.3,
-    "multiGoalProbability": 0.7
+    "multiGoalProbability": 0.7,
+    "memoryCandidate": 0.6,
+    "specialCategoryProbability": 0.2
   },
   "retrieval": {
     "maxPublicChunks": 5,
