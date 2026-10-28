@@ -13,7 +13,7 @@ Every customer message goes through six steps. Three LLM workflows carry the jud
 | 5 | Evaluator | Code checks + LLM workflow (evaluator-optimizer) | Behavior rules, commission transparency, comparison honesty, language |
 | 6 | Thinking panel and delivery | Frontend | Visible reasoning, then word-by-word streaming with interactive blocks |
 
-The steps share one conversation state in Convex: detected language, mode, goals, slider values, tool results and evaluator verdicts. Each step reads it and writes its part, so any step can be logged, replayed and audited.
+The steps share one conversation state in Convex: detected language, mode, goals, slider values, the **current quote** (product, amount, term and price version, the baseline for any negotiation), tool results and evaluator verdicts. Each step reads it and writes its part, so any step can be logged, replayed and audited.
 
 ## Step 1: Safety gate
 
@@ -27,7 +27,7 @@ Runs before any LLM sees the message, and can stop the pipeline.
 
 ## Step 2: Router (routing workflow)
 
-A fast LLM call that classifies the message and sends it down a specialized path. It holds the **answer pattern catalog** (the ten patterns, their triggers and tool lists) and nothing else, so its prompt stays short and accurate.
+A fast LLM call that classifies the message and sends it down a specialized path. It holds the **answer pattern catalog** (the eleven patterns, their triggers and tool lists) and nothing else, so its prompt stays short and accurate.
 
 It returns structured output:
 
@@ -47,6 +47,7 @@ type Route = {
 | Two or more goals ("buy a car and refinance my mortgage") | Always go to the orchestrator (step 3) |
 | One goal, simple pattern (explain a term, fees, a status question) | Small, fast model with that pattern's prompt and tools |
 | One goal, complex pattern (purchase goal, debt, life event, comparison) | More capable model, still through the orchestrator as a single-goal plan so routes are decided the same way |
+| Negotiation on any turn ("can you do better?", a competitor's offer) | Pattern 11, with the current quote as the baseline; on a first message, scope `compare` |
 | Confidence below threshold | `freeform` with one clarifying question; never a guessed pattern |
 | Mode set by the gate | Mode wins; the router only adds the pattern for later context |
 

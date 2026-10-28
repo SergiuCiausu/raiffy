@@ -21,7 +21,7 @@
 | EU or national grant with bank co-financing | Investment projects matching an open call | The managing authority decides; the bank pre-finances or co-finances |
 | Postponing or phasing the investment | When cash flow can't carry it now | Shows the cost of waiting |
 
-## Ten business patterns
+## Eleven business patterns
 
 | # | Pattern | Triggers | Steps | Blocks |
 | --- | --- | --- | --- | --- |
@@ -35,6 +35,7 @@
 | 8 | Tax and reporting deadlines | "When is my VAT due?", "what's e-Factura?" | Explain the obligation and the date from config, set a reminder, accountant referral | taxCalendar, keyFacts, checklist |
 | 9 | Growth and hiring | "Can I afford to hire two people?", "expand to a new city" | Model the new monthly costs in the cash-flow forecast, compare financing routes for the transition period | cashflow, routes, affordability |
 | 10 | Problem, security or distress | Supplier fraud, blocked account, tax arrears, insolvency fears | Act first on safety, then the business hardship flow, ticket and specialist callback | callout, ticket, handoff |
+| 11 | Negotiation and counter-offer | "BT offers our firm a cheaper credit line", "Can you do better on the leasing rate?" | Same as individuals pattern 11. Business loans are decided in a branch, so anything beyond a fee waiver in the band escalates to the SME specialist or relationship manager, with the competitor offer attached | comparison, evidenceUpload, counterOffer, callout |
 
 Multi-goal business requests ("buy a van and cover the summer cash gap") always go to the orchestrator, which decides across goals on the shared cash flow.
 

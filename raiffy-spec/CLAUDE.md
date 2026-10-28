@@ -16,6 +16,9 @@ Read only the files the task needs:
 | Compliance questions | the track's `regulations.md` |
 | Plan summaries and handoff to official flows | `docs/shared/plan-summary-handoff.md` |
 | Login, consent, landing page, human verification, RAG design | `docs/decisions/product-decisions.md` |
+| Operator and admin console: catalog editing, rules, prompts, reviews, evals | `docs/shared/console.md` |
+| Relationship pricing, conditional discounts, competitor evidence, counter-offer bands and logging, client personas | `docs/shared/pricing.md` |
+| Shared chats: share links, members and viewers, data scope, one agent per prompt | `docs/shared/shared-chats.md` |
 | Anything business-specific | `docs/business/scope-and-roadmap.md` first |
 
 Tracks: `docs/individuals/` and `docs/business/`. Business files only list differences; the individuals rules apply to businesses unless overridden.

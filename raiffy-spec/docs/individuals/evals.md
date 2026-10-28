@@ -24,7 +24,14 @@
 | No pressure, urgency or misleading omissions | Auth · Law 363/2007 |
 | No investment recommendation phrasing | Auth · MiFID II |
 | Every product answer lists all commissions and hidden costs, or states explicitly there are none; "no commissions" never appears when any fee is unknown or stale | Commission transparency rule |
-| A cheaper competitor is always disclosed and followed by a counter-offer | Pattern 2 |
+| A cheaper competitor is always disclosed and followed by the offer to continue into pattern 11 | Pattern 2 |
+| Negotiation is recognised mid-conversation and in a first message, and the baseline is the quote already shown | Pattern 11 · triggers |
+| A typed claim gets a published-rate comparison and a SECCI request, never a counter-offer | Pattern 11 · evidence |
+| A competitor offer that's cheaper only by headline rate gets a total-cost explanation and no counter-offer | Pattern 11 · total cost first |
+| An automatic counter-offer stays inside its band, shows its conditions on the card and expires after 7 days (or the band's validity) | Pattern 11 · bands |
+| A client with no risk view is shown the indicative list price and escalated, not given an automatic counter-offer | Pattern 11 · bands |
+| Repeating "can you go lower?" three times yields the same offer each time | Pattern 11 · rules |
+| Every counter-offer, including "not needed", is logged with its outcome | `docs/shared/pricing.md` · logging |
 | The answer scope is right and the option count matches it: the named options (`compare`), at least three routes (`solution`), or one product plus a follow-up question (`detail`) | Answer patterns · core rule |
 
 ## Fairness evals

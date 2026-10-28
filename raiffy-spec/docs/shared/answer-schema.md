@@ -8,7 +8,7 @@ Applies to both tracks. Every answer, for any prompt or edge case, uses one enve
 type Answer = {
   id: string;
   locale: string;                  // language the customer wrote in: labels + number format
-  pattern: PatternId | "freeform"; // one of the 10 answer patterns, or none
+  pattern: PatternId | "freeform"; // one of the 11 answer patterns, or none
   mode: "normal" | "hardship" | "crisis" | "fraud" | "degraded";
   text: string;                    // the LLM's 2–3 framing sentences: the only free text
   blocks: Block[];                 // what the screen shows, in order
@@ -41,6 +41,8 @@ Every block shares a base: `{ type, id, status: "ok" | "partial" | "unavailable"
 | `callout` | severity (info, warning, danger, crisis), titleKey, body, actions[] | Scam alerts, helplines, stale-data notes |
 | `ticket` | reference, responseBy, escalation[] | Complaints with CSALB and ANPC options |
 | `handoff` | status, waitMinutes, callbackSlot | Human handoff |
+| `evidenceUpload` | accepts (secci, esis), extracted?: CompetitorOffer, confirmed | Asking for and confirming a competitor's offer document |
+| `counterOffer` | baseline, offer: levers[], rate, monthly, total, dae, conditions[], validUntil, competitorTotal; or escalation: level, status | A counter-offer inside the band, or the status of an escalated review |
 
 ## Why it always renders
 
@@ -82,6 +84,7 @@ The composer uses these default orders; blocks with no data are left out.
 | 8. Life event | checklist, routes, timeline |
 | 9. Cash shortfall | routes, affordability, callout |
 | 10. Problem or complaint | callout, ticket, handoff |
+| 11. Negotiation and counter-offer | evidenceUpload (until confirmed), comparison, counterOffer, affordability, callout (escalation status) |
 | Hardship or crisis mode | callout, checklist, handoff (no product blocks) |
 | Freeform | keyFacts or text only |
 

@@ -21,7 +21,7 @@ Concept work for **Raiffy**, an AI financial assistant for Raiffeisen Bank Roman
 
 ## Product POC stack
 
-The HTML files here are design prototypes. **The product POC is a Next.js app**, and these choices are locked. Don't propose alternatives unless asked, and don't scaffold anything until the user asks for the build.
+**HTML first.** Most of the app UI is built as self-contained HTML pages in the repo root first (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`, then `console.html` and the rest), then converted to the Next.js POC page by page. The Next.js stack below is locked. Don't propose alternatives unless asked, and don't scaffold the Next.js app until the user asks for the conversion.
 
 | Concern | Choice |
 |---|---|
@@ -62,14 +62,24 @@ Use `/setup-app` for bootstrap details. Where it defaults to Supabase, **Convex 
 
 ### Working before Next.js exists
 
-The team writes framework-free TypeScript first, and Next.js is wired in later. Write every module so it drops into the app unchanged.
+Two tracks run in parallel until the conversion: **HTML pages** for the UI, and **framework-free TypeScript** for the logic. Both are written so they move into the Next.js app unchanged or nearly so.
 
 ```
+*.html    UI prototypes in the repo root, one self-contained file per page (DESIGN.md applies)
 lib/      pure TS: calculations, Zod schemas, composer, router, guards (+ tests)
 convex/   schema, queries, mutations, RAG actions (runs with `pnpm dlx convex dev`, no Next needed)
 evals/    promptfoo cases
-app/      Next.js, added later. Don't create it until asked.
+app/      Next.js, added at conversion time. Don't create it until asked.
 ```
+
+**HTML pages, built for conversion:**
+
+- **One page per route**, with hash routes for sub-views (`console.html#products/personal-loan`). Each page later becomes a route or a route group.
+- **Mock data in the real shapes:** keep it inline in one clearly marked block, typed in comments to match the Zod schemas and Convex tables in the spec. Conversion then means swapping the mock block for Convex queries.
+- **Components as repeated, named markup:** reuse the same class names across pages (`.gcard`, `.opt`, `.rec-badge`, `.chip`), so each becomes one React component. Keep render functions small and single-purpose (`cardHTML`, `renderSidebar`).
+- **Tokens stay on `:root`** exactly as `DESIGN.md` defines them, so they map one to one to Tailwind `@theme` tokens.
+- **The scripted logic stays out of the page where it would be real logic:** calculations a page needs (like `simCalc` and `recommend`) should match the deterministic tools in `lib/`, and move there at conversion.
+- **No real auth, data or network calls.** Sign-in, roles and saving are simulated and labelled as such on the page.
 
 - **`lib/` is pure.** No database calls, no network requests, no global state. Data comes in as arguments and results go out as return values. Anything that reads or writes data belongs in `convex/`.
 - **Every module has Zod-typed input and output**, exported so Next.js and Convex import the same types.
@@ -78,7 +88,7 @@ app/      Next.js, added later. Don't create it until asked.
 - **Output is language-neutral:** return numbers and keys, not formatted strings. Formatting with `Intl` happens in the UI.
 - **Every calculation and guard has a Vitest test.** When a spec behavior rule is implemented, add its eval case under `evals/`.
 - pnpm, TypeScript strict, and one shared `tsconfig` with the `@/*` alias, so imports don't change when `app/` arrives.
-- **Leave for the Next.js wiring step:** Clerk and roles, streaming, the Vercel AI SDK, and all UI.
+- **Leave for the Next.js conversion:** real Clerk auth and roles, real streaming through the Vercel AI SDK, and wiring the HTML pages to Convex.
 
 ### Secrets
 

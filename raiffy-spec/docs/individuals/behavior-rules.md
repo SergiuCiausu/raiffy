@@ -62,6 +62,12 @@ Source codes: `EC` = edge-cases reference doc, `Auth` = regulations-by-authority
 | Admit when a competitor wins on the customer's priority | EC · Competitor data |
 | Present "from X%" rates as "from", never as the customer's rate | EC · Competitor data |
 | Neutral wording about competitors; never denigrate | Auth · Law 158/2008 |
+| No counter-offer on a typed competitor claim alone; ask for the SECCI | Pattern 11 · evidence |
+| Compare total cost before any counter-offer | Pattern 11 · total cost first |
+| Automatic counter-offers only for clients with a risk view, and only inside the band; everyone else escalates | Pattern 11 · bands |
+| Asking again never lowers the price; a repeated "lower?" gets the same offer and the option to escalate | Pattern 11 · rules |
+| Affordability check before any discount; no counter-offers in hardship or crisis mode | Pattern 11 · rules; Auth · BNR Reg. 17/2012 |
+| Never promise a price, say a specialist will match it, or hint at band limits | Pattern 11 · rules |
 | Investments: informational only, offer a licensed adviser | EC · Personalization; Auth · MiFID II |
 | Describe unit-linked products neutrally and refer to an adviser | Auth · ASF Norm 16/2018 |
 | Explain insurance without selling it; never present it as mandatory unless it legally is | Auth · Law 236/2018, CCD2 |

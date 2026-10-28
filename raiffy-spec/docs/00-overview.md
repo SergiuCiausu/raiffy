@@ -22,7 +22,7 @@ The shared core is built once and parameterized by `track`. Business files list 
 | **Edge cases** | Evals and tests run on every change |
 | **Regulations** | Compliance processes, documentation and official sources, owned by people |
 
-Answer patterns (the ten structures per track), the answer schema (envelope plus blocks) and the six-step pipeline sit across these layers.
+Answer patterns (the eleven structures per track), the answer schema (envelope plus blocks) and the six-step pipeline sit across these layers.
 
 ## File map
 
@@ -32,7 +32,7 @@ docs/00-overview.md                        this file
 docs/individuals/behavior-rules.md
 docs/individuals/hard-limits.md
 docs/individuals/calculations.md
-docs/individuals/answer-patterns.md        core financing-route rule + 10 patterns
+docs/individuals/answer-patterns.md        core financing-route rule + 11 patterns
 docs/individuals/evals.md
 docs/individuals/regulations.md
 docs/shared/answer-schema.md               envelope, 12 blocks, recipes, UI, i18n, build stack, demo
@@ -42,7 +42,7 @@ docs/business/scope-and-roadmap.md         segments, differences, shared vs spec
 docs/business/behavior-rules.md
 docs/business/hard-limits.md
 docs/business/calculations.md              business tools, eligibility, dated tax config
-docs/business/answer-patterns.md           business routes catalog + 10 patterns
+docs/business/answer-patterns.md           business routes catalog + 11 patterns
 docs/business/evals.md
 docs/business/regulations.md
 docs/business/schema-and-pipeline.md       business blocks and pipeline differences
@@ -69,7 +69,7 @@ Many tables have a Source column. `EC` refers to the "Edge Cases, Concepts & Reg
 - Every commission listed, or "no commissions" stated only when every fee is confirmed zero and fresh.
 - Every number comes from a tool, with a source and date; no number in text that isn't in a block.
 - AI disclosure on the first message; a human always one tap away.
-- Raiffeisen favored only openly; cheaper competitors always disclosed, followed by a counter-offer.
+- Raiffeisen favored only openly; cheaper competitors always disclosed. Negotiation compares total cost first, then makes a counter-offer inside the pre-approved band or escalates to a specialist (pattern 11).
 - No investment, tax or legal advice; refer out.
 - Hardship and crisis modes suppress all offers.
 - Values that change (rates, fees, tax thresholds, programmes) live in dated data or config, never in prompts.

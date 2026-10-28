@@ -21,6 +21,7 @@
 | Solution | Source |
 | --- | --- |
 | Every data tool scoped server-side to the authenticated user ID | EC · Out of scope, Prompt injection |
+| In shared chats, data tools are scoped to the asker, or to the owner only when the owner chose "Members can use my data"; never to anyone else (`docs/shared/shared-chats.md`) | Shared chats · data scope |
 | No tools for transfers, closures, approvals or admin actions | EC · Out of scope, Prompt injection |
 | Payments only through the app's SCA and verification-of-payee flows; the agent never collects codes | EC · Agentic actions; Auth · OUG 209/2019 |
 | Confirmation card with account, amount and recipient before any action | EC · Agentic actions |

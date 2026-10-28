@@ -45,7 +45,7 @@ Roughly two thirds of Raiffy is reused as is; the business track adds its own co
 | Component | Shared as is | Business-specific |
 | --- | --- | --- |
 | Safety gate | PII masking, crisis and fraud detection, injection checks | CEO and supplier fraud (fake invoice or changed IBAN), AML signals for business flows |
-| Router | Same mechanism and schema | Its own pattern catalog (business patterns 1–10) |
+| Router | Same mechanism and schema | Its own pattern catalog (business patterns 1–11) |
 | Orchestrator and subagents | Same mechanism | Business financing routes catalog; cross-goal decisions on cash flow instead of personal DTI |
 | Evaluator | Same deterministic checks and loop | Business rubric: no tax or legal advice, guarantee-program accuracy, B2B comparison rules |
 | Answer schema (envelope + blocks) | All 12 blocks | New blocks: `cashflow`, `invoices`, `fundingPrograms`, `taxCalendar` |
@@ -63,7 +63,7 @@ Build the shared core once, parameterized by track, then add business content on
 1. **Track switch and business profile**: `track: "personal" | "business"` in conversation state, the `businessProfile` object, the "Personal / Firma mea" switch, and track-aware routing.
 2. **Business data**: product catalog (credit lines, investment loans, leasing, factoring, cards, accounts) with all fees; state-guarantee and funding programs with eligibility and dates; competitor business offers; tax calendar. Each record dated and sourced, as in the individuals track.
 3. **Business tools**: cash-flow forecast, working-capital need, loan vs leasing, guarantee cost, debt-service coverage, invoice financing cost.
-4. **Business patterns and prompts**: the ten business patterns, each with its own short prompt and block recipe.
+4. **Business patterns and prompts**: the eleven business patterns, each with its own short prompt and block recipe.
 5. **New UI blocks**: `cashflow`, `invoices`, `fundingPrograms`, `taxCalendar`, plus the business dashboard view.
 6. **Rules and evaluator rubric**: business behavior rules, hard limits and the evaluator's business rubric.
 7. **Evals**: business edge cases across PFA, micro and small companies, in several languages.
@@ -72,7 +72,7 @@ Build the shared core once, parameterized by track, then add business content on
 | | Hackathon | Production |
 | --- | --- | --- |
 | Segments | PFA and one micro-company persona | PFA, PFI, II, micro and small companies |
-| Patterns | Working capital, equipment (loan vs leasing), cash-flow gap | All ten |
+| Patterns | Working capital, equipment (loan vs leasing), cash-flow gap | All eleven |
 | Data | Seeded demo catalog and one guarantee program | Live catalog, all programs, competitor data with freshness checks |
 | Integrations | Mock business SSO | Business online banking, accounting and e-Factura data with consent |
 | Demo moment | "My client pays in 60 days and I need to pay salaries": cash-flow gap, then factoring vs credit line vs overdraft | — |

@@ -1,6 +1,6 @@
 # Individuals: Answer patterns
 
-Ten reusable answer structures that cover most customer questions in any domain: cars, homes, education, weddings, travel, health costs. The router (see `docs/shared/pipeline.md`) picks one pattern per goal; the tools listed in each pattern supply the numbers. Domain specifics (a car's age limit for leasing, a flat's notary fees) come from small per-domain packs of cost tables, eligibility rules and safety tips.
+Eleven reusable answer structures that cover most customer questions in any domain: cars, homes, education, weddings, travel, health costs. The router (see `docs/shared/pipeline.md`) picks one pattern per goal; the tools listed in each pattern supply the numbers. Domain specifics (a car's age limit for leasing, a flat's notary fees) come from small per-domain packs of cost tables, eligibility rules and safety tips.
 
 ## Core rule: the answer scope follows the question
 
@@ -54,13 +54,13 @@ Raiffy is openly Raiffeisen's assistant: it favors Raiffeisen through ordering, 
 2. Confirm the customer's amount, term and priority (lowest monthly, lowest total, flexibility).
 3. **Lead with the best-fitting Raiffeisen option**, in full detail, with relationship pricing, package discounts and pre-approved offers applied for existing customers.
 4. **Show the full comparison** with competitors below it: same fixed metric set, all commissions included, source and date per figure.
-5. **Say plainly where each option wins.** If Raiffeisen wins or ties, highlight its real non-price strengths (no-commission products, app, branches, approval speed, no switching costs). If a competitor is cheaper, say so and **offer a counter-offer**: "You may be able to get a better offer from us; want me to book a call with an adviser?"
+5. **Say plainly where each option wins.** If Raiffeisen wins or ties, highlight its real non-price strengths (no-commission products, app, branches, approval speed, no switching costs). If a competitor is cheaper, say so and offer to check what Raiffeisen can do ("Want me to see if we can do better?"), which continues as pattern 11.
 6. Recommend the best fit for the customer's priority, with the reason; on a cost tie, Raiffeisen may be recommended with the tie-breaker stated.
 7. For general questions ("which loan should I get?"), compare Raiffeisen's own routes first and bring in competitors when the customer asks or when it changes the answer.
 
 Never: omit a cheaper competitor the customer asked about, drop metrics where a competitor wins, rank by margin, or use wording that belittles competitors.
 
-Tools: comparison, calculator, relationship pricing and pre-approved offers from account data, adviser booking. Evals check that a cheaper competitor is always disclosed and that a counter-offer follows it.
+Tools: comparison, calculator, relationship pricing and pre-approved offers from account data, adviser booking. Evals check that a cheaper competitor is always disclosed and that the offer to continue into pattern 11 follows it.
 
 ## 3. Affordability check
 
@@ -157,6 +157,32 @@ Triggers: "My card is blocked", "I don't recognize this payment", "Someone calle
 5. Offer a human immediately.
 
 Tools: card freeze path, ticketing, scam scripts, human handoff.
+
+## 11. Negotiation and counter-offer
+
+Triggers, at any point in a conversation:
+- **Mid-conversation**, after Raiffy has shown a price: "Can you do better?", "That's too expensive", "BT offers less", "Is this rate negotiable?"
+- **As the first message**: "I've seen your personal loan, but BT's is cheaper. Can you tell me the differences and make me an offer?"
+
+Full rules, data shapes and bands: `docs/shared/pricing.md`.
+
+1. **Set the baseline.**
+   - **Mid-conversation:** the quote already shown (product, amount, term, price version) becomes the baseline from conversation state, so nothing is asked again.
+   - **First message:** the answer scope is `compare` (exactly the Raiffeisen product and the competitor named). Amount and term come from the competitor's SECCI if uploaded; otherwise ask one question for both.
+2. **Be upfront:** "I'm Raiffeisen's assistant, so I'll be straight with you about how the offers compare, and I'll check what we can do on price."
+3. **Ask for evidence.** Use competitor data from official documents in the store, or ask the client to upload the competitor's SECCI (ESIS for a mortgage). The client confirms the extracted figures. On a typed claim alone, compare against that bank's published standard rates, labelled as published, ask for the SECCI, and make no counter-offer yet.
+4. **Compare total cost first:** DAE and total amount payable, with every fee, mandatory insurance and required package on both sides, same amount and term. Say plainly where each offer wins. If the competitor's offer costs more in total, say so and stop: no counter-offer is needed.
+5. **Counter-offer or escalate.**
+   - **Known clients inside the band:** clients the bank already has a risk view of (an existing pre-approval, or a risk band from account data) get an automatic counter-offer from the pricing tool, using only the levers in the pre-approved band for their product and segment (fee waivers first, then a small margin cut). It shows what changed, its conditions on the card ("with salary transfer"), its validity (7 days by default, or the band's own), and that it's indicative until the bank issues the offer.
+   - **Above the band, or no risk view yet:** "A specialist can review this." With the client's agreement, send the case with the competitor offer attached to the right approval level. Show the review status. Clients without a risk view are shown the list price, labelled "indicative, subject to assessment".
+6. **Close the loop:** log the counter-offer and its outcome. A specialist's decision returns to the chat as a personal offer with their name and expiry. Follow-ups: "Upload the BT SECCI", "What if I move my salary?", "Ask a specialist to review this".
+
+Rules:
+- **Asking again doesn't lower the price.** After a counter-offer, "lower?" gets the same offer and the option to escalate, never a second, deeper cut. Price never depends on persistence.
+- **Affordability before any discount.** Run the affordability check first; a counter-offer never makes borrowing the client can't afford look attractive. In hardship or crisis mode, no counter-offers at all.
+- Never promise a price, never say a specialist will match an offer, never reveal or hint at band limits, and never denigrate the competitor.
+
+Tools: comparison, SECCI extraction, calculator, pricing (relationship pricing, bands), affordability check, counter-offer log, specialist escalation.
 
 ## Testing the patterns
 
