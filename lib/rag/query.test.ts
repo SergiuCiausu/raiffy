@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planQuery } from "./query";
+import { planQuery, withFocus } from "./query";
 
 describe("planQuery", () => {
   it("expands English banking terms into the Romanian words the pages use", () => {
@@ -34,5 +34,20 @@ describe("planQuery", () => {
 
   it("returns no intents for a neutral question", () => {
     expect(planQuery("Tell me about Smart Mobile").intents).toEqual([]);
+  });
+});
+
+describe("withFocus", () => {
+  it("adds the focus sections to a neutral plan", () => {
+    const plan = withFocus(planQuery("Visa Gold debit card"), "costs");
+    expect(plan.intents).toEqual(["cost"]);
+    expect(plan.preferredSections).toEqual(expect.arrayContaining(["fees", "fee_table", "pdf"]));
+    expect(plan.preferredDocType).toBe("tarife");
+  });
+
+  it("leaves the plan alone for any, or when the intent is already there", () => {
+    const plan = planQuery("documente overdraft");
+    expect(withFocus(plan, "any")).toBe(plan);
+    expect(withFocus(plan, "documents")).toBe(plan);
   });
 });

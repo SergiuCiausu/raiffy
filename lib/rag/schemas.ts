@@ -63,13 +63,17 @@ export const rawChunkSchema = z.object({
 });
 export type RawChunk = z.infer<typeof rawChunkSchema>;
 
-/** A chunk as stored in the Convex `ragChunks` table. Optional fields are omitted, never null. */
+/**
+ * A chunk as stored in the Convex `ragChunks` table. Optional fields are omitted, never null.
+ * Chunks are imported without a vector; `embeddings:embedPending` fills `embedding` in Convex.
+ */
 export const ragChunkDocSchema = z.object({
   chunkId: z.string().min(1),
   text: z.string().min(1),
   searchText: z.string().min(1),
-  embedding: z.array(z.number()).min(1),
-  embeddingModel: z.string().min(1),
+  embedding: z.array(z.number()).min(1).optional(),
+  embeddingModel: z.string().min(1).optional(),
+  embedded: z.boolean(),
   visiblePersonal: z.boolean(),
   visibleBusiness: z.boolean(),
   sourceType: z.enum(["product_page", "pdf"]),
@@ -98,11 +102,15 @@ export const searchHitSchema = ragChunkDocSchema.omit({ embedding: true, searchT
 });
 export type SearchHit = z.infer<typeof searchHitSchema>;
 
+/** What a search should lean towards. A soft ranking hint, never a filter. */
+export const SEARCH_FOCUS = ["any", "costs", "interest_rates", "eligibility", "documents", "representative_example"] as const;
+export const searchFocusSchema = z.enum(SEARCH_FOCUS);
+export type SearchFocus = z.infer<typeof searchFocusSchema>;
+
 export const searchArgsSchema = z.object({
   question: z.string().trim().min(1).max(2000),
   track: trackSchema,
   k: z.number().int().min(1).max(20).default(5),
-  sectionTypes: z.array(sectionTypeSchema).optional(),
-  docType: docTypeSchema.optional(),
+  focus: searchFocusSchema.default("any"),
 });
 export type SearchArgs = z.input<typeof searchArgsSchema>;
