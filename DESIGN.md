@@ -95,7 +95,7 @@ The rules every vignette follows:
 - **Buttons:** 40px tall (34px in the nav), radius 10px, 13px at weight 500.
   - `.btn-dark`: ink background with white text. `.btn-ghost`: transparent with a `--border-strong` hairline.
   - Hero: `.btn-glow` is a 44px pill, 12px uppercase 600 text, a cream-to-yellow fill and a warm outer glow (the hover glow is on `::after` via opacity). `.btn-line` is a 44px pill with a translucent hairline.
-  - Chips/quick replies: `.qbtn`, a 12px pill.
+  - Chips/quick replies: `.qbtn`, a 12px pill on the landing page. In product UI (`chat.html` onward), chips are 10px-radius rectangles (see Product UI rules).
 - **Rules list:** a 28px icon tile, a 14.5px h4 and a 13.5px secondary text, separated by hairline rows.
 - **KPI strip:** 3 cells in one bordered card with hairline dividers. Values at 20px/600 with tabular numbers.
 - **Inputs:** a custom range with a 4px track (ink fill through `--p`) and an 18px white thumb that gets a yellow halo while active.
@@ -136,6 +136,7 @@ The rules every vignette follows:
 - Vignettes play **once** when revealed: replies rise in parts, cursors arrive, the slider knob glides, checks pop, the chart wipes in. Keyframes only define `from` with `backwards` fill, so the resting CSS is always the final state.
 - Animate only `transform`/`opacity` (and the `translate` property). No animated `filter: blur`, `clip-path` or large box-shadows. Pause off-screen animation (blooms, the hero stack) with IntersectionObserver.
 - Live controls (slider bars) get **no transition**, so they never lag the user's hand.
+- Product UI is stricter than the landing page. See Product UI rules.
 - Everything decorative sits in `@media (prefers-reduced-motion: no-preference)`. Under reduced motion, reveals become plain fades.
 
 ## 10. Accessibility and output
@@ -144,6 +145,22 @@ The rules every vignette follows:
 - Real text meets AA contrast. Focus states are visible.
 - At 375px: no horizontal scroll, h1 is 30px, grids are one column. Vignettes are simplified (dimmed extras dropped), never removed.
 - Output: one self-contained HTML file with plain CSS tokens on `:root` and `[data-mode]`, Google Fonts and pinned Lucide from unpkg.
+
+## 11. Product UI rules (chat.html onward)
+
+Agreed on 28 Oct 2026 (`plans/chat-ui-plan.md`), applying the SDS grammar to the app pages. The landing page keeps its marketing motion and pills. The palette doesn't change.
+
+- **Named colours only.** Every colour is a `var(--…)` on `:root`. A value that's already in use gets a name; no new values are added.
+- **Pills are for read-only labels:** `.rec-badge`, status `.pill`, verification. Anything pressable is a rectangle: chips and "Jump to latest" at `--radius-btn` (10px), source tags at `--radius-sm` (6px). Toggle switch tracks stay rounded.
+- **Radii:** `--radius-xs` 4 (bars, tracks), `--radius-sm` 6, `--radius-md` 8 (rows, icon buttons), `--radius-btn` 10, `--radius-panel` 14 (answer cards, thinking panel), `--radius-lg` 16 (composer, starters, bubble), `--radius-pill`.
+- **Type steps:** 11 (`--text-eyebrow`), 12 (`--text-micro`), 13 (`--text-xs`), 14 (`--text-sm`), 15 (`--text-body`). Short labels may use 11–12px, but any sentence is at least 13px. 16px is kept only for the mobile textarea.
+- **Elevation:** hairlines and ground change. Answer cards, starters and the active chat have no shadow. `--shadow-float` is the only shadow, used for things that float: the composer, "Jump to latest" and the drawers.
+- **Motion:** presses change colour or border, never scale. Messages and cards fade in without moving. Drawers slide, and the typing dots and caret stay as progress indicators. A global reduced-motion safety net is the floor.
+- **Facts are ink:** amounts, rates, dates, counts and statuses use `--text-1`. Explanations use `--text-2`. `--text-3` (3.1:1 on `--bg`) is only for placeholders, kbd hints, icons and the thinking panel.
+- **Status says its name.** Savings access shows a word ("Anytime", "At maturity") next to the bars, and computed figures are labelled "Estimate".
+- **Never truncate a figure.** Grids holding figures use `minmax(0, 1fr)`. On narrow screens the comparison table restacks (each row label on its own line, the options under it) instead of scrolling. Names and titles truncate, with the full text in `title`.
+- **One primary per screen:** only the newest answer keeps an ink handoff button; older ones show as ghost.
+- **Layers:** `--z-float` 30 for floating widgets, `--z-drawer` 50 for open drawers (the scrim sits one below). Open drawers are `role="dialog"` with `aria-modal`, the rest of the page is `inert`, Escape closes them and focus returns to the button that opened them.
 
 ## Checklist
 
@@ -155,3 +172,4 @@ The rules every vignette follows:
 - [ ] Options shown side by side, one recommended with its reasons and when another fits better, and sources cited
 - [ ] Motion respects reduced motion, and hover is gated to fine pointers
 - [ ] Mobile at 375px is clean, focus is visible, decorative visuals are `aria-hidden`
+- [ ] Product UI: no raw colours outside `:root`, pills only on labels, facts in ink, no sentence under 13px, no shadow on in-page cards, no figure truncated

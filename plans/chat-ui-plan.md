@@ -1,5 +1,7 @@
 # chat.html UI improvement plan (SDS grammar)
 
+**Status: built on 28 Oct 2026.** Changes from the plan while building: the 14px panel radius is named `--radius-panel`, because `--radius-card` (20px) already belongs to the landing page's cards. Source tags use 6px rather than 10px, because at 26px tall a 10px radius reads as a pill. Sidebar chat times use `--text-2`, not ink. The comparison table's cells stay Geist with tabular figures, because they mix words and amounts.
+
 Scope: `chat.html` only. Source: an audit of the file against the `/sds-ui` playbook (hard rules, §5 truncation, §6 shapes, §7 elevation, §11 motion, §12 status, §14 anti-patterns).
 
 **Palette is frozen.** No colour value is added, removed or changed. Where the plan says "token", it means giving a colour that's already in the file a name on `:root`, with exactly the same value.
