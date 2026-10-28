@@ -23,10 +23,10 @@ const TRACKS: { k: Track; label: string; icon: typeof UserIcon; note: string }[]
 
 const STARTERS: Record<Track, { prompt: string; title: string; hint: string; search: string }[]> = {
   personal: [
-    { prompt: "What interest does a 3-month term deposit in lei pay?", title: "Term deposit rates", hint: "What 3 months in lei earns today", search: "dobanda depozit la termen 3 luni" },
-    { prompt: "How much does a Raiffeisen personal loan cost?", title: "The cost of a personal loan", hint: "Interest, fees and the DAE", search: "credit de nevoi personale DAE" },
-    { prompt: "What fees come with the current account package?", title: "Current account fees", hint: "The monthly package and what it includes", search: "pachet cont curent comision" },
-    { prompt: "What documents do I need for a personal loan?", title: "Documents for a loan", hint: "What the bank asks for before approval", search: "acte necesare credit" },
+    { prompt: "How do Raiffeisen term deposits work, and what conditions should I check?", title: "How term deposits work", hint: "Conditions and product documents", search: "depozit la termen conditii" },
+    { prompt: "What documents do I need for a Raiffeisen personal loan?", title: "Prepare for a personal loan", hint: "The documents to check before applying", search: "credit nevoi personale acte" },
+    { prompt: "What is the difference between a debit card and a credit card?", title: "Understand your cards", hint: "How debit and credit cards differ", search: "card debit card credit diferente" },
+    { prompt: "Compare the documents needed for a Raiffeisen Flexicredit personal loan and a BCR George personal loan.", title: "Compare loan documents", hint: "Raiffeisen and BCR requirements", search: "Raiffeisen BCR credit documente" },
   ],
   business: [
     { prompt: "What is the maximum overdraft my company can get?", title: "Overdraft for my company", hint: "Limits and conditions", search: "linie de credit overdraft IMM" },
@@ -267,7 +267,7 @@ export function AgentChat() {
           </nav>
           <div className="me">
             <span className="ava" aria-hidden="true">{user?.firstName?.slice(0,1) ?? "R"}</span>
-            <div><b>{user?.firstName ?? "Your account"}</b><small>Private banking chat</small></div>
+            <div><b>{user?.firstName ?? "Your account"}</b><small>Your private chat</small></div>
             <button className="icon-btn" onClick={() => void signOut({ redirectUrl: "/sign-in" })} aria-label="Sign out"><LogOutIcon /></button>
           </div>
         </aside>
@@ -329,7 +329,7 @@ export function AgentChat() {
               <div className="empty-head">
                 <span className="ava-raiffy" aria-hidden="true"><CompassIcon /></span>
                 <h2 id="greet">{greetingFor(hour)}{user?.firstName ? `, ${user.firstName}` : ""}</h2>
-                <p>Ask about Raiffeisen accounts, cards, loans and savings. Raiffy searches the bank’s public pages and shows the source for every number.</p>
+                <p>Explore accounts, cards, loans and savings using dated public bank sources. Exact prices and personalized offers aren’t available in this preview.</p>
               </div>
               <div className="track-pick" role="group" aria-label="Who is this for?">
                 {TRACKS.map((t) => (
@@ -340,7 +340,7 @@ export function AgentChat() {
                 {STARTERS[track].map((s) => (
                   <button key={s.prompt} type="button" className="starter" onClick={() => { void send(s.prompt); inputEl.current?.focus(); }}>
                     <span className="mini" aria-hidden="true"><span className="mini-frag">
-                      <span className="mini-line sel"><span><SearchIcon className="mini-ic" />{s.search}</span><span className="mono">raiffeisen.ro</span></span>
+                    <span className="mini-line sel"><span><SearchIcon className="mini-ic" />{s.search}</span><span className="mono">Bank sources</span></span>
                     </span></span>
                     <b>{s.title}</b><span className="q">{s.hint}</span>
                   </button>
