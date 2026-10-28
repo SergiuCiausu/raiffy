@@ -160,6 +160,7 @@ Agreed on 28 Oct 2026 (`plans/chat-ui-plan.md`), applying the SDS grammar to the
 - **Status says its name.** Savings access shows a word ("Anytime", "At maturity") next to the bars, and computed figures are labelled "Estimate".
 - **Never truncate a figure.** Grids holding figures use `minmax(0, 1fr)`. On narrow screens the comparison table restacks (each row label on its own line, the options under it) instead of scrolling. Names and titles truncate, with the full text in `title`.
 - **One primary per screen:** only the newest answer keeps an ink handoff button; older ones show as ghost.
+- **Live route cards before the catalog** (`web/components/agent/RouteCards.tsx`): the live chat reshapes the checked answer's route list into the same `.opts` cards with `.rec-badge` and `.rec-why`, 2×2 for four routes and one column on phones. Until reviewed prices are connected, each card shows "Exact cost · Not verified here" instead of a figure, and the recommendation comes from the checked answer rather than from code. This is an agreed, temporary exception to the deterministic recommendation rule above; switch back when the catalog and calculators land.
 - **Layers:** `--z-float` 30 for floating widgets, `--z-drawer` 50 for open drawers (the scrim sits one below). Open drawers are `role="dialog"` with `aria-modal`, the rest of the page is `inert`, Escape closes them and focus returns to the button that opened them.
 
 ## Checklist

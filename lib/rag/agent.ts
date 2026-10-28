@@ -9,12 +9,15 @@ import type {
 import { type SearchKnowledgeInput, searchKnowledgeInputSchema } from "../agent/prompt";
 import { assembleCitations, type Citable, citableFromPassage, checkNumbers, citedSegments, type RagAnswer } from "./answer";
 import type { SearchKnowledgeResult } from "./knowledge";
+import { containsFinancialFigure } from "./numbers";
 import {
   buildSystem,
   buildUserTurn,
   coverageNote,
   MAX_SEARCHES,
   RAG_PROMPT_VERSION,
+  RETRY_REWRITE_NOTE,
+  retryNoteForFinancialFigures,
   retryNoteForNumbers,
   searchAgainNote,
   SEARCH_TOOL,
@@ -46,13 +49,15 @@ export type AgentInput = {
   history?: readonly HistoryTurn[];
   model: string;
   allowedCollections?: readonly string[];
+  /** Ask once for a rewrite without rates, fees or amounts when no reviewed catalog backs them. */
+  withholdFinancialFigures?: boolean;
 };
 
 /**
  * Agentic RAG: Claude decides when and what to search, code runs each search scoped to the session's track,
  * the fragments go back as search_result blocks, and the final text is checked so every number is grounded.
  */
-export async function runAgent({ question, track, history = [], model, allowedCollections }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
+export async function runAgent({ question, track, history = [], model, allowedCollections, withholdFinancialFigures = false }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
   const system = buildSystem(track);
   const tools = [allowedCollections ? { ...SEARCH_TOOL, input_schema: { ...SEARCH_TOOL.input_schema,
     properties: { ...(SEARCH_TOOL.input_schema.properties as Record<string, unknown>), collection: { type: "string", enum: [...allowedCollections] } } } } : SEARCH_TOOL];
@@ -135,11 +140,15 @@ export async function runAgent({ question, track, history = [], model, allowedCo
     const checks = checkNumbers(segments, hits, question);
     const passed = checks.ungroundedNumbers.length === 0 && checks.uncitedSegmentsWithNumbers === 0
       && !checks.invalidCitationIndexes;
-    if (!passed && attempts < MAX_ANSWER_ATTEMPTS) {
+    // A quoted price gets one rewrite; if it stays, the caller's catalog check still withholds the answer.
+    const quotesPrices = withholdFinancialFigures && containsFinancialFigure(segments.map((segment) => segment.text).join(""));
+    if ((!passed || quotesPrices) && attempts < MAX_ANSWER_ATTEMPTS) {
       messages.push({ role: "assistant", content: response.content });
       const retryNotes = [
         ...(checks.ungroundedNumbers.length ? [retryNoteForNumbers(checks.ungroundedNumbers)] : []),
         ...(checks.invalidCitationIndexes ? ["A previous draft cited unavailable search results. Cite only the search results supplied in this conversation."] : []),
+        ...(quotesPrices ? [retryNoteForFinancialFigures()] : []),
+        RETRY_REWRITE_NOTE,
       ];
       messages.push({ role: "user", content: retryNotes.join("\n") });
       continue;

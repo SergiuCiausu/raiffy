@@ -60,3 +60,16 @@
 .pg-chat .answer-notice { color: var(--text-3); font-size: 11px; line-height: 1.5; margin: 12px 0 0; }
 .pg-chat .gfoot .qbtn { background: var(--surface); color: var(--text-2); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer; }
 .pg-chat .gfoot .qbtn:disabled { opacity: .5; cursor: default; }
+
+/* Answer formatting: bold stays ink, the list markers come through as bullets in the text itself. */
+.pg-chat .answer strong { font-weight: 600; color: var(--text-1); }
+
+/* Route cards (components/agent/RouteCards.tsx): the demo's .opts grid, flowing to as many columns as fit. */
+.pg-chat .routes { list-style: none; margin: 0; padding: 0; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
+.pg-chat .routes[data-count="4"] { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.pg-chat .routes .opt { align-content: start; }
+.pg-chat .opt-sum { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+.pg-chat .kv-stack { display: grid; gap: 2px; }
+.pg-chat .kv-stack b { font-size: 13px; line-height: 1.45; font-weight: 400; }
+.pg-chat .opt-src { display: flex; flex-wrap: wrap; gap: 4px; }
+.pg-chat .opt-src .cite { margin-left: 0; }

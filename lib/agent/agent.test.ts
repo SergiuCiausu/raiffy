@@ -4,6 +4,8 @@ import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema,
 import { memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
+import { composeAnswer } from "./composer";
+import { ragAnswerSchema } from "../rag/answer";
 
 function choice<T extends Record<string, string>>(criteria: T, selected: keyof T & string, confidence = 0.95) {
   const labels = Object.keys(criteria);
@@ -86,15 +88,35 @@ describe("backend route policy", () => {
     expect(plan.tools).toEqual([]);
   });
 
-  it("clarifies low confidence without paying for a generation call", () => {
+  it("sends an uncertain or unmatched inquiry to Claude with public documents only", () => {
     const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "negotiation", 0.5);
-    const plan = planAgentRoute(raw, full);
-    expect(plan.handler).toBe("clarify"); expect(plan.model).toBeNull(); expect(plan.collections).toEqual([]);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "low_route_confidence", inquiry: null,
+      collections: ["bank_product_docs", "banking_help"], tools: ["search_knowledge"] });
+    raw.answers.inquiry = choice(INQUIRIES, "other", 1);
+    expect(planAgentRoute(raw, full)).toMatchObject({ reason: "unknown_inquiry", inquiry: null, tools: ["search_knowledge"] });
+    raw.answers.inquiry = choice(INQUIRIES, "professional_advice", 0.5);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", collections: ["bank_product_docs", "banking_help"] });
+  });
+
+  it("still screens risks before an uncertain inquiry reaches Claude", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "other", 0.2); raw.answers.fraud.noul = 0.4;
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "fraud", model: null, collections: [] });
+  });
+
+  // Live Jev values for "I want to save up 10k euros" and "What's the maximum amount of loan I can take".
+  it("answers a confident inquiry when only scope or complexity is uncertain", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "saving_goal", 1);
+    raw.answers.complexity = choice(COMPLEXITIES, "simple", 0.06);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "classified", scope: "compare", model: AGENT_POLICY.complexModel });
+    raw.answers.complexity = choice(COMPLEXITIES, "simple"); raw.answers.scope = choice(SCOPES, "solution", 0.66);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "answer", reason: "classified", scope: null, model: AGENT_POLICY.standardModel });
   });
 
   it("never switches the authorized track from a classifier label", () => {
     const raw = response(); raw.answers.audience = choice(AUDIENCES, "business");
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "confirm_track_before_access", track: "personal", collections: [] });
+    raw.answers.audience = choice(AUDIENCES, "business", 0.34);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", track: "personal" });
   });
 
   it("routes an explicitly named competitor to its collection without broadening private access", () => {
@@ -110,7 +132,7 @@ describe("backend route policy", () => {
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "multiple_goals", model: AGENT_POLICY.complexModel });
     expect(planAgentRoute(raw, full, { ...AGENT_POLICY, allowEscalation: true }).model).toEqual(AGENT_POLICY.escalationModel);
     raw.answers.multi_goal.noul = 0.5;
-    expect(planAgentRoute(raw, full).handler).toBe("clarify");
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "uncertain_goal_count" });
   });
 
   it("returns unavailable on malformed responses or unreviewed model changes", () => {
@@ -123,6 +145,15 @@ describe("backend route policy", () => {
     const raw = response(); raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "remember");
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "memory", tools: ["propose_memory_change"], model: null });
     expect(planAgentRoute(raw, { ...full, availableTools: [] })).toMatchObject({ handler: "unavailable", tools: [], unavailable: ["propose_memory_change"] });
+  });
+
+  // Live Jev values for "do you remember my age?": an uncertain memory request.
+  it("never changes memory on an uncertain request and says when memory is off", () => {
+    const raw = response(); raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect", 0.64);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "uncertain_memory_request", tools: [] });
+    expect(planAgentRoute(raw, { ...full, availableTools: ["search_knowledge"] })).toMatchObject({ handler: "unavailable", reason: "explicit_memory_request", tools: [] });
+    raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "none", 0.6);
+    expect(planAgentRoute(raw, full).handler).toBe("orchestrator");
   });
 
   it("does not use a product document to fabricate an expense analysis", () => {
@@ -222,4 +253,18 @@ it("exposes only specific custom tool contracts without a user selector or gener
     expect(tool.input_schema.properties).not.toHaveProperty("ownerKey");
     expect(tool.input_schema.properties).not.toHaveProperty("userId");
   }
+});
+
+describe("answer envelope", () => {
+  const rag = (text: string) => ragAnswerSchema.parse({ status: "answered", text, segments: [{ text, sourceIds: [] }], sources: [],
+    checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 }, model: "claude-sonnet-5-5", promptVersion: "test", searches: [], retrieval: [] });
+  const list = "Routes:\n- **Save first** (recommended) — no debt. Why: you have time.\n- **Personal loan** — a fixed instalment.";
+
+  it("adds route cards only when the answer scope calls for options side by side", () => {
+    const raw = response(); raw.answers.scope = choice(SCOPES, "solution");
+    expect(composeAnswer("m1", planAgentRoute(raw, full), rag(list)).blocks.at(-1)).toMatchObject({ type: "routes",
+      routes: [{ title: "Save first", recommended: true, why: "you have time." }, { title: "Personal loan", recommended: false }] });
+    raw.answers.scope = choice(SCOPES, "detail");
+    expect(composeAnswer("m1", planAgentRoute(raw, full), rag(list)).blocks).toEqual([]);
+  });
 });

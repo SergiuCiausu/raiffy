@@ -108,8 +108,25 @@ export function toPassage(hit: SearchHit, collection: PublicCollection, now: num
 }
 
 /**
+ * Keep rank order, but let no page take more than half the slots while other pages have candidates:
+ * a long terms PDF would otherwise crowd out the other products the customer should see.
+ */
+export function diversifyByPage(passages: readonly Passage[], limit: number): Passage[] {
+  const cap = Math.max(1, Math.floor(limit / 2));
+  const perPage = new Map<string, number>();
+  const first: Passage[] = [];
+  const overflow: Passage[] = [];
+  for (const passage of passages) {
+    const count = perPage.get(passage.provenance.url) ?? 0;
+    perPage.set(passage.provenance.url, count + 1);
+    (count < cap ? first : overflow).push(passage);
+  }
+  return [...first, ...overflow].slice(0, limit);
+}
+
+/**
  * Turn ranked hits from one collection into the tool result: fresh passages only (stale ones are dropped and
- * counted), at most `limit`, with the coverage gaps a reader needs to know about.
+ * counted), at most `limit` and spread across pages, with the coverage gaps a reader needs to know about.
  */
 export function buildKnowledgeResult(input: {
   collection: PublicCollection;
@@ -124,7 +141,7 @@ export function buildKnowledgeResult(input: {
   const staleCount = all.length - fresh.length;
   if (all.length > 0 && fresh.length === 0) return unavailableResult(collection, "stale_sources", limit, ["stale_excluded"]);
 
-  const passages = fresh.slice(0, limit);
+  const passages = diversifyByPage(fresh, limit);
   const gaps: KnowledgeGap[] = [];
   if (passages.length === 0) gaps.push("no_results");
   else if (passages.length < limit) gaps.push("fewer_results_than_requested");

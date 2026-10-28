@@ -58,6 +58,8 @@ const RESOURCES: Record<Inquiry, { collections: Collection[]; tools: Tool[] }> =
   professional_advice: { collections: [], tools: ["request_human_handoff"] },
   other: { collections: [], tools: [] },
 };
+/** What an uncertain or unmatched inquiry may search: public documents only, no customer data or calculators. */
+const PUBLIC_DOCUMENTS: { collections: Collection[]; tools: Tool[] } = { collections: ["bank_product_docs", "banking_help"], tools: [] };
 
 /** A retrieval plan is a cost and workflow hint. The tool adapter must independently authorize every call. */
 export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, rawPolicy: AgentPolicy = AGENT_POLICY): RoutePlan {
@@ -73,7 +75,9 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   if (!parsed.success) return routePlanSchema.parse(base);
   const a = parsed.data.answers;
   const inquiry = a.inquiry.choice;
-  const plan = { ...base, inquiry, memoryOperation: a.memory_operation.choice, confidence: a.inquiry.confidence, scope: a.scope.choice };
+  const floor = policy.thresholds.routingConfidence;
+  // An uncertain scope is left to the inquiry's answer pattern instead of guessing one.
+  const plan = { ...base, inquiry, memoryOperation: a.memory_operation.choice, confidence: a.inquiry.confidence, scope: a.scope.confidence < floor ? null : a.scope.choice };
   const finish = (changes: Partial<RoutePlan>) => routePlanSchema.parse({ ...plan, ...changes });
 
   // Risks are independent. A customer may be negotiating and in distress in the same message.
@@ -84,28 +88,26 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
     }
   }
   if (parsed.data.model !== policy.classifierModel) return finish({ reason: "unexpected_classifier_version" });
-  const floor = policy.thresholds.routingConfidence;
-  if (a.inquiry.confidence < floor || a.scope.confidence < floor || a.complexity.confidence < floor) {
-    return finish({ handler: "clarify", reason: "low_route_confidence" });
-  }
-  if (a.audience.choice !== "unclear" && (a.audience.confidence < floor || a.audience.choice !== context.track)) {
+  // The session's track applies unless Jev is confident the message belongs to the other one.
+  if (a.audience.choice !== "unclear" && a.audience.choice !== context.track && a.audience.confidence >= floor) {
     return finish({ handler: "clarify", reason: "confirm_track_before_access" });
   }
-  if (a.memory_operation.confidence < floor) return finish({ handler: "clarify", reason: "uncertain_memory_request" });
   if (a.memory_operation.choice !== "none") {
     const tool: Tool = ["forget", "inspect"].includes(a.memory_operation.choice) ? "manage_memory" : "propose_memory_change";
-    const available = context.availableTools.includes(tool);
-    return finish({ handler: available ? "memory" : "unavailable", reason: "explicit_memory_request", tools: available ? [tool] : [], unavailable: available ? [] : [tool] });
+    // Without the handler the customer hears that memory is off; with it, an uncertain request is confirmed before any change.
+    if (!context.availableTools.includes(tool)) return finish({ handler: "unavailable", reason: "explicit_memory_request", unavailable: [tool] });
+    if (a.memory_operation.confidence < floor) return finish({ handler: "clarify", reason: "uncertain_memory_request" });
+    return finish({ handler: "memory", reason: "explicit_memory_request", tools: [tool] });
   }
-  if (inquiry === "other") return finish({ handler: "clarify", reason: "unknown_inquiry" });
-  if (inquiry === "professional_advice") return finish({ handler: "professional_referral", reason: "regulated_advice_referral" });
+  // An uncertain or unmatched inquiry still reaches Claude, limited to public documents, so it can answer or ask its own question.
+  const known = a.inquiry.confidence >= floor && inquiry !== "other";
+  if (known && inquiry === "professional_advice") return finish({ handler: "professional_referral", reason: "regulated_advice_referral" });
   const multi = a.multi_goal.noul;
-  if (multi > 1 - policy.thresholds.multiGoalProbability && multi < policy.thresholds.multiGoalProbability) {
-    return finish({ handler: "clarify", reason: "uncertain_goal_count" });
-  }
   const multiGoal = multi >= policy.thresholds.multiGoalProbability;
-  const complex = multiGoal || a.complexity.choice === "complex";
-  const defaultResources = RESOURCES[inquiry];
+  const uncertainGoals = !multiGoal && multi > 1 - policy.thresholds.multiGoalProbability;
+  // An uncertain complexity or goal count gets the stronger model rather than a clarifying question.
+  const complex = multiGoal || uncertainGoals || a.complexity.choice === "complex" || a.complexity.confidence < floor;
+  const defaultResources = known ? RESOURCES[inquiry] : PUBLIC_DOCUMENTS;
   const competitorOnly = context.requestedBanks?.length && context.requestedBanks.every(bank => bank !== "raiffeisen");
   const resources = competitorOnly ? { ...defaultResources,
     collections: [...new Set(defaultResources.collections.map(id => id === "bank_product_docs" || id === "banking_help" ? "competitor_docs" as const : id))] } : defaultResources;
@@ -118,7 +120,9 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const memoryCandidate = tools.length ? scoreMemoryCandidate(a, policy) : null;
   const canPropose = memoryCandidate !== null && context.availableTools.includes("propose_memory_change");
   return finish({
-    handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable", reason: multiGoal ? "multiple_goals" : "classified",
+    handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable",
+    reason: !known ? (inquiry === "other" ? "unknown_inquiry" : "low_route_confidence") : multiGoal ? "multiple_goals" : uncertainGoals ? "uncertain_goal_count" : "classified",
+    inquiry: known ? inquiry : null,
     suppressOffers: inquiry === "security_complaint",
     model: !tools.length ? null : complex ? (policy.allowEscalation ? policy.escalationModel : policy.complexModel) : policy.standardModel,
     memoryCandidate,

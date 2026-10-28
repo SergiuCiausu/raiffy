@@ -29,8 +29,14 @@ export type Answer = {
   sources: Source[];
   searches: { query: string; collection: string; status: "ok" | "unavailable"; results: number }[];
   routing?: { handler: string; inquiry: string | null; confidence: number | null; classifierModel: string | null; reason: string };
-  ui?: { flags: { aiDisclosure: true; suppressOffers: boolean }; actions: { kind: "followup"; label: string; prompt: string }[] };
+  ui?: { flags: { aiDisclosure: true; suppressOffers: boolean }; actions: { kind: "followup"; label: string; prompt: string }[]; blocks?: Block[] };
 };
+
+/** One route card, reshaped by the backend composer from the checked answer's route list (lib/agent/routes.ts). */
+export type RouteCard = { title: string; recommended: boolean; summary: string; mainRisk?: string; why?: string; sourceIds: string[] };
+/** `start`/`end` locate the route list in the joined segment text; the cards replace it on screen. */
+export type RoutesBlock = { type: "routes"; state: "partial"; start: number; end: number; routes: RouteCard[] };
+export type Block = { type: "callout"; state: "ready" | "unavailable"; text: string; sourceIds: string[] } | RoutesBlock;
 
 export type Step = { query: string; focus: string; results?: number };
 

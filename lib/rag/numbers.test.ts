@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findUngroundedNumbers, numberTokens, numericValues } from "./numbers";
+import { containsFinancialFigure, findUngroundedNumbers, numberTokens, numericValues } from "./numbers";
 
 describe("numberTokens", () => {
   it("finds amounts, decimals and percentages", () => {
@@ -39,5 +39,19 @@ describe("findUngroundedNumbers", () => {
 
   it("accepts numbers from any allowed text, such as the question or the collection date", () => {
     expect(findUngroundedNumbers("As of 28 October 2026, it costs 15 lei.", ["15 lei", "2026-10-28"])).toEqual([]);
+  });
+});
+
+describe("containsFinancialFigure", () => {
+  it("finds rates, amounts and named price terms", () => {
+    expect(containsFinancialFigure("The interest rate is 5.5%.")).toBe(true);
+    expect(containsFinancialFigure("Your salary of 4,500 lei is above the minimum.")).toBe(true);
+    expect(containsFinancialFigure("The DAE starts from 9")).toBe(true);
+    expect(containsFinancialFigure("It costs ten euros a month.")).toBe(true);
+  });
+
+  it("leaves terms, ages and counts alone", () => {
+    expect(containsFinancialFigure("A 6-month deposit in lei renews automatically.")).toBe(false);
+    expect(containsFinancialFigure("You must be at least 21 and employed for 3 months.")).toBe(false);
   });
 });

@@ -9,7 +9,9 @@ import {
   MessageCircleIcon, PanelRightIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserIcon, XIcon,
 } from "lucide-react";
-import { agentApi, type Answer, type Message, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
+import { agentApi, type Answer, type Message, type RoutesBlock, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
+import { answerView, type Piece } from "@/lib/answer-view";
+import { RouteCards } from "./RouteCards";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
 
 /*
@@ -476,12 +478,30 @@ function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisab
   );
 }
 
-/** The final answer with its citations: each cited sentence ends in the number of its source chip below. */
+type TextPiece = Extract<Piece, { kind: "text" }>;
+
+/** The revealed part of one text piece, with its bold runs. */
+function Revealed({ piece, shown }: { piece: TextPiece; shown: number }) {
+  let left = Math.max(0, Math.min(shown, piece.to) - piece.from);
+  return piece.runs.map((run, i) => {
+    const part = run.text.slice(0, left);
+    left -= part.length;
+    if (!part) return null;
+    return run.bold ? <strong key={i}>{part}</strong> : <Fragment key={i}>{part}</Fragment>;
+  });
+}
+
+/**
+ * The final answer with its citations: each cited sentence ends in the number of its source chip below. A routes
+ * block replaces the answer's route list with cards, shown when the reveal reaches it.
+ */
 function AnswerText({ answer, animate, onGrow }: { answer: Answer; animate: boolean; onGrow: () => void }) {
   const number = new Map(answer.sources.map((s, i) => [s.id, i + 1]));
   const byId = new Map(answer.sources.map((s) => [s.id, s]));
   const segments = answer.segments.length ? answer.segments : [{ text: answer.text, sourceIds: [] }];
-  const text = segments.map(s => s.text).join("");
+  const routes = answer.ui?.blocks?.find((b): b is RoutesBlock => b.type === "routes");
+  const view = answerView(segments, routes);
+  const text = view.pieces.map((p) => (p.kind === "text" ? p.runs.map((r) => r.text).join("") : "")).join("");
   const reducedMotion = useMedia("(prefers-reduced-motion: reduce)");
   const reveal = animate && !reducedMotion;
   const [visible, setVisible] = useState(0);
@@ -498,26 +518,39 @@ function AnswerText({ answer, animate, onGrow }: { answer: Answer; animate: bool
     }, 25);
     return () => window.clearInterval(timer);
   }, [reveal, text, onGrow]);
+  const cite = (id: string) => {
+    const s = byId.get(id);
+    if (!s) return null;
+    return (
+      <a key={id} className="cite" href={s.url} target="_blank" rel="noreferrer" aria-label={`Source ${number.get(id)}: ${s.title}`} title={s.title}>
+        {number.get(id)}
+      </a>
+    );
+  };
+  // Text before the cards, the cards, then the text after them. The caret sits in the paragraph being revealed.
+  const groups: Piece[][] = [[]];
+  for (const piece of view.pieces) {
+    if (piece.kind === "routes") groups.push([piece], []);
+    else groups[groups.length - 1]!.push(piece);
+  }
+  const starts = groups.map((g) => (g[0]?.kind === "text" ? g[0].from : -1));
+  const caretGroup = starts.reduce((at, start, g) => (start !== -1 && (start < shown || at === -1) ? g : at), -1);
   return (
-    <p className="answer">
-      {segments.map((seg, i) => {
-        const offset = segments.slice(0, i).reduce((length, s) => length + s.text.length, 0);
-        const count = Math.max(0, shown - offset);
+    <>
+      {groups.map((group, g) => {
+        const first = group[0];
+        if (!first) return null;
+        if (first.kind === "routes") return routes && shown >= first.at ? <RouteCards key={g} routes={routes.routes} cite={cite} enter={reveal} /> : null;
+        if (g !== caretGroup && first.from >= shown) return null;
         return (
-        <Fragment key={i}>
-          {seg.text.slice(0, count)}
-          {(count >= seg.text.length ? seg.sourceIds : []).map((id) => {
-            const s = byId.get(id);
-            if (!s) return null;
-            return (
-              <a key={id} className="cite" href={s.url} target="_blank" rel="noreferrer" aria-label={`Source ${number.get(id)}: ${s.title}`} title={s.title}>
-                {number.get(id)}
-              </a>
-            );
-          })}
-        </Fragment>
-      ); })}
-      {shown < text.length && <span className="caret" aria-hidden="true" />}
-    </p>
+          <p key={g} className="answer">
+            {group.map((p, i) => p.kind === "text" && (
+              <Fragment key={i}><Revealed piece={p} shown={shown} />{shown >= p.to ? p.sourceIds.map(cite) : null}</Fragment>
+            ))}
+            {g === caretGroup && shown < text.length && <span className="caret" aria-hidden="true" />}
+          </p>
+        );
+      })}
+    </>
   );
 }

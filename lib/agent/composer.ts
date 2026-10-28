@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { ragAnswerSchema, type RagAnswer } from "../rag/answer";
 import type { RoutePlan } from "./route";
+import { routesBlockSchema, routesFromAnswer } from "./routes";
 
 export const answerEnvelopeSchema = z.object({
   id: z.string(), locale: z.literal("en-GB"), pattern: z.string(),
   mode: z.enum(["normal", "hardship", "crisis", "fraud", "degraded"]), text: z.string(),
-  blocks: z.array(z.object({ type: z.literal("callout"), state: z.enum(["ready", "unavailable"]), text: z.string(), sourceIds: z.array(z.string()) })),
+  blocks: z.array(z.union([
+    z.object({ type: z.literal("callout"), state: z.enum(["ready", "unavailable"]), text: z.string(), sourceIds: z.array(z.string()) }),
+    routesBlockSchema,
+  ])),
   sources: z.array(z.object({ id: z.string(), label: z.string(), publisher: z.string(), date: z.string(), url: z.url() })),
   actions: z.array(z.object({ kind: z.literal("followup"), label: z.string(), prompt: z.string() })),
   flags: z.object({ aiDisclosure: z.literal(true), suppressOffers: z.boolean(), indicativeOnly: z.literal(true), staleData: z.array(z.string()) }),
@@ -33,13 +37,7 @@ export function routeResponse(plan: RoutePlan): RagAnswer {
     model: "deterministic", promptVersion: "route-response@1", searches: [], retrieval: [] });
 }
 
-/** Exact financial figures require the reviewed catalog, even when a number occurs in a RAG passage. */
-export function containsFinancialFigure(text: string): boolean {
-  const normalized = text.normalize("NFKC");
-  return /\d[\d.,\s]*(?:%|RON\b|EUR\b|lei\b|leu\b|euros?\b|basis points?\b)/i.test(normalized)
-    || /\b(?:APR|DAE|interest rate|fee|commission|comision|dobanda)\b[^.!?\n]{0,40}\d/i.test(normalized)
-    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\s+(?:percent|lei|euros?)\b/i.test(normalized);
-}
+export { containsFinancialFigure } from "../rag/numbers";
 
 /** Build the UI contract from checked evidence; the model cannot invent block kinds or actions. */
 export function composeAnswer(id: string, plan: RoutePlan, rag: RagAnswer) {
@@ -48,8 +46,13 @@ export function composeAnswer(id: string, plan: RoutePlan, rag: RagAnswer) {
   const text = rag.status === "failed_checks" || rag.status === "refused"
     ? "I couldn't verify a supported answer. Please rephrase the question or contact a Raiffeisen adviser." : rag.text;
   const followups = mode === "normal" ? ["What conditions should I check?", "Which official documents should I read?"] : [];
+  // Route cards only where the answer scope calls for options side by side, and only from checked text.
+  const routes = mode === "normal" && (plan.scope === "solution" || plan.scope === "compare") ? routesFromAnswer(rag.segments) : null;
   return answerEnvelopeSchema.parse({ id, locale: "en-GB", pattern: plan.inquiry ?? "freeform", mode, text,
-    blocks: rag.status === "answered" ? rag.segments.filter(s => s.sourceIds.length > 0).map(s => ({ type: "callout", state: "ready", text: s.text, sourceIds: s.sourceIds })) : [],
+    blocks: rag.status === "answered" ? [
+      ...rag.segments.filter(s => s.sourceIds.length > 0).map(s => ({ type: "callout", state: "ready", text: s.text, sourceIds: s.sourceIds })),
+      ...(routes ? [routes] : []),
+    ] : [],
     sources: rag.status === "answered" ? rag.sources.map(s => ({ id: s.id, label: s.title, publisher: new URL(s.url).hostname, date: s.collectedOn, url: s.url })) : [],
     actions: followups.map(prompt => ({ kind: "followup", label: prompt, prompt })),
     flags: { aiDisclosure: true, suppressOffers: mode !== "normal" || plan.suppressOffers || plan.inquiry === "negotiation", indicativeOnly: true, staleData: [] } });

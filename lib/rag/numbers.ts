@@ -45,3 +45,11 @@ export function findUngroundedNumbers(answer: string, allowedTexts: readonly str
   const allowed = allowedValues(allowedTexts);
   return numberTokens(answer).filter((token) => !numericValues(token).some((v) => allowed.has(v)));
 }
+
+/** Exact financial figures require the reviewed catalog, even when a number occurs in a RAG passage. */
+export function containsFinancialFigure(text: string): boolean {
+  const normalized = text.normalize("NFKC");
+  return /\d[\d.,\s]*(?:%|RON\b|EUR\b|lei\b|leu\b|euros?\b|basis points?\b)/i.test(normalized)
+    || /\b(?:APR|DAE|interest rate|fee|commission|comision|dobanda)\b[^.!?\n]{0,40}\d/i.test(normalized)
+    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\s+(?:percent|lei|euros?)\b/i.test(normalized);
+}

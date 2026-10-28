@@ -10,14 +10,14 @@ vi.mock("./openai", () => ({ embedTexts: embedMock }));
 vi.mock("./jevTransport", () => ({ requestJev: jevMock }));
 vi.mock("./knowledge", () => ({ searchKnowledge: searchMock }));
 
-function classification() {
+function classification(inquiry = "product_explanation", scope = "detail") {
   const choice = (labels: Record<string, string>, selected: string) => {
     const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
     return { type: "choice", choice: selected, confidence: 0.95,
       probabilities: Object.fromEntries(keys.map(k => [k, k === selected ? top : (1-top)/(keys.length-1)])) };
   };
   return { model: "jev-1.14.0", answers: {
-    inquiry: choice(INQUIRIES, "product_explanation"), scope: choice(SCOPES, "detail"), complexity: choice(COMPLEXITIES, "simple"),
+    inquiry: choice(INQUIRIES, inquiry), scope: choice(SCOPES, scope), complexity: choice(COMPLEXITIES, "simple"),
     audience: choice(AUDIENCES, "unclear"), memory_operation: choice(MEMORY_OPERATIONS, "none"), memory_candidate: choice(MEMORY_CANDIDATES, "none"),
     ...Object.fromEntries(["memory_durable", "special_category", "multi_goal", "crisis", "fraud", "hardship", "aml_evasion", "prompt_injection"].map(k => [k, { type: "noul", noul: 0.01 }])),
   }, usage: { input_tokens: 100, output_tokens: 20 } };
@@ -126,8 +126,55 @@ describe("UI to Jev to RAG pipeline", () => {
       expect(other.passages).toHaveLength(2);
       return answer;
     });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Compare a Raiffeisen personal loan with a BCR one." });
+    expect(searchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reserves evidence space for the product FAQs in a product question", async () => {
+    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
+      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.collection}-${i}` })),
+      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
+    runAgentMock.mockImplementation(async (input, deps) => {
+      expect(input.withholdFinancialFigures).toBe(true);
+      const docs = await deps.search({ collection: "bank_product_docs", query: "depozit la termen", limit: 5 });
+      const faq = await deps.search({ collection: "banking_help", query: "depozit la termen", limit: 5 });
+      expect(docs.passages).toHaveLength(3);
+      expect(faq.passages).toHaveLength(2);
+      return answer;
+    });
     await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(searchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps no competitor space when both compared options are Raiffeisen products", async () => {
+    jevMock.mockResolvedValue({ status: "classified", classification: classification("product_comparison", "compare") });
+    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
+      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.query}-${i}` })),
+      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
+    runAgentMock.mockImplementation(async (_input, deps) => {
+      const overdraft = await deps.search({ collection: "bank_product_docs", query: "descoperit de cont", limit: 5 });
+      const loan = await deps.search({ collection: "bank_product_docs", query: "credit nevoi personale", limit: 5 });
+      expect([overdraft.passages.length, loan.passages.length]).toEqual([3, 2]);
+      return answer;
+    });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Is an overdraft or a personal loan better?" });
+  });
+
+  it("leaves evidence space for three routes when the customer describes a goal", async () => {
+    jevMock.mockResolvedValue({ status: "classified", classification: classification("purchase_goal", "solution") });
+    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
+      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.query}-${i}` })),
+      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
+    runAgentMock.mockImplementation(async (_input, deps) => {
+      const routes = [];
+      for (const query of ["credit nevoi personale", "descoperit de cont", "card de credit rate"]) {
+        routes.push((await deps.search({ collection: "bank_product_docs", query, limit: 5 })).passages.length);
+      }
+      expect(routes).toEqual([2, 2, 1]);
+      return answer;
+    });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(searchMock).toHaveBeenCalledTimes(3);
   });
 
   it("enforces a per-owner request limit before provider spend", async () => {

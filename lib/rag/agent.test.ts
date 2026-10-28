@@ -1,7 +1,7 @@
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
 import { type AgentDeps, type ModelRequest, runAgent } from "./agent";
-import { MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
+import { answerScopeNote, MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
 import { ragAnswerSchema } from "./answer";
 import { buildKnowledgeResult, isPublicCollection, unavailableResult } from "./knowledge";
 import type { SearchHit } from "./schemas";
@@ -97,7 +97,25 @@ describe("runAgent", () => {
     const answer = await runAgent(input, deps);
     expect(answer.status).toBe("answered");
     expect(answer.checks.attempts).toBe(2);
-    expect(String(requests[2]!.messages.at(-1)!.content)).toContain("5.10");
+    const note = String(requests[2]!.messages.at(-1)!.content);
+    expect(note).toContain("5.10");
+    expect(note).toMatch(/not from the customer/);
+    expect(note).toMatch(/don't mention the check/);
+  });
+
+  it("asks once for a rewrite without prices when financial figures are withheld", async () => {
+    const script = () => [
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
+      message("end_turn", [cited("It pays 4.70% a year.", 0)]),
+      message("end_turn", [cited("It is a fixed-term deposit that renews automatically.", 0)]),
+    ];
+    const withheld = fakeDeps(script(), [[hit("dep", "dobândă 4.70% pe an, reînnoire automată")]]);
+    const answer = await runAgent({ ...input, withholdFinancialFigures: true }, withheld.deps);
+    expect(answer).toMatchObject({ status: "answered", text: "It is a fixed-term deposit that renews automatically." });
+    expect(answer.checks.attempts).toBe(2);
+    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/without any of them/);
+    const quoted = await runAgent(input, fakeDeps(script(), [[hit("dep", "dobândă 4.70% pe an")]]).deps);
+    expect(quoted).toMatchObject({ text: "It pays 4.70% a year.", checks: { attempts: 1 } });
   });
 
   it("reports failed checks when the retry is still ungrounded", async () => {
@@ -239,5 +257,20 @@ describe("runAgent", () => {
     const sent = requests[0]!.messages;
     expect(sent.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
     expect(String(sent[2]!.content)).not.toMatch(/AI assistant/);
+  });
+});
+
+describe("answer scope notes", () => {
+  it("asks for three routes including not borrowing when the customer describes a goal", () => {
+    const note = answerScopeNote("solution");
+    expect(note).toMatch(/at least three routes/);
+    expect(note).toMatch(/not borrowing/);
+    expect(note).toMatch(/one short search per route/);
+  });
+
+  it("keeps a comparison to the named options and a detail answer to one product family", () => {
+    expect(answerScopeNote("compare")).toMatch(/exactly those/);
+    expect(answerScopeNote("detail")).toMatch(/name each variant/);
+    expect(answerScopeNote(null)).toMatch(/at least three routes/);
   });
 });

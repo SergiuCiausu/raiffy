@@ -13,6 +13,7 @@ import { requestJev } from "./jevTransport";
 import { planAgentRoute, type RoutePlan } from "../lib/agent/route";
 import { composeAnswer, containsFinancialFigure, routeResponse } from "../lib/agent/composer";
 import { unavailableResult } from "../lib/rag/knowledge";
+import { answerScopeNote } from "../lib/rag/prompt";
 import { namedBanks } from "../lib/rag/query";
 
 const HISTORY_TURNS = 10;
@@ -225,24 +226,30 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   if (!apiKey || !plan.model) return routeResponse({ ...plan, handler: "unavailable" });
   const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 45_000 });
   const seen = new Set<string>();
-  const comparedCollections = plan.collections.includes("bank_product_docs") && plan.collections.includes("competitor_docs")
-    ? ["bank_product_docs", "competitor_docs"] : [];
+  // Evidence space is kept for the second collection Claude should search: a bank the customer named,
+  // or the product pages' FAQs for a single product. Unused reservations would starve the other searches.
+  const second = namedBanks(question).some(bank => bank !== "raiffeisen") ? "competitor_docs"
+    : plan.scope !== "solution" && plan.scope !== "compare" ? "banking_help" : null;
+  const pairedCollections = second && plan.collections.includes("bank_product_docs") && plan.collections.includes(second)
+    ? ["bank_product_docs", second] : [];
   const searchedCollections = new Set<string>();
-  return runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections }, {
+  // Several routes need several searches, so no single search may take the whole evidence budget.
+  const perSearch = plan.scope === "solution" ? 2 : plan.scope === "compare" ? 3 : plan.limits.publicChunks;
+  return runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections, withholdFinancialFigures: true }, {
     createMessage: async ({ system, tools, messages }) => {
       const state = await ctx.runQuery(internal.agent.request, { messageId });
       if (state.message.status !== "streaming") throw new ConvexError("reply_stopped");
       return client.beta.messages.create({ model: plan.model!.id, max_tokens: 8000,
         output_config: { effort: plan.model!.effort }, system: [...system, { type: "text", text:
-          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog, account data, saved memory or approved offers are connected. Exact rates, fees, monetary amounts and credit limits are unavailable: do not quote them from RAG, even with citations. Explain sourced non-price conditions and documents instead. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` }], tools, messages });
+          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. To explain a Raiffeisen product, search bank_product_docs and then banking_help when both are authorized. No calculators, reviewed product-terms catalog, account data, saved memory or approved offers are connected. Exact rates, fees, monetary amounts and credit limits are unavailable: do not quote them from RAG, even with citations. Explain sourced non-price conditions and documents instead. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked. ${answerScopeNote(plan.scope)}` }], tools, messages });
     },
     search: async raw => {
       if (!plan.collections.includes(raw.collection)) return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
       const remaining = plan.limits.publicChunks - seen.size;
-      const reserved = comparedCollections.filter(c => c !== raw.collection && !searchedCollections.has(c)).length * 2;
+      const reserved = pairedCollections.filter(c => c !== raw.collection && !searchedCollections.has(c)).length * 2;
       const available = remaining - reserved;
       if (available <= 0) return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
-      const safe = { ...raw, query: screenChat(raw.query).text, limit: Math.min(raw.limit, available) };
+      const safe = { ...raw, query: screenChat(raw.query).text, limit: Math.min(raw.limit, available, perSearch) };
       const result = await searchKnowledge(ctx, plan.track, safe);
       searchedCollections.add(raw.collection);
       const passages = result.passages.filter(p => !seen.has(p.passageId)).slice(0, safe.limit);
