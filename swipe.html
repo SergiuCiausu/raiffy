@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Did you know · Ghid</title>
-<meta name="description" content="Concept page: a swipeable feed of short, educational money facts from Ghid, Raiffeisen Bank Romania's AI financial assistant.">
+<title>Did you know · Raiffy</title>
+<meta name="description" content="Concept page: a swipeable feed of short, educational money facts from Raiffy, Raiffeisen Bank Romania's AI financial assistant.">
 <!--
-  Ghid: "Did you know" swipe-card feed. Front end only, nothing is sent.
+  Raiffy: "Did you know" swipe-card feed. Front end only, nothing is sent.
   Mode: Daylight only. Accent #FFD23F / #FF9A3D used as light. Ink #1A1A1A for selection.
   Interaction: Tinder-style deck ported from vanilla.html (SwipeDeck). Right = Save, left = Skip.
   Stamps are restyled to the design language: ink + yellow halo for Save, hairline for Skip (no red/green).
@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ───────────── Tokens (shared with ghid-raiffeisen.html) ───────────── */
+/* ───────────── Tokens (shared with raiffy.html) ───────────── */
 :root {
   --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
@@ -100,8 +100,7 @@ a { color: inherit; }
 .logo small { font-size: 12px; font-weight: 500; color: #8E8E93; letter-spacing: 0; }
 .nav-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .nav .btn { height: 34px; padding: 0 14px; }
-.lang { font: 500 12px/1 var(--font-mono); color: #8E8E93; padding: 0 6px; }
-@media (max-width: 860px) { .lang, .nav .btn-ghost { display: none; } }
+@media (max-width: 860px) { .nav .btn-ghost { display: none; } }
 
 /* ───────────── Page layout ───────────── */
 .page { min-height: 100vh; padding: calc(60px + 64px) 0 96px; }
@@ -182,7 +181,7 @@ a { color: inherit; }
 @media (hover: none) { .keys { display: none; } }
 @media (max-width: 380px) { .controls { width: min(360px, 100%); } .controls .btn:not(.btn-undo) { flex: 1; min-width: 0; } }
 
-/* ───────────── Vignette parts (from ghid-raiffeisen.html) ───────────── */
+/* ───────────── Vignette parts (from raiffy.html) ───────────── */
 .bloom { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * 1.6); height: calc(var(--size) * 1.6); translate: -50% -50%;
   pointer-events: none; opacity: var(--bloom-opacity);
   background:
@@ -194,8 +193,8 @@ a { color: inherit; }
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); }
 .pill svg { width: 11px; height: 11px; }
 .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
-.ava-ghid { background: var(--ink); color: var(--accent-a); }
-.ava-ghid svg { width: 12px; height: 12px; stroke-width: 2.2; }
+.ava-raiffy { background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 12px; height: 12px; stroke-width: 2.2; }
 
 /* table */
 .v-table { left: 18px; top: 16px; right: -60px; padding: 12px; display: grid; gap: 8px; }
@@ -311,14 +310,13 @@ a { color: inherit; }
 
 <header class="nav">
   <div class="container">
-    <a class="logo" href="ghid-raiffeisen.html" aria-label="Ghid, home">
+    <a class="logo" href="raiffy.html" aria-label="Raiffy, home">
       <span class="logo-mark"><i data-lucide="compass"></i></span>
-      Ghid <small>by Raiffeisen Bank</small>
+      Raiffy <small>by Raiffeisen Bank</small>
     </a>
     <div class="nav-actions">
-      <span class="lang" aria-label="Language">RO · <b style="font-weight:500">EN</b></span>
-      <a class="btn btn-ghost" href="ghid-raiffeisen.html">Back to overview</a>
-      <a class="btn btn-dark" href="login.html#signup">Ask Ghid</a>
+      <a class="btn btn-ghost" href="raiffy.html">Back to overview</a>
+      <a class="btn btn-dark" href="login.html#signup">Ask Raiffy</a>
     </div>
   </div>
 </header>
@@ -344,7 +342,7 @@ a { color: inherit; }
           <p class="text-sm" id="empty-text"></p>
           <div class="actions">
             <button class="btn btn-ghost" id="restart" type="button"><i data-lucide="rotate-ccw"></i>Start over</button>
-            <a class="btn btn-dark" href="login.html#signup">Ask Ghid a question <i data-lucide="arrow-right"></i></a>
+            <a class="btn btn-dark" href="login.html#signup">Ask Raiffy a question <i data-lucide="arrow-right"></i></a>
           </div>
         </div>
       </div>
@@ -842,11 +840,11 @@ class SwipeDeck {
 /* ───────────── Vignettes: small built UI fragments, one per topic ─────────────
    Each has one bloom, one bleed or depth, one interaction moment. Figures are round and illustrative. */
 const cursor = (x, y) => `<svg class="cursor" style="left:${x};top:${y}" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>`;
-const GHID = '<span class="ava ava-ghid"><i data-lucide="compass"></i></span>';
+const RAIFFY = '<span class="ava ava-raiffy"><i data-lucide="compass"></i></span>';
 const VIGNETTES = {
   table: v => `
     <div class="frag v-table fade-r">
-      <div class="v-cap">${GHID}<b>${v.caption}</b></div>
+      <div class="v-cap">${RAIFFY}<b>${v.caption}</b></div>
       <div class="mtable">
         <div class="th"></div>${v.cols.map(c => `<div class="th">${c}</div>`).join('')}
         ${v.rows.map(r => `<div class="rk">${r[0]}</div><div>${r[1]}</div><div>${r[2]}</div>`).join('')}
@@ -897,7 +895,7 @@ const VIGNETTES = {
     <div class="frag v-msg">
       <div class="v-msg-h"><b>${v.from}</b><span>${v.time}</span></div>
       <p>${v.text}</p>
-      <div class="note">${GHID}${v.note}</div>
+      <div class="note">${RAIFFY}${v.note}</div>
     </div>`,
   note: v => `
     <div class="frag v-note dim"></div>
@@ -908,7 +906,7 @@ const VIGNETTES = {
       <div class="nt-foot">${v.foot}</div>
     </div>`,
   dyk: () => `
-    <div class="frag v-msg"><div class="note">${GHID}Did you know…</div></div>`,
+    <div class="frag v-msg"><div class="note">${RAIFFY}Did you know…</div></div>`,
 };
 
 // One visual per topic, in the order the topics appear in the markdown. Extra topics fall back to `dyk`.

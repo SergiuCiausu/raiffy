@@ -1,6 +1,6 @@
 # Business: Edge cases (evals and tests)
 
-Every business pattern also runs the individuals-track checks (`docs/individuals/evals.md`): at least three financing routes, every commission listed or "no commissions" confirmed, numbers only from tools, answer in the owner's language.
+Every business pattern also runs the individuals-track checks (`docs/individuals/evals.md`): the right answer scope and option count, every commission listed or "no commissions" confirmed, numbers only from tools, answer in English (POC).
 
 ## Identity and track
 

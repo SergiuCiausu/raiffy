@@ -25,7 +25,7 @@
 | No investment recommendation phrasing | Auth · MiFID II |
 | Every product answer lists all commissions and hidden costs, or states explicitly there are none; "no commissions" never appears when any fee is unknown or stale | Commission transparency rule |
 | A cheaper competitor is always disclosed and followed by a counter-offer | Pattern 2 |
-| At least three financing routes compared whenever money is involved | Answer patterns · core rule |
+| The answer scope is right and the option count matches it: the named options (`compare`), at least three routes (`solution`), or one product plus a follow-up question (`detail`) | Answer patterns · core rule |
 
 ## Fairness evals
 

@@ -37,6 +37,12 @@ Locked for the POC: **Next.js** (App Router, pnpm), **Convex** as the only datab
 
 Also: the Vercel AI SDK (streaming and generative UI), Convex reactive queries and scheduled jobs, TypeScript and Zod, Framer Motion, Recharts or Visx, promptfoo for evals. EU hosting for the model endpoint, database and logs.
 
+## POC overrides
+
+- **English only.** The interface and every answer are in English. Language detection, the RO/EN toggle and translated labels are deferred. Where this spec quotes Romanian copy, use the English equivalent.
+- **Answer scope:** how many options an answer shows depends on the question (compare, solution or detail). See `docs/individuals/answer-patterns.md` → Core rule.
+- **Streaming:** answers stream word by word after the thinking panel, not line by line.
+
 ## Brand
 
-Palette: navy `#06101D`, cyan `#3FD3F2` (only the recommended option glows), orange `#FF9A4D` (warnings and counter-offers). Fonts: Sora, IBM Plex Sans, IBM Plex Mono (numbers). Visual reference: the BMW X5 answer-screen mockup (add the exported HTML and a screenshot to `docs/ui/`).
+Palette, fonts and visual language come from `../DESIGN.md` and the HTML prototypes (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`). Use the yellow `#FFD23F` and amber `#FF9A3D` accent as light, ink `#1A1A1A` for selection, and Geist with Geist Mono for numbers. They override any palette or font named elsewhere in this spec.

@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ghid · AI Assistant</title>
-<meta name="description" content="Concept landing page: Ghid, an AI financial assistant for Raiffeisen Bank Romania customers.">
+<title>Raiffy · AI Assistant</title>
+<meta name="description" content="Concept landing page: Raiffy, an AI financial assistant for Raiffeisen Bank Romania customers.">
 <!--
-  Ghid: concept landing page for an AI financial guide inside Raiffeisen Bank Romania's app and website.
+  Raiffy: concept landing page for an AI financial guide inside Raiffeisen Bank Romania's app and website.
   Mode: Mixed. Nocturne hero (isometric comparison stack, iso-tilt orbit) → Daylight sections. One switch only.
   Accent: a warm yellow/amber pair (#FFD23F / #FF9A3D), close to the bank's yellow. Used as light, never as text on Daylight.
-  Sections: Nav → Hero → Channels → What Ghid helps with (zigzag bento) → Simulator + safeguards (deep-dive)
+  Sections: Nav → Hero → Channels → What Raiffy helps with (zigzag bento) → Simulator + safeguards (deep-dive)
             → For the bank (3 cards) → Final CTA → Footer
   All rates, fees and figures are illustrative. Concept work, not an official product.
 -->
@@ -145,17 +145,16 @@ a { color: inherit; }
 .nav .btn { height: 34px; padding: 0 14px; }
 .nav .btn-ghost { color: inherit; border-color: rgba(255,255,255,.16); }
 .nav .btn-dark { background: #F4F4F6; color: #111; }
-.lang { font: 500 12px/1 var(--font-mono); color: rgba(244,244,246,.5); padding: 0 6px; }
 @media (hover: hover) and (pointer: fine) { .nav-links a:hover { color: #F4F4F6; } }
 .nav.is-light { background: rgba(250,249,247,.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-bottom-color: rgba(20,20,20,.07); color: #1A1A1A; }
-.nav.is-light .logo small, .nav.is-light .lang { color: #8E8E93; }
+.nav.is-light .logo small { color: #8E8E93; }
 .nav.is-light .nav-links a { color: #5C5C5F; }
 .nav.is-light .btn-ghost { border-color: rgba(20,20,20,.12); }
 .nav.is-light .btn-dark { background: #1A1A1A; color: #fff; }
 @media (hover: hover) and (pointer: fine) { .nav.is-light .nav-links a:hover { color: #1A1A1A; } }
 .nav.is-dark { background: rgba(8,8,11,.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom-color: rgba(255,255,255,.06); }
-@media (max-width: 860px) { .nav-links, .lang, .nav .btn-ghost { display: none; } }
+@media (max-width: 860px) { .nav-links, .nav .btn-ghost { display: none; } }
 
 /* ───────────── Hero (Nocturne, isometric art) ───────────── */
 .hero { --focus-x: 72%; --focus-y: 50%; position: relative; isolation: isolate; overflow: hidden; min-height: 720px; padding: 164px 0 120px; }
@@ -319,8 +318,8 @@ a { color: inherit; }
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); }
 .pill svg { width: 11px; height: 11px; }
 .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
-.ava-ghid { background: var(--ink); color: var(--accent-a); }
-.ava-ghid svg { width: 12px; height: 12px; stroke-width: 2.2; }
+.ava-raiffy { background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 12px; height: 12px; stroke-width: 2.2; }
 
 /* Compare: chat with a comparison table */
 .chat { left: 32px; top: 28px; right: -48px; padding: 16px; display: grid; gap: 12px; }
@@ -328,13 +327,21 @@ a { color: inherit; }
 .msg.me { justify-content: flex-end; }
 .bubble { padding: 9px 12px; border-radius: 12px; line-height: 1.45; max-width: 38ch; }
 .me .bubble { margin-right: 56px; background: var(--surface-2); color: var(--text-1); border-bottom-right-radius: 4px; }
-.ghid-reply { display: grid; gap: 10px; flex: 1; min-width: 0; }
-.ghid-reply p { color: var(--text-2); max-width: 52ch; }
+.raiffy-reply { display: grid; gap: 10px; flex: 1; min-width: 0; }
+.raiffy-reply p { color: var(--text-2); max-width: 52ch; }
 .mtable { display: grid; grid-template-columns: 1.3fr 1fr 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; max-width: 420px; font-size: 11.5px; }
 .mtable > div { padding: 7px 10px; border-top: 1px solid var(--border); }
 .mtable .th { border-top: 0; font-weight: 600; font-size: 11px; color: var(--text-2); background: #FBFAF8; }
 .mtable .rk { color: var(--text-3); }
 .mtable .on { background: #FFF8DC; color: var(--text-1); font-weight: 500; }
+.mtable .rc { background: #FFFCF0; }
+.mtable .rc.on { background: #FFF3C4; }
+/* Recommended option: ink on the yellow tint with the halo, never a different hue */
+.rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 18px; padding: 0 7px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
+  font-size: 10px; font-weight: 600; letter-spacing: .01em; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+.rec-badge svg { width: 10px; height: 10px; stroke-width: 2.4; }
+.rec-badge[hidden] { display: none; }
+.mtable .th .rec-badge { height: 16px; margin: -2px 0 -2px 6px; padding: 0 6px; vertical-align: 1px; }
 .src { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Simulate */
@@ -458,6 +465,10 @@ a { color: inherit; }
 @media (max-width: 480px) { .opts { grid-template-columns: 1fr; } }
 .opt { border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 12px; background: var(--surface); transition: opacity 200ms ease; }
 .opt.na { opacity: .55; }
+.opt.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
+.opt-h .rec-badge { margin-bottom: 6px; }
+/* Both cards reserve the badge row, so they stay aligned when the recommendation moves */
+.opt-h .rec-badge[hidden] { display: inline-flex; visibility: hidden; }
 .opt-h { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
 .opt-h .micro { font-weight: 400; }
 .opt .big { font: 600 22px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -585,11 +596,11 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
   .iso-note + .iso-note { animation-delay: 1180ms; }
 
   /* Feature vignettes: each plays once, when its card is revealed */
-  /* Compare: Ghid's reply arrives in parts, then the cursor moves onto the answer */
-  .js .reveal.in .ghid-reply > * { animation: rise 500ms var(--ease-out) backwards; }
-  .js .reveal.in .ghid-reply > :nth-child(1) { animation-delay: 300ms; }
-  .js .reveal.in .ghid-reply > :nth-child(2) { animation-delay: 380ms; }
-  .js .reveal.in .ghid-reply > :nth-child(3) { animation-delay: 460ms; }
+  /* Compare: Raiffy's reply arrives in parts, then the cursor moves onto the answer */
+  .js .reveal.in .raiffy-reply > * { animation: rise 500ms var(--ease-out) backwards; }
+  .js .reveal.in .raiffy-reply > :nth-child(1) { animation-delay: 300ms; }
+  .js .reveal.in .raiffy-reply > :nth-child(2) { animation-delay: 380ms; }
+  .js .reveal.in .raiffy-reply > :nth-child(3) { animation-delay: 460ms; }
   .js .reveal.in .chat ~ .cursor { animation: arrive 700ms var(--ease-in-out) backwards 760ms; }
 
   /* Simulate: the cursor drags the amount to 8,000 lei (on-screen movement → ease-in-out) */
@@ -636,9 +647,9 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
 
 <header class="nav" id="nav">
   <div class="container">
-    <a class="logo" href="#top" aria-label="Ghid, home">
+    <a class="logo" href="#top" aria-label="Raiffy, home">
       <span class="logo-mark"><i data-lucide="compass"></i></span>
-      Ghid <small>by Raiffeisen Bank</small>
+      Raiffy <small>by Raiffeisen Bank</small>
     </a>
     <nav class="nav-links" aria-label="Main">
       <a href="#features">What it helps with</a>
@@ -647,9 +658,8 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
       <a href="#bank">For the bank</a>
     </nav>
     <div class="nav-actions">
-      <span class="lang" aria-label="Language">RO · <b style="font-weight:500">EN</b></span>
       <a class="btn btn-ghost" href="#handoff">Talk to an advisor</a>
-      <a class="btn btn-dark" href="login.html#signup">Ask Ghid</a>
+      <a class="btn btn-dark" href="login.html#signup">Ask Raiffy</a>
     </div>
   </div>
 </header>
@@ -696,14 +706,14 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
     <div class="hero-copy">
       <div class="eyebrow"><i></i>Concept · Raiffeisen Bank Romania</div>
       <h1>Understand every financial decision before you make it</h1>
-      <p class="lead">Ghid is the AI assistant in the Raiffeisen app and website. It compares loans, savings and fees in plain language, simulates repayments and gets your documents ready. It explains your options. You decide.</p>
+      <p class="lead">Raiffy is the AI assistant in the Raiffeisen app and website. It compares loans, savings and fees in plain language, simulates repayments and gets your documents ready. It recommends the option that fits and shows why. You decide.</p>
       <div class="cta">
         <a class="btn-glow" href="#simulator">Try a comparison <i data-lucide="arrow-right"></i></a>
         <a class="btn-line" href="#bank">The case for the bank</a>
       </div>
       <div class="hero-proof">
         <span><i data-lucide="clock"></i>Answers 24/7</span>
-        <span><i data-lucide="scale"></i>Never chooses for you</span>
+        <span><i data-lucide="scale"></i>Recommends, and shows why</span>
         <span><i data-lucide="headset"></i>Hands you to a human advisor</span>
       </div>
     </div>
@@ -719,7 +729,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
             <span class="h">8,000 LEI</span><span class="h">LOAN</span><span class="h">OVERDRAFT</span>
             <span class="k">Interest</span><span>7.9% fixed</span><span>11.5% var.</span>
             <span class="k">Monthly payment</span><span>696 lei</span><span>709 lei</span>
-            <span class="k hl-row">Total cost</span><span class="hl-row">596 lei</span><span class="hl-row">507 lei</span>
+            <span class="k hl-row">Total cost</span><span class="hl-row">595 lei</span><span class="hl-row">507 lei</span>
             <span class="k">Early repayment</span><span>0.5% fee</span><span>Anytime</span>
           </div>
         </div>
@@ -749,7 +759,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
 </section>
 
 <!-- ═════════════ Channels ═════════════ -->
-<section class="channels" aria-label="Where Ghid is available">
+<section class="channels" aria-label="Where Raiffy is available">
   <div class="container">
     <span class="eyebrow">Where customers already are</span>
     <span class="ch"><i data-lucide="smartphone"></i>Smart Mobile app</span>
@@ -764,7 +774,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
 <section class="section" id="features">
   <div class="container">
     <div class="section-header reveal">
-      <span class="eyebrow">What Ghid helps with</span>
+      <span class="eyebrow">What Raiffy helps with</span>
       <h2>The questions people usually save for a visit to the bank</h2>
       <p class="lead">Every answer uses the customer’s own offers and rates, shows all the options side by side and says where the numbers come from.</p>
     </div>
@@ -775,26 +785,26 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
         <div class="card-visual" aria-hidden="true">
           <div class="bloom" style="--x:78%;--y:22%;--size:340px"></div>
           <div class="frag chat fade-r">
-            <div class="msg me"><div class="bubble">I need 8,000 lei for a year. Overdraft or a small loan?</div></div>
+            <div class="msg me"><div class="bubble">8,000 lei for a year: overdraft or a loan?</div></div>
             <div class="msg">
-              <span class="ava ava-ghid"><i data-lucide="compass"></i></span>
-              <div class="ghid-reply">
-                <p>Both work. Over 12 months the overdraft costs about 89 lei less, but the loan locks in your rate.</p>
+              <span class="ava ava-raiffy"><i data-lucide="compass"></i></span>
+              <div class="raiffy-reply">
+                <p>I recommend the overdraft: over 12 months it costs about 88 lei less, and you can repay it anytime. The loan is the pick if you want a fixed rate.</p>
                 <div class="mtable">
-                  <div class="th"></div><div class="th">Personal loan</div><div class="th">Overdraft</div>
-                  <div class="rk">Monthly payment</div><div>696 lei</div><div>709 lei</div>
-                  <div class="rk on">Total cost</div><div class="on">596 lei</div><div class="on">507 lei</div>
-                  <div class="rk">Interest</div><div>7.9% fixed</div><div>11.5% variable</div>
+                  <div class="th"></div><div class="th">Personal loan</div><div class="th rc">Overdraft<span class="rec-badge"><i data-lucide="sparkles"></i>Recommended</span></div>
+                  <div class="rk">Monthly payment</div><div>696 lei</div><div class="rc">709 lei</div>
+                  <div class="rk on">Total cost</div><div class="on">595 lei</div><div class="on rc">507 lei</div>
+                  <div class="rk">Interest</div><div>7.9% fixed</div><div class="rc">11.5% variable</div>
                 </div>
                 <div class="src"><span class="pill"><i data-lucide="file-text"></i>Your pre-approved offer</span><span class="pill"><i data-lucide="calendar"></i>Rates as of 28 Oct</span></div>
               </div>
             </div>
           </div>
-          <svg class="cursor" style="left:300px;top:178px" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>
+          <svg class="cursor" style="left:476px;top:172px" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>
         </div>
         <div class="card-body">
           <h4>Compare a loan with an overdraft</h4>
-          <p class="text-sm">Ghid puts both options in one table, with the same amount and the same term, then explains the trade-off: a lower total cost or more flexibility.</p>
+          <p class="text-sm">Raiffy puts both options in one table, with the same amount and the same term, recommends one and says why, along with when the other is the better pick.</p>
         </div>
       </article>
 
@@ -854,7 +864,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
         </div>
         <div class="card-body">
           <h4>Choose where to keep your savings</h4>
-          <p class="text-sm">Interest versus access to your money, presented honestly. Ghid asks when you might need the money before it shows you any option.</p>
+          <p class="text-sm">Interest versus access to your money, presented honestly. Raiffy asks when you might need the money before it shows you any option.</p>
         </div>
       </article>
 
@@ -871,7 +881,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
             <div class="line"><span>Enel Energie<span class="dsc">Direct debit · 8 Oct</span></span><span class="amt">−212.15</span></div>
           </div>
           <div class="frag pop">
-            <div class="pop-h"><span class="ava ava-ghid"><i data-lucide="compass"></i></span>Why did I pay 5 lei?</div>
+            <div class="pop-h"><span class="ava ava-raiffy"><i data-lucide="compass"></i></span>Why did I pay 5 lei?</div>
             <p>You withdrew cash from another bank’s ATM. Your package only includes free withdrawals at Raiffeisen ATMs.</p>
             <div class="tip"><i data-lucide="map-pin"></i>Nearest Raiffeisen ATM to that one: 350 m, Str. Barbu Văcărescu.</div>
           </div>
@@ -879,7 +889,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
         </div>
         <div class="card-body">
           <h4>Understand every fee</h4>
-          <p class="text-sm">Tap any fee on your statement and Ghid explains why you paid it and how to avoid it next time.</p>
+          <p class="text-sm">Tap any fee on your statement and Raiffy explains why you paid it and how to avoid it next time.</p>
         </div>
       </article>
 
@@ -898,13 +908,13 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
           <div class="frag handoff fade-r">
             <div class="adv"><span class="ava">AM</span><div><b>Andreea M., personal advisor</b><span class="micro">Floreasca branch · or video call</span></div></div>
             <div class="slot"><span>Mon 09:00</span><span class="on">Tue 10:30</span><span>Wed 15:00</span></div>
-            <div class="summary"><b><i data-lucide="file-text"></i>Ghid summary, shared with your consent</b>Wants 8,000 lei over 12 months. Compared the loan with the overdraft. Leaning towards the loan for the fixed rate. Has two questions about early repayment.</div>
+            <div class="summary"><b><i data-lucide="file-text"></i>Raiffy summary, shared with your consent</b>Wants 8,000 lei over 12 months. Compared the loan with the overdraft. Leaning towards the loan for the fixed rate. Has two questions about early repayment.</div>
           </div>
           <div class="frag handoff-dim dim"></div>
         </div>
         <div class="card-body">
           <h4>Arrive at your advisor prepared</h4>
-          <p class="text-sm">Ghid tells you what the meeting needs, checks the documents you already have and books an appointment. With your permission, the advisor gets a short summary, so you don’t start from scratch.</p>
+          <p class="text-sm">Raiffy tells you what the meeting needs, checks the documents you already have and books an appointment. With your permission, the advisor gets a short summary, so you don’t start from scratch.</p>
         </div>
       </article>
     </div>
@@ -915,14 +925,14 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
 <section class="section" id="simulator" style="padding-top:0">
   <div class="container dive">
     <div id="safeguards" class="reveal">
-      <span class="eyebrow">Explains, never decides</span>
+      <span class="eyebrow">Recommends, you decide</span>
       <h2 style="margin-top:16px">A guide with rules it can’t break</h2>
-      <p class="lead" style="margin-top:16px">Customers trust advice that shows its working. Ghid is built so that every answer can be checked.</p>
+      <p class="lead" style="margin-top:16px">Customers trust advice that shows its working. Raiffy is built so that every answer can be checked.</p>
       <ul class="rules">
-        <li><span class="ic"><i data-lucide="columns-2"></i></span><div><h4>Every option, given equal weight</h4><p>Alternatives appear side by side, with the same amount, the same term and the same fields. Nothing is preselected.</p></div></li>
+        <li><span class="ic"><i data-lucide="columns-2"></i></span><div><h4>A recommendation, with its reasons</h4><p>Alternatives appear side by side, with the same amount, the same term and the same fields. One is marked as recommended, with the reasons and when another option fits better.</p></div></li>
         <li><span class="ic"><i data-lucide="file-search"></i></span><div><h4>A source for every number</h4><p>Rates, fees and limits link to the customer’s offer or to the published fee schedule.</p></div></li>
         <li><span class="ic"><i data-lucide="circle-help"></i></span><div><h4>Says when it doesn’t know</h4><p>Tax, legal and complex lending questions go to a human advisor, along with the context.</p></div></li>
-        <li><span class="ic"><i data-lucide="shield-check"></i></span><div><h4>Suitability first, product second</h4><p>An offer only appears after an affordability check, and Ghid explains why it appeared.</p></div></li>
+        <li><span class="ic"><i data-lucide="shield-check"></i></span><div><h4>Suitability first, product second</h4><p>An offer only appears after an affordability check, and Raiffy explains why it appeared.</p></div></li>
       </ul>
     </div>
 
@@ -946,17 +956,17 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
 
       <div class="opts">
         <div class="opt" id="opt-loan">
-          <div class="opt-h">Personal loan <span class="micro">7.9% fixed · 250 lei fee</span></div>
+          <div class="opt-h"><span class="rec-badge" hidden><i data-lucide="sparkles"></i>Recommended</span>Personal loan <span class="micro">7.9% fixed · 249 lei fee</span></div>
           <div class="big" id="loan-m">696<small>lei / month</small></div>
           <div class="kv">
-            <div>Total cost <b id="loan-c">596 lei</b></div>
-            <div>Total to repay <b id="loan-t">8,596 lei</b></div>
+            <div>Total cost <b id="loan-c">595 lei</b></div>
+            <div>Total to repay <b id="loan-t">8,595 lei</b></div>
           </div>
           <div class="costbar"><span id="loan-bar"></span></div>
           <div class="opt-note">The same payment every month, until the end.</div>
         </div>
         <div class="opt" id="opt-od">
-          <div class="opt-h">Overdraft <span class="micro">11.5% variable · no fee</span></div>
+          <div class="opt-h"><span class="rec-badge" hidden><i data-lucide="sparkles"></i>Recommended</span>Overdraft <span class="micro">11.5% variable · no fee</span></div>
           <div class="big" id="od-m">709<small>lei / month</small></div>
           <div class="kv">
             <div>Total cost <b id="od-c">507 lei</b></div>
@@ -968,9 +978,9 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
       </div>
 
       <div class="explain">
-        <span class="ava ava-ghid" aria-hidden="true"><i data-lucide="compass"></i></span>
+        <span class="ava ava-raiffy" aria-hidden="true"><i data-lucide="compass"></i></span>
         <div>
-          <p id="explain" aria-live="polite">Over 12 months, the overdraft costs about 89 lei less, because the loan has a one-off fee. The loan gives you a fixed rate and a clear end date. What matters more to you?</p>
+          <p id="explain" aria-live="polite">I recommend the overdraft. Over 12 months it costs about 88 lei less, because the loan has a one-off fee, and you can repay it anytime for free. The loan is the pick if you want a fixed rate and a clear end date.</p>
           <div class="q">
             <button class="qbtn" type="button" id="q-early">What if I repay early?</button>
             <a class="qbtn" href="#handoff">Book an advisor</a>
@@ -988,7 +998,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
     <div class="section-header reveal">
       <span class="eyebrow">For Raiffeisen Bank</span>
       <h2>Growth that scales without overloading the branches</h2>
-      <p class="lead">Ghid takes on the repetitive questions, so advisors can spend their time on the conversations that really need a person.</p>
+      <p class="lead">Raiffy takes on the repetitive questions, so advisors can spend their time on the conversations that really need a person.</p>
     </div>
 
     <div class="bento">
@@ -1009,7 +1019,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
         </div>
         <div class="card-body">
           <h4>Serve more customers, 24/7</h4>
-          <p class="text-sm">Most money questions come up in the evening, after hours. Ghid answers them then, without adding load on the branches.</p>
+          <p class="text-sm">Most money questions come up in the evening, after hours. Raiffy answers them then, without adding load on the branches.</p>
         </div>
       </article>
 
@@ -1019,7 +1029,7 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
           <div class="frag onb">
             <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Scan your ID card</span><span>1:40</span></div>
             <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Video selfie check</span><span>0:55</span></div>
-            <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Ghid explains the account package</span><span>4:10</span></div>
+            <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Raiffy explains the account package</span><span>4:10</span></div>
             <div class="step"><span class="dot now"></span><span>Sign the contract</span><span>~2:00</span></div>
             <div class="onb-total"><span>New customer, in the app</span><b>8 min 45 s</b></div>
           </div>
@@ -1080,10 +1090,10 @@ footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 1
   <div class="container">
     <div class="foot">
       <div>
-        <a class="logo" href="#top"><span class="logo-mark"><i data-lucide="compass"></i></span>Ghid <small>by Raiffeisen Bank</small></a>
+        <a class="logo" href="#top"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy <small>by Raiffeisen Bank</small></a>
         <p>An AI assistant that explains financial options in plain language. The decision always stays with the customer.</p>
       </div>
-      <div><h5>Ghid</h5><ul><li><a href="#features">What it helps with</a></li><li><a href="#simulator">Try a comparison</a></li><li><a href="#safeguards">Principles</a></li></ul></div>
+      <div><h5>Raiffy</h5><ul><li><a href="#features">What it helps with</a></li><li><a href="#simulator">Try a comparison</a></li><li><a href="#safeguards">Principles</a></li></ul></div>
       <div><h5>For the bank</h5><ul><li><a href="#bank">Business case</a></li><li><a href="#handoff">Advisor handoff</a></li><li><a href="#bank">Pilot plan</a></li></ul></div>
       <div><h5>Trust</h5><ul><li><a href="#safeguards">How answers are checked</a></li><li><a href="#safeguards">Data and consent</a></li><li><a href="#safeguards">Accessibility</a></li></ul></div>
     </div>
@@ -1139,7 +1149,7 @@ if (window.lucide) lucide.createIcons({ attrs: { 'stroke-width': 1.6 } });
 
 /* Simulator. Values update instantly while dragging: no animation on a high-frequency input. */
 (function () {
-  var LOAN = { rate: .079, fee: 250 }, OD = { rate: .115, limit: 15000 };
+  var LOAN = { rate: .079, fee: 249 }, OD = { rate: .115, limit: 15000 };
   var $ = function (id) { return document.getElementById(id); };
   var amt = $('amt'), term = $('term');
   /* English formatting: comma as thousands separator ("8,000 lei") */
@@ -1170,16 +1180,26 @@ if (window.lucide) lucide.createIcons({ attrs: { 'stroke-width': 1.6 } });
     $('od-bar').style.transform = 'scaleX(' + (odOk ? oc / max : 0) + ')';
     fill(amt); fill(term);
 
-    var t = months(n), d = Math.abs(lc - oc), ask = ' What matters more to you?', msg;
+    /* Recommendation rule: the cheapest option that fits; a near-tie goes to the fixed-rate loan */
+    var t = months(n), d = Math.abs(lc - oc), msg, rec;
     if (!odOk) {
-      msg = lei(A) + ' is over the usual overdraft limit, so the personal loan is the fit here. Over ' + t + ' you would pay ' + lei(lm) + ' a month. Want to see how the total changes over a shorter term?';
+      rec = 'loan';
+      msg = 'I recommend the personal loan. ' + lei(A) + ' is over the usual overdraft limit, so it’s the only fit, and over ' + t + ' you’d pay ' + lei(lm) + ' a month at a rate that never changes.';
     } else if (d < 40) {
-      msg = 'Over ' + t + ' they cost almost the same. The real difference is certainty versus flexibility: a fixed payment with the loan, or repaying whenever you like with the overdraft.' + ask;
+      rec = 'loan';
+      msg = 'I recommend the personal loan. Over ' + t + ' both cost almost the same, and its fixed rate means your payment can’t go up. The overdraft is the pick if you’d rather repay whenever you like.';
     } else if (oc < lc) {
-      msg = 'Over ' + t + ', the overdraft costs about ' + lei(d) + ' less, because the loan has a one-off fee. The loan gives you a fixed rate and a clear end date.' + ask;
+      rec = 'od';
+      msg = 'I recommend the overdraft. Over ' + t + ' it costs about ' + lei(d) + ' less, because the loan has a one-off fee, and you can repay it anytime for free. The loan is the pick if you want a fixed rate and a clear end date.';
     } else {
-      msg = 'Over ' + t + ', the loan costs about ' + lei(d) + ' less, thanks to its lower fixed rate.' + (n > 12 ? ' The overdraft renews every year, so its rate can change along the way.' : ' The overdraft lets you repay early with no fee.') + ask;
+      rec = 'loan';
+      msg = 'I recommend the personal loan. Over ' + t + ' it costs about ' + lei(d) + ' less, thanks to its lower fixed rate.' + (n > 12 ? ' The overdraft renews every year, so its rate can change along the way.' : ' The overdraft is the pick if you want to repay early with no fee.');
     }
+    [['opt-loan', 'loan'], ['opt-od', 'od']].forEach(function (o) {
+      var el = $(o[0]), on = o[1] === rec;
+      el.classList.toggle('rec', on);
+      el.querySelector('.rec-badge').hidden = !on;
+    });
     if (mode === 'early') {
       var k = Math.max(1, Math.floor(n / 2)), r = LOAN.rate / 12;
       var left = A * Math.pow(1 + r, k) - lm * (Math.pow(1 + r, k) - 1) / r;

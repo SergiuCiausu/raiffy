@@ -1,6 +1,6 @@
 # Business: Answer patterns
 
-**Core rule, unchanged: always compare financing routes.** Every business answer involving money compares at least three routes for the business's numbers, including routes that don't borrow, with every commission listed.
+**Core rule, unchanged: the answer scope follows the question** (`docs/individuals/answer-patterns.md`). A `solution` answer compares at least three routes for the business's numbers, including routes that don't borrow; `compare` shows the options named; `detail` covers one product and ends with a follow-up question. Every commission is listed.
 
 ## Business financing routes catalog
 

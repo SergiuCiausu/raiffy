@@ -2,9 +2,19 @@
 
 Ten reusable answer structures that cover most customer questions in any domain: cars, homes, education, weddings, travel, health costs. The router (see `docs/shared/pipeline.md`) picks one pattern per goal; the tools listed in each pattern supply the numbers. Domain specifics (a car's age limit for leasing, a flat's notary fees) come from small per-domain packs of cost tables, eligibility rules and safety tips.
 
-## Core rule: always compare financing routes
+## Core rule: the answer scope follows the question
 
-Whenever money will be spent, borrowed, saved or repaid, the answer compares **at least three routes** side by side for the customer's numbers, including not borrowing (using savings, or saving longer). For each route it shows the monthly cost, total cost, time to reach the goal, eligibility and the main risk, then says which route fits best given their stated priorities and why, and where a competitor's route would be cheaper. No pattern ends with a single product.
+The router classifies every money question into one of three **answer scopes**, and the number of options shown follows it:
+
+| Scope | When | What the answer shows |
+| --- | --- | --- |
+| `compare` | The customer names the options ("Overdraft or personal loan?") | Exactly the options they named, side by side, with one recommended and why |
+| `solution` | The customer describes a goal or a problem ("I need 8,000 lei for a car repair") | **At least three routes** side by side, including not borrowing (using savings, or saving longer), with one recommended and why |
+| `detail` | The customer asks about one specific product ("How does early repayment work on my loan?") | Details of that product only. The answer **ends with one question** that invites the customer to go deeper into this product or to explore a related Raiffeisen solution, whichever fits what was just said |
+
+For each route shown, the answer gives the monthly cost, total cost, time to reach the goal, eligibility and the main risk, then says which route fits best given their stated priorities and why, and where a competitor's route would be cheaper. Outside the `detail` scope, no answer ends with a single product.
+
+Every answer also carries 2 or 3 **pre-generated follow-up replies** (in `actions[]`) that the customer can send with Tab and Enter; see `DESIGN.md` → Follow-up suggestions. In the `detail` scope, one goes deeper into the same product and one opens a related Raiffeisen solution.
 
 Each route in the comparison also lists **every commission and hidden cost** (origination, administration, early repayment, mandatory insurance, required packages, FX spreads), or states explicitly that there are none. Monthly and total costs always include them.
 
@@ -150,6 +160,6 @@ Tools: card freeze path, ticketing, scam scripts, human handoff.
 
 ## Testing the patterns
 
-For each pattern, add 5 to 10 eval cases across different domains, and check three things: the right pattern was picked, every step appears, and **at least three financing routes are compared** whenever money is involved. A missing route comparison fails the eval.
+For each pattern, add 5 to 10 eval cases across different domains, and check three things: the right pattern was picked, every step appears, and the **answer scope** was picked correctly with the matching number of options (the named options, at least three routes, or one product ending with a follow-up question). A wrong option count fails the eval.
 
 Block recipes per pattern (which UI blocks each pattern renders) are in `docs/shared/answer-schema.md`.

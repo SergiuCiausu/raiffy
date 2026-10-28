@@ -11,7 +11,7 @@ Every customer message goes through six steps. Three LLM workflows carry the jud
 | 3 | Orchestrator and subagents | LLM workflow (orchestrator-workers) | Goal splitting, per-goal pattern processing, cross-goal route decision |
 | 4 | Composer and generator | Code + LLM | Calculations, block recipes; the 2–3 framing sentences |
 | 5 | Evaluator | Code checks + LLM workflow (evaluator-optimizer) | Behavior rules, commission transparency, comparison honesty, language |
-| 6 | Thinking panel and delivery | Frontend | Visible reasoning, then line-by-line fade-in with interactive blocks |
+| 6 | Thinking panel and delivery | Frontend | Visible reasoning, then word-by-word streaming with interactive blocks |
 
 The steps share one conversation state in Convex: detected language, mode, goals, slider values, tool results and evaluator verdicts. Each step reads it and writes its part, so any step can be logged, replayed and audited.
 
@@ -35,6 +35,7 @@ It returns structured output:
 type Route = {
   goals: number;                  // 1 = single goal, 2+ = multi-goal
   pattern: PatternId | "freeform"; // for single-goal messages
+  scope: "compare" | "solution" | "detail"; // how many options to show, see answer-patterns.md
   difficulty: "simple" | "complex";
   missing: string[];              // details to ask for, e.g. ["price", "term"]
   confidence: number;
@@ -102,9 +103,9 @@ The evaluator holds the **behavior rules** and **regulatory wording rules**, and
 | --- | --- |
 | Every number in `text` matches a block value | Hard limits · output safeguards |
 | Each route lists commissions, or `hasNoCommissions` is confirmed true | Commission transparency |
-| At least three financing routes when money is involved | Answer patterns · core rule |
+| Option count matches the answer scope (named options, at least three, or one plus a follow-up question) | Answer patterns · core rule |
 | A cheaper competitor in the data is shown and followed by a counter-offer | Pattern 2 |
-| AI disclosure present on first message; answer in the customer's language | Behavior rules · disclosure |
+| AI disclosure present on first message; answer in English (POC) | Behavior rules · disclosure |
 | `suppressOffers` respected in hardship and crisis | Behavior rules · sensitive situations |
 | Schema valid for every block | Answer schema |
 
@@ -123,7 +124,7 @@ Practical rules: the evaluator prompt is versioned with the behavior rules, so c
 
 ## Step 6: Thinking panel and delivery
 
-While steps 2 to 5 run, the customer watches a **thinking panel**; once the evaluator approves, the official answer appears line by line with its interactive blocks.
+While steps 2 to 5 run, the customer watches a **thinking panel**; once the evaluator approves, the official answer streams in word by word with its interactive blocks.
 
 **The thinking panel**
 
@@ -144,10 +145,10 @@ While steps 2 to 5 run, the customer watches a **thinking panel**; once the eval
 **Official delivery**
 
 - Only an evaluator-approved `Answer` is delivered.
-- `text` fades in line by line (each sentence or line about 150–250 ms apart, fade and slight rise).
+- `text` streams in word by word (about 25–60 ms per word) with a blinking caret, the way `chat.html` does it.
 - Blocks follow in recipe order, each fading in after the previous one, with charts animating to their values (gauge needle sweeping, cost bar filling).
 - Interactive controls (sliders, buttons, counter-offer) become active as soon as their block appears.
-- Under `prefers-reduced-motion`, everything appears with a simple fade, no movement; screen readers get the text through an ARIA live region once, not line by line.
+- Under `prefers-reduced-motion`, everything appears with a simple fade, no movement; screen readers get the text through an ARIA live region once, not word by word.
 - In `crisis` and `fraud` modes, the thinking panel is skipped and the fixed script and actions appear immediately.
 
 **Latency budget**: the panel's first line within 300 ms of sending; a simple answer within 3–4 seconds; a multi-goal plan within 10–15 seconds, with the panel showing progress throughout.

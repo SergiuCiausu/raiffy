@@ -32,7 +32,7 @@
 
 | Solution | Source |
 | --- | --- |
-| The financing-route rule applies unchanged: at least three routes, including not borrowing (own cash, faster collection of receivables, delaying the investment) | Individuals · Core rule |
+| The answer scope rule applies unchanged: a `solution` answer shows at least three routes, including not borrowing (own cash, faster collection of receivables, delaying the investment) | Individuals · Core rule |
 | Commission transparency applies unchanged, extended to guarantee fees, factoring fees, leasing fees and account packages | Individuals · Commission transparency |
 | When a state-guaranteed programme fits, show it as a route, with its guarantee fee and conditions | Calculations |
 | Raiffeisen first, competitors honestly, counter-offer when a competitor is cheaper (individuals pattern 2 applies unchanged) | Individuals · Pattern 2 |

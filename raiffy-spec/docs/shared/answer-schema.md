@@ -53,11 +53,11 @@ Every block shares a base: `{ type, id, status: "ok" | "partial" | "unavailable"
 
 ## Signature components
 
-Each block renders as one signature component. The visual reference is the BMW X5 answer-screen mockup (export it from the design canvas into `docs/ui/`).
+Each block renders as one signature component. The visual reference is `DESIGN.md` plus the HTML prototypes, with `chat.html` for answer cards, sources and the context panel.
 
 | Component | Block | Specification |
 | --- | --- | --- |
-| Financing route cards (hero) | `routes` | Three or four cards side by side: savings, personal loan, car loan, leasing. Each shows monthly cost, total cost, time to goal and a commission badge: "No commissions" in green only when `hasNoCommissions` is true, otherwise "3 commissions" that expands into the list. The best fit glows cyan with a one-line "why" underneath. Ineligible routes stay visible, greyed, with the reason |
+| Financing route cards (hero) | `routes` | Cards side by side, as many as the answer scope calls for (at least three for a `solution`, for example savings, personal loan, car loan and leasing). Each shows monthly cost, total cost, time to goal and a commission badge: "No commissions" (ink on the `#FFF3C4` tint, never green, per `DESIGN.md`) only when `hasNoCommissions` is true, otherwise "3 commissions" that expands into the list. The best fit gets the accent highlight (`#FFF3C4` tint with the yellow halo, per `DESIGN.md`) with a one-line "why" underneath. Ineligible routes stay visible, greyed, with the reason |
 | Live sliders | `inputs` | Amount, term and down payment under the cards; every card, the gauge and the cost bar recalculate instantly through Convex reactivity. Slider values are written to conversation state |
 | Affordability gauge | `affordability` | Semicircle meter of indicative DTI against the BNR cap, a ghost needle for the rate-stress scenario, buffer left per month, labeled indicative |
 | True cost breakdown | `costBreakdown` | Stacked bar or waterfall: price, interest, commissions, insurance, taxes, maintenance, fuel; estimates marked; the monthly total as the headline number |
@@ -88,13 +88,13 @@ The composer uses these default orders; blocks with no data are left out.
 ## Premium details
 
 - **Source chips** under every number ("BNR · 27 Oct 2026"), built from `sources[]`; tapping one opens the document.
-- **Streaming build-up**: see the thinking panel and line-by-line delivery in `docs/shared/pipeline.md`, step 6. Respect `prefers-reduced-motion` by fading instead of moving.
-- **Glow consistency**: the hero's navy, cyan and orange palette everywhere; the cyan glow appears only on the best-fit route, so the highlight means something; orange is reserved for warnings and counter-offers.
+- **Streaming build-up**: see the thinking panel and word-by-word delivery in `docs/shared/pipeline.md`, step 6. Respect `prefers-reduced-motion` by fading instead of moving.
+- **Glow consistency**: the `DESIGN.md` palette everywhere. The yellow highlight appears only on the best-fit route, so it means something. Warnings and counter-offers follow `DESIGN.md`, and if it doesn't cover a case, ask before adding a color.
 - **Next steps as buttons** from `actions[]`: "Book an adviser", "Compare with BT", "What if I put 20% down?". A what-if button changes `inputs` and re-runs the composer instead of sending a typed message.
-- **Auto-language with a manual toggle**: the screen follows the customer's language; the RO/EN toggle in the header switches the same answer live.
+- **Auto-language with a manual toggle** (deferred: the POC is English only, with no toggle): the screen follows the customer's language; the RO/EN toggle in the header switches the same answer live.
 - **Voice input** for one demo moment: the spoken question appears as text, then the cards build.
 
-Palette from the mockup: navy `#06101D`, cyan `#3FD3F2` (recommended option only), orange `#FF9A4D` (warnings and counter-offers). Fonts: Sora (headings), IBM Plex Sans (body), IBM Plex Mono (numbers).
+Palette and fonts: see `DESIGN.md`. The accent is yellow `#FFD23F` with amber `#FF9A3D`, used as light. Ink is `#1A1A1A`. Fonts are Geist, with Geist Mono for numbers.
 
 ## Render variants
 
@@ -111,6 +111,8 @@ One canonical design per block type. Variants exist only where they serve the cu
 No random or decorative variants: customers learn where the monthly cost and the commissions badge sit, comparisons must look consistent, and every variant multiplies testing. To explore alternatives, design two or three versions of a block, A/B test them, and keep the winner as canonical.
 
 ## Any language
+
+Deferred. The POC is English only, in the interface and in answers. The rules below apply when multi-language support is added.
 
 - Labels come from a master set in Romanian and English; any other language is translated once by the LLM with a glossary of terms that never change (DAE, IRCC, ROBOR, BNR, product names), cached in a Convex `translations` table, and invalidated when the master labels change.
 - Numbers and dates use `Intl.NumberFormat(locale)` and `Intl.DateTimeFormat(locale)`.
@@ -137,7 +139,7 @@ Evals: render every pattern's recipe with full, partial, empty and invalid data 
 
 1. The customer asks by voice: "Vreau să-mi cumpăr un BMW X5 din 2016." Text streams, then the route cards build in.
 2. Leasing appears greyed out (car too old); the personal loan glows as the best fit; the car loan shows its hidden CASCO cost.
-3. Move the down-payment slider: every card recalculates and the affordability gauge goes from orange to cyan.
+3. Move the down-payment slider: every card recalculates and the affordability gauge moves out of the warning zone.
 4. The true cost bar reveals that running costs nearly match the loan payment.
 5. The comparison strip shows Banca Transilvania winning on one metric; Raiffy says so and offers a counter-offer.
 6. Tap the language toggle: the same answer switches to English.

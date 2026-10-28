@@ -5,7 +5,7 @@ Build specification for Raiffy, Raiffeisen Bank Romania's AI financial assistant
 ## How to use
 
 1. Copy `CLAUDE.md` and the `docs/` folder into the root of your app repository.
-2. Add the BMW X5 answer-screen mockup (exported HTML plus a screenshot) to `docs/ui/`.
+2. Keep `DESIGN.md` and the HTML prototypes (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`) next to the spec. They are the visual reference.
 3. Start Claude Code in the repo. `CLAUDE.md` tells it to read `docs/00-overview.md` first and then only the files each task needs.
 4. A good first prompt: "Read docs/00-overview.md and docs/shared/answer-schema.md, then scaffold the Answer envelope, the 12 block types with Zod validators, and the block renderer registry."
 

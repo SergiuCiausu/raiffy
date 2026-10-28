@@ -31,15 +31,15 @@ These decisions were agreed while planning Raiffy but aren't fully covered by th
 
 ## Login, consent and marketing
 
-- **Login is required** to use Raiffy. Sign-in options in this order: Raiffeisen SSO (verified customers, real data), Google or Apple, email magic link.
-- **Marketing consent is separate from login** and never a condition of access: one unticked checkbox ("Vreau să primesc oferte personalizate de la Raiffeisen") with a link to details. Required by GDPR Art. 7(4) and Law 506/2004.
+- **Login is required** to use Raiffy. Sign-in options in this order: Raiffeisen SSO (verified customers, real data), Google or Apple, email magic link. In the POC the Raiffeisen SSO button is a placeholder that does nothing yet; Google, Apple and the magic link go through Clerk.
+- **Marketing consent is separate from login** and never a condition of access: one unticked checkbox ("I'd like to receive personalised offers from Raiffeisen" in the English POC; "Vreau să primesc oferte personalizate de la Raiffeisen" in Romanian) with a link to details. Required by GDPR Art. 7(4) and Law 506/2004.
 - Ask again for consent at high-intent moments (after a comparison where a competitor wins: "Vrei să te anunțăm când avem o ofertă mai bună pentru tine?").
 - Service messages the customer requested (plan summaries, reminders, saved plans) don't need marketing consent. Every marketing email has an easy opt-out.
 - Optional teaser: visitors can ask one question and see the thinking panel and a blurred result, then log in to see the full answer.
 
 ## Landing page
 
-1. Hero: animated data-visualization background video (navy, cyan, orange; slow, looping), headline, primary CTA "Intră în Raiffy", secondary "Vezi cum funcționează".
+1. Hero: for now, the Nocturne CSS isometric hero from `raiffy.html` (`DESIGN.md` palette: near-black with yellow and amber light). It will be replaced by the background video described below, headline, primary CTA "Intră în Raiffy", secondary "Vezi cum funcționează".
 2. Live previews: short looping demos (purchase goal, multi-goal plan, honest comparison, language switching).
 3. How it works: ask → it compares every financing route → you decide, with no hidden commissions.
 4. Trust and safety: "Date păstrate în UE", "Reglementat de BNR", "Asistent AI, poți vorbi oricând cu un om".

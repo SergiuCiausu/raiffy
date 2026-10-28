@@ -1,6 +1,6 @@
-# Ghid · Design guidelines
+# Raiffy · Design guidelines
 
-A summary of the UI language used in `ghid-raiffeisen.html`, the concept landing page for **Ghid**, an AI financial assistant for Raiffeisen Bank Romania. Any new page, section or component should follow it.
+A summary of the UI language used in `raiffy.html`, the concept landing page for **Raiffy**, an AI financial assistant for Raiffeisen Bank Romania. Any new page, section or component should follow it.
 
 > The page feels premium because of **many small, correct details**, not big type. Headlines stay modest. The richness comes from cards with miniature product UI inside, light used as a material (soft glows), hairline borders and quiet secondary text.
 
@@ -9,7 +9,7 @@ A summary of the UI language used in `ghid-raiffeisen.html`, the concept landing
 1. **Show, don't tell.** Every feature gets a built UI fragment in HTML/CSS (chat with a comparison table, repayment slider, savings list, bank statement, document checklist). Never an icon with a paragraph.
 2. **Light is a material.** Color shows up as diffused yellow/amber glow behind content. No flat gradient backgrounds, no gradient text.
 3. **Quiet type, loud craft.** Small, tight, confident type. The craft lives in the visuals.
-4. **Honest finance.** Options are shown side by side with equal weight, nothing is preselected, every number has a source pill, and Ghid explains but never decides. All figures are illustrative and the copy is plausible and specific: real lei amounts, dates and Romanian places. No lorem ipsum, no emoji, no stock images.
+4. **Honest finance.** Options are shown side by side with the same amount, term and fields. **Raiffy recommends one financing option and always says why**: the reasons, plus when another option is the better pick. Every option stays visible and choosable, every number has a source pill, and the customer makes the final choice. All figures are illustrative and the copy is plausible and specific: real lei amounts, dates and Romanian places. No lorem ipsum, no emoji, no stock images.
 
 ## 2. Modes
 
@@ -39,7 +39,7 @@ Never use pure black or pure white for text. Use three levels: primary, secondar
 
 ## 4. Typography
 
-Font: **Geist** 400/500/600, with **Geist Mono** for amounts, times, codes and the language switch. Loaded from Google Fonts.
+Font: **Geist** 400/500/600, with **Geist Mono** for amounts, times, codes, keyboard hints and the thinking panel. Loaded from Google Fonts.
 
 | Token | Size | LH | Weight | Tracking |
 |---|---|---|---|---|
@@ -85,12 +85,12 @@ The rules every vignette follows:
 - **Depth:** dimmed duplicates (`.dim`, opacity .35) sit behind the focused element.
 - **One moment of interaction** per vignette: a cursor arrow, a selected row, a slider knob with a yellow halo, or an active segment.
 - **One bloom** per visual: a yellow+amber radial (`.bloom`, `--x/--y/--size`), placed off-center and partly clipped by the card. It's drawn with stepped gradient stops, not `filter: blur`.
-- Ghid's avatar: a dark ink circle with a yellow compass icon (`.ava-ghid`).
+- Raiffy's avatar: a dark ink circle with a yellow compass icon (`.ava-raiffy`).
 - Icons: Lucide (pinned `lucide@0.468.0`), 11–16px.
 
 ## 8. Components
 
-- **Nav:** fixed, 60px. Logo (24px yellow rounded mark plus "Ghid *by Raiffeisen Bank*"), 4 links at 13.5px, RO·EN switch in mono, then a ghost button and a dark button. It starts transparent over the hero, turns `.is-dark` (blurred) while over the hero and `.is-light` (blurred `rgba(250,249,247,.82)` with a hairline border) after it. Links and the ghost button hide under 860px.
+- **Nav:** fixed, 60px. Logo (24px yellow rounded mark plus "Raiffy *by Raiffeisen Bank*"), 4 links at 13.5px, then a ghost button and a dark button. No language switch: everything is English for now. It starts transparent over the hero, turns `.is-dark` (blurred) while over the hero and `.is-light` (blurred `rgba(250,249,247,.82)` with a hairline border) after it. Links and the ghost button hide under 860px.
 - **Buttons:** 40px tall (34px in the nav), radius 10px, 13px at weight 500.
   - `.btn-dark`: ink background with white text. `.btn-ghost`: transparent with a `--border-strong` hairline.
   - Hero: `.btn-glow` is a 44px pill, 12px uppercase 600 text, a cream-to-yellow fill and a warm outer glow (the hover glow is on `::after` via opacity). `.btn-line` is a 44px pill with a translucent hairline.
@@ -99,6 +99,14 @@ The rules every vignette follows:
 - **KPI strip:** 3 cells in one bordered card with hairline dividers. Values at 20px/600 with tabular numbers.
 - **Inputs:** a custom range with a 4px track (ink fill through `--p`) and an 18px white thumb that gets a yellow halo while active.
 - **Swipe deck** (`swipe.html`): a 3/4 card stack, at most 3 cards in the DOM, with each card below 0.95 scale and 22px lower. Cards follow the Daylight card anatomy with a vignette zone on top. Drag tilts up to ±30° and commits at 30% of the card width or on a flick, and a short drag snaps back with overshoot. The stamps stay in the accent language: **Save** is ink on `#FFF3C4` with the yellow halo, and **Skip** is a `--text-2` hairline. No red/green. Controls are equal-size "Skip" (ghost) and "Save" (dark) buttons plus undo, arrow keys and an `aria-live` announcement. A large content set gets one vignette per topic (not per card) and `.qbtn` topic chips, with the active chip in ink. Under reduced motion, there's no tilt and a fade replaces the fly-out.
+- **Recommendation:** exactly one option per comparison carries a `.rec-badge`: "Recommended" with a sparkles icon, ink on `#FFF3C4` with the yellow halo `0 0 0 3px rgba(255,210,63,.35)`. The recommended option gets a light tint (`#FFFCF0` column, `#FFFDF5` card, with `#FFF3C4` where it meets a highlighted row). The other options keep the same size and fields. Under it, a "Why I recommend…" block lists 2-3 reasons with check icons, then one line in `--text-3` saying when the other option is the better pick. The rule is deterministic and lives in code (cheapest option that fits, with a near-tie going to the fixed rate), never in the LLM. In live simulators, the badge and reasons move as the inputs change, with no transition.
+- **Follow-up suggestions:** every answer ships with 2-3 **pre-generated follow-up replies**, shown as `.chip` buttons above the composer, so the customer can keep going without typing.
+  - **Tab** with an empty composer fills it with the first suggestion. Tab again moves to the next one, and after the last one Tab moves focus as usual. **Enter** sends.
+  - The next suggestion carries a mono `Tab` kbd hint, hidden on coarse pointers.
+  - The placeholder reads "Ask a follow-up, or press Tab for a suggestion", and each fill is announced through the live region.
+  - For a `detail` answer, one suggestion goes deeper into the same product and one opens a related Raiffeisen solution.
+- **Thinking panel:** while Raiffy works, a dimmed panel above the answer (`#FBFAF8`, hairline border, radius 12px, Geist Mono 12px in `--text-3`) lists pre-written status lines, with the current one in `--text-2` and amber dots, and done lines ticked. When the text starts streaming, the panel folds into a `<details>` summary, "How I worked this out · 2 steps", that the customer can reopen. Then the answer streams word by word with a blinking caret.
+- **Sign-in methods** (`login.html`): a dark "Continue with Raiffeisen" button with the yellow logo mark (an SSO placeholder, not wired), then equal ghost Google and Apple buttons with monochrome marks, an "or use your email" divider and an email magic-link form. Sign-up adds the required terms checkbox and a separate, unticked marketing-consent checkbox.
 - **Footer:** a hairline top border, 13px `--text-3`, a 2fr + 3×1fr column grid and a legal row.
 - **Focus:** `outline: 2px solid var(--ink); outline-offset: 2px` (yellow in Nocturne).
 
@@ -126,6 +134,6 @@ The rules every vignette follows:
 - [ ] Every feature card has a built vignette with product-specific copy and 11–13px micro-type
 - [ ] One fragment bleeds and fades, one bloom, one interaction moment per card
 - [ ] Hairline borders, no shadow heavier than `0 8px 30px` at .08–.1
-- [ ] Options shown with equal weight, sources cited, Ghid explains and doesn't decide
+- [ ] Options shown side by side, one recommended with its reasons and when another fits better, and sources cited
 - [ ] Motion respects reduced motion, and hover is gated to fine pointers
 - [ ] Mobile at 375px is clean, focus is visible, decorative visuals are `aria-hidden`

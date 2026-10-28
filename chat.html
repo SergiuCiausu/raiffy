@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ghid</title>
-<meta name="description" content="Concept chat interface for Ghid, an AI financial assistant for Raiffeisen Bank Romania customers.">
+<title>Raiffy</title>
+<meta name="description" content="Concept chat interface for Raiffy, an AI financial assistant for Raiffeisen Bank Romania customers.">
 <!--
-  Ghid: full-page chat. Front end only: replies are scripted demo flows that stream word by word. Nothing leaves the page.
+  Raiffy: full-page chat. Front end only: replies are scripted demo flows that stream word by word. Nothing leaves the page.
   Mode: Daylight only (a working tool). Accent #FFD23F / #FF9A3D as light; ink #1A1A1A for selection, send and active states.
-  Layout: sidebar (chats, saved simulations) · thread · context panel (what Ghid can see, pinned, sources).
+  Layout: sidebar (chats, saved simulations) · thread · context panel (what Raiffy can see, pinned, sources).
     < 1200px: context panel becomes a drawer. < 860px: sidebar becomes a drawer too.
   Answer cards: comparison table, live simulator, savings options, fee explainer, documents + advisor booking, human hand-off.
 -->
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ───────────── Tokens (shared with ghid-raiffeisen.html) ───────────── */
+/* ───────────── Tokens (shared with raiffy.html) ───────────── */
 :root {
   --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
@@ -78,8 +78,8 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
   .icon-btn:hover { color: var(--text-1); background: rgba(20,20,20,.05); }
 }
 
-.ava-ghid { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--accent-a); }
-.ava-ghid svg { width: 14px; height: 14px; stroke-width: 2.2; }
+.ava-raiffy { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 14px; height: 14px; stroke-width: 2.2; }
 .ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
 .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
@@ -147,15 +147,31 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 .file-chip .x { width: 20px; height: 20px; margin-right: -4px; }
 .file-chip .x svg { width: 12px; height: 12px; }
 
-.msg-ghid { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; }
-.ghid-body { display: grid; gap: 14px; min-width: 0; padding-top: 3px; }
-.ghid-text { display: grid; gap: 12px; }
-.ghid-text p { max-width: 64ch; }
+.msg-raiffy { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; }
+.raiffy-body { display: grid; gap: 14px; min-width: 0; padding-top: 3px; }
+.raiffy-text { display: grid; gap: 12px; }
+.raiffy-text p { max-width: 64ch; }
 .stopped { font-size: 12px; color: var(--text-3); }
 .caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--ink); opacity: .7; }
-.thinking { display: flex; align-items: center; gap: 10px; height: 25px; font-size: 13px; color: var(--text-3); }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-b); opacity: .5; }
+/* Thinking panel: dimmed, smaller and mono so it reads as work in progress, never as the answer.
+   Open while Raiffy works, then it folds into a one-line summary above the answer. */
+.think { max-width: 64ch; border: 1px solid var(--border); border-radius: 12px; background: #FBFAF8; font: 400 12px/1.45 var(--font-mono); color: var(--text-3); }
+.think summary { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; cursor: pointer; list-style: none; border-radius: 12px; }
+.think summary::-webkit-details-marker { display: none; }
+.think summary svg { width: 13px; height: 13px; transition: transform 160ms var(--ease-out); }
+.think[open] summary svg { transform: rotate(90deg); }
+.think summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .think summary:hover { color: var(--text-2); } }
+.think-lines { list-style: none; margin: 0; padding: 0 12px 10px; display: grid; gap: 6px; }
+.think-live .think-lines { padding-top: 10px; }
+.think-line { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: center; }
+.think-line::before { content: ""; justify-self: center; width: 7px; height: 4px; margin-top: -3px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.think-line.on { color: var(--text-2); }
+.think-line.on::before { display: none; }
+.think-line .dots { justify-self: center; gap: 2px; }
+.think-line .dots i { width: 3px; height: 3px; }
 
 .gfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .src { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
@@ -184,6 +200,22 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 .cmp .th small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
 .cmp .rk { color: var(--text-3); }
 .cmp .on { background: #FFF8DC; font-weight: 500; }
+/* Recommendation: one option carries the badge and a tint; the others keep the same size and fields */
+.cmp .rc { background: #FFFCF0; }
+.cmp .rc.on { background: #FFF3C4; }
+.rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; padding: 0 8px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .01em; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+.rec-badge svg { width: 11px; height: 11px; stroke-width: 2.4; }
+.rec-badge[hidden] { display: none; }
+.cmp .th .rec-badge { margin-top: 7px; }
+.rec-why { display: grid; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); background: #FBFAF6; }
+.rec-why-h { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+.rec-why-h .ava-raiffy { width: 22px; height: 22px; }
+.rec-why-h .ava-raiffy svg { width: 11px; height: 11px; }
+.rec-why ul { list-style: none; margin: 0; padding: 0 0 0 32px; display: grid; gap: 6px; font-size: 13px; line-height: 1.5; }
+.rec-why li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+.rec-why li svg { width: 13px; height: 13px; margin-top: 4px; color: var(--text-2); stroke-width: 2.4; }
+.rec-alt { padding-left: 32px; font-size: 12px; color: var(--text-3); }
 
 /* Simulator */
 .sim-b { display: grid; gap: 18px; }
@@ -211,7 +243,11 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 @media (max-width: 520px) { .opts { grid-template-columns: 1fr; } }
 .opt { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: grid; gap: 10px; transition: opacity 200ms ease; }
 .opt.na { opacity: .55; }
+.opt.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
 .opt-h { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
+.opt-h .rec-badge { margin-bottom: 6px; }
+/* Both cards reserve the badge row, so they stay aligned when the recommendation moves */
+.opt-h .rec-badge[hidden] { display: inline-flex; visibility: hidden; }
 .opt-h .micro { font-weight: 400; }
 .big { font: 600 20px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .big small { font-size: 12px; font-weight: 400; color: var(--text-3); letter-spacing: 0; margin-left: 4px; }
@@ -223,8 +259,9 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 .opt-note { font-size: 11.5px; color: var(--text-3); }
 .sim-say { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border-radius: 12px; background: #FBFAF6; border: 1px solid rgba(200,150,20,.18);
   font-size: 13px; line-height: 1.5; }
-.sim-say .ava-ghid { width: 22px; height: 22px; }
-.sim-say .ava-ghid svg { width: 11px; height: 11px; }
+.sim-say .ava-raiffy { width: 22px; height: 22px; }
+.sim-say .ava-raiffy svg { width: 11px; height: 11px; }
+.sim-say .alt { display: block; margin-top: 4px; font-size: 12px; color: var(--text-3); }
 
 /* Savings rows */
 .saves { display: grid; gap: 8px; }
@@ -301,8 +338,8 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     radial-gradient(closest-side at 42% 45%, rgb(255 210 63 / .55), rgb(255 210 63 / .28) 45%, rgb(255 210 63 / .08) 75%, transparent),
     radial-gradient(closest-side at 62% 58%, rgb(255 154 61 / .45), rgb(255 154 61 / .2) 45%, rgb(255 154 61 / .05) 75%, transparent); }
 .empty-head { display: grid; justify-items: start; gap: 12px; margin-bottom: 32px; }
-.empty-head .ava-ghid { width: 40px; height: 40px; box-shadow: 0 0 0 6px rgba(255,210,63,.22), 0 0 30px rgba(255,190,50,.4); }
-.empty-head .ava-ghid svg { width: 19px; height: 19px; }
+.empty-head .ava-raiffy { width: 40px; height: 40px; box-shadow: 0 0 0 6px rgba(255,210,63,.22), 0 0 30px rgba(255,190,50,.4); }
+.empty-head .ava-raiffy svg { width: 19px; height: 19px; }
 .empty-head h2 { font-size: var(--text-h2); line-height: var(--lh-h2); letter-spacing: var(--tr-h2); margin-top: 8px; }
 .empty-head p { font-size: 15px; color: var(--text-2); max-width: 52ch; }
 .starters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -335,6 +372,9 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 .chip { flex: none; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer;
   font-size: 12.5px; color: var(--text-1); transition: border-color 150ms ease, transform 160ms var(--ease-out); }
 .chip:active { transform: scale(.97); }
+/* Tab fills the composer with the marked suggestion, Enter sends it */
+.chip .tab-kbd { margin-left: 8px; padding: 2px 5px; font-size: 10px; vertical-align: 1px; }
+@media (pointer: coarse) { .chip .tab-kbd { display: none; } }
 @media (hover: hover) and (pointer: fine) { .chip:hover { border-color: rgba(20,20,20,.26); } }
 .composer { max-width: 760px; margin: 0 auto; padding: 10px 10px 8px 14px; border: 1px solid var(--border-strong); border-radius: 16px; background: var(--surface);
   box-shadow: var(--shadow-float); transition: border-color 150ms ease, box-shadow 150ms ease; }
@@ -449,7 +489,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
   <!-- ═════════════ Sidebar ═════════════ -->
   <aside class="side" id="side" aria-label="Chats">
     <div class="side-top">
-      <a class="logo" href="ghid-raiffeisen.html"><span class="logo-mark"><i data-lucide="compass"></i></span>Ghid</a>
+      <a class="logo" href="raiffy.html"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy</a>
     </div>
     <button type="button" class="btn btn-ghost new" id="new-chat"><i data-lucide="square-pen"></i>New chat<kbd>N</kbd></button>
     <label class="search">
@@ -481,18 +521,18 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     </header>
 
     <div class="scroll" id="scroll">
-      <div class="thread" id="thread" role="log" aria-label="Conversation with Ghid"></div>
+      <div class="thread" id="thread" role="log" aria-label="Conversation with Raiffy"></div>
       <section class="empty" id="empty" hidden aria-labelledby="greet">
         <div class="bloom" aria-hidden="true"></div>
         <div class="empty-head">
-          <span class="ava-ghid" aria-hidden="true"><i data-lucide="compass"></i></span>
+          <span class="ava-raiffy" aria-hidden="true"><i data-lucide="compass"></i></span>
           <h2 id="greet">Good evening, Andrei</h2>
-          <p>Ask about loans, savings, fees or your next advisor meeting. Ghid uses your own offers and puts every option side by side.</p>
+          <p>Ask about loans, savings, fees or your next advisor meeting. Raiffy uses your own offers and puts every option side by side.</p>
         </div>
         <div class="starters">
           <button type="button" class="starter" data-prompt="I need 8,000 lei for about a year. Is an overdraft or a personal loan better?">
             <span class="mini" aria-hidden="true"><span class="mini-frag">
-              <span class="mini-row"><span>Personal loan</span><i style="--w:100%"></i><b>596 lei</b></span>
+              <span class="mini-row"><span>Personal loan</span><i style="--w:100%"></i><b>595 lei</b></span>
               <span class="mini-row hl"><span>Overdraft</span><i style="--w:85%"></i><b>507 lei</b></span>
             </span></span>
             <b>Compare a loan and an overdraft</b><span class="q">Same amount, same term, side by side</span>
@@ -526,8 +566,8 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       <button type="button" class="jump" id="jump" hidden><i data-lucide="arrow-down"></i>Jump to latest</button>
       <div class="chips" id="chips" role="group" aria-label="Suggested questions"></div>
       <form class="composer" id="composer">
-        <label class="sr-only" for="input">Message Ghid</label>
-        <textarea id="input" rows="1" placeholder="Ask Ghid about a loan, a fee, your savings…" enterkeyhint="send"></textarea>
+        <label class="sr-only" for="input">Message Raiffy</label>
+        <textarea id="input" rows="1" placeholder="Ask Raiffy about a loan, a fee, your savings…" enterkeyhint="send"></textarea>
         <div class="comp-row">
           <button type="button" class="icon-btn" id="attach" aria-label="Attach a statement or document"><i data-lucide="paperclip"></i></button>
           <span class="file-chip" id="att" hidden><span class="ft"><i data-lucide="file-text"></i></span>Statement_Oct_2026.pdf <small>184 KB</small>
@@ -537,7 +577,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
           </button>
         </div>
       </form>
-      <p class="disclaimer">Ghid explains your options. It doesn’t decide for you. Concept demo, figures are illustrative.</p>
+      <p class="disclaimer">Raiffy recommends an option and shows why. The choice is always yours. Concept demo, figures are illustrative.</p>
     </div>
   </div>
 
@@ -549,8 +589,8 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     </div>
     <div class="ctx-body">
       <section class="ctx-sec">
-        <h3>What Ghid can see</h3>
-        <p>Ghid only uses what’s switched on here. Changes apply to your next question.</p>
+        <h3>What Raiffy can see</h3>
+        <p>Raiffy only uses what’s switched on here. Changes apply to your next question.</p>
         <ul class="perms">
           <li class="perm"><span class="ic"><i data-lucide="wallet"></i></span><div><b id="pl-account">Current account</b><small>••4821 · balance and statement</small></div>
             <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-account" data-perm="account"></button></li>
@@ -571,10 +611,10 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       <section class="ctx-sec">
         <h3>Sources in this chat</h3>
         <ul class="srcs" id="srcs"></ul>
-        <p class="empty-note" id="srcs-empty" hidden>Every number Ghid gives you will show its source here.</p>
+        <p class="empty-note" id="srcs-empty" hidden>Every number Raiffy gives you will show its source here.</p>
       </section>
       <section class="ctx-sec">
-        <div class="promise"><i data-lucide="shield-check"></i><span>Ghid never moves money, applies for products or shares your data on its own. Anything like that needs your confirmation.</span></div>
+        <div class="promise"><i data-lucide="shield-check"></i><span>Raiffy never moves money, applies for products or shares your data on its own. Anything like that needs your confirmation.</span></div>
       </section>
     </div>
   </aside>
@@ -619,28 +659,51 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     };
   }
 
+  /* Recommendation rule: the cheapest option that fits, with a near-tie (under 40 lei) going to the
+     fixed-rate loan. Always returns the reasons and when the other option is the better pick. */
+  function recommend(s, P, n) {
+    var d = Math.abs(s.loan.cost - s.od.cost);
+    if (!s.od.ok) return { k: 'loan', name: 'the personal loan', reasons: [
+        P > 15000 ? 'Overdrafts go up to 15,000 lei, so it’s the only option for ' + lei(P) + '.' : 'Overdrafts renew every 12 months, so it’s the only option over ' + n + ' months.',
+        'Its rate is fixed, so your ' + lei(s.loan.monthly) + ' payment never changes.'],
+      alt: P <= 15000 ? 'Over 12 months or less, the overdraft becomes an option too.' : 'A shorter term lowers the total cost.' };
+    if (d < 40) return { k: 'loan', name: 'the personal loan', reasons: [
+        'Both cost almost the same: ' + lei(d) + ' apart in total.',
+        'Its rate is fixed, so your payment can’t go up if rates rise.'],
+      alt: 'The overdraft is the better pick if you want to repay whenever you like, with no fee.' };
+    if (s.od.cost < s.loan.cost) return { k: 'od', name: 'the overdraft', reasons: [
+        'It costs ' + lei(d) + ' less in total, because the loan adds a one-off 249 lei fee.',
+        'You can repay any amount, anytime, for free.'],
+      alt: 'The loan is the better pick if you’d rather have a fixed rate and the same payment every month.' };
+    return { k: 'loan', name: 'the personal loan', reasons: [
+        'It costs ' + lei(d) + ' less in total.',
+        'Its rate is fixed, so your payment can’t go up.'],
+      alt: 'The overdraft is the better pick if you want to repay early with no fee.' };
+  }
+  function recBadge(hide) { return '<span class="rec-badge"' + (hide ? ' hidden' : '') + '>' + ic('sparkles') + 'Recommended</span>'; }
+
   /* Scripted replies. Each returns { thinking, paras, card, sources, chips } */
   var FLOWS = {
     compare: function () {
-      var own = perms.offers, rate = own ? .079 : .094, s = simCalc(8000, 12, rate);
+      var own = perms.offers, rate = own ? .079 : .094, s = simCalc(8000, 12, rate), rec = recommend(s, 8000, 12);
       return {
         thinking: own ? ['Reading your pre-approved offer…', 'Checking today’s overdraft rate…'] : ['Checking standard published rates…', 'Checking today’s overdraft rate…'],
         paras: own
-          ? ['Both can work for 8,000 lei over 12 months. The overdraft costs about ' + fmt(s.loan.cost - s.od.cost) + ' lei less in total, because you only pay interest on what you actually use. The personal loan costs a little more but locks in a fixed 7.9% rate, so your payment never changes.',
-             'Here they are side by side, with the same amount and the same term:']
-          : ['I can’t see your pre-approved offer, because you’ve turned that access off. These are the standard published rates instead, so your own offer may be better.',
-             'With the same amount and the same term, the overdraft costs about ' + fmt(s.loan.cost - s.od.cost) + ' lei less over 12 months:'],
+          ? ['For 8,000 lei over 12 months, I recommend ' + rec.name + '. ' + rec.reasons.join(' '),
+             rec.alt + ' Here they are side by side, with the same amount and the same term:']
+          : ['I can’t see your pre-approved offer, because you’ve turned that access off, so I’ve used the standard published rates. Your own offer may be better, which could change my recommendation.',
+             'On these rates I recommend ' + rec.name + '. ' + rec.reasons[0] + ' Here they are side by side:'],
         card: { type: 'compare', rate: rate, amount: 8000, term: 12 },
         sources: own ? ['offer', 'rates'] : ['public', 'rates'],
         chips: ['What if I stretch it to 24 months?', 'Can I repay the loan early?', 'Book an advisor']
       };
     },
     sim: function () {
-      var rate = perms.offers ? .079 : .094, s = simCalc(8000, 24, rate);
+      var rate = perms.offers ? .079 : .094, s = simCalc(8000, 24, rate), rec = recommend(s, 8000, 24);
       return {
         thinking: ['Running the numbers for 24 months…'],
-        paras: ['Over 24 months only the loan fits, because overdrafts renew every 12 months. Your monthly payment drops to about ' + lei(s.loan.monthly) + ', but you’d pay more interest overall.',
-                'Move the amount or change the term to see both options update:'],
+        paras: ['Over 24 months I recommend ' + rec.name + '. Overdrafts renew every 12 months, so it’s the only option that fits. Your payment drops to about ' + lei(s.loan.monthly) + ' a month, but you’d pay more interest overall.',
+                'Move the amount or change the term, and I’ll update the recommendation and the reasons:'],
         card: { type: 'sim', rate: rate, amount: 8000, term: 24 },
         sources: [perms.offers ? 'offer' : 'public', 'fees'],
         chips: ['Can I repay the loan early?', 'Which documents do I need?', 'Book an advisor']
@@ -718,7 +781,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     var f = FLOWS[flow]();
     return [
       { role: 'user', text: userText, file: file || null },
-      { role: 'ghid', flow: flow, paras: f.paras, card: f.card, sources: f.sources }
+      { role: 'raiffy', flow: flow, thinking: f.thinking, paras: f.paras, card: f.card, sources: f.sources }
     ];
   }
   var convs = [
@@ -753,16 +816,19 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 
   function cardHTML(c) {
     if (c.type === 'compare') {
-      var s = simCalc(c.amount, c.term, c.rate), r = (c.rate * 100).toFixed(1) + '%';
+      var s = simCalc(c.amount, c.term, c.rate), r = (c.rate * 100).toFixed(1) + '%', rec = recommend(s, c.amount, c.term);
+      var L = rec.k === 'loan' ? ' rc' : '', O = rec.k === 'od' ? ' rc' : '';
       return '<div class="gcard"><div class="gc-h"><span>' + ic('scale') + 'Loan vs overdraft</span><span class="micro">' + lei(c.amount) + ' · ' + c.term + ' mo</span></div>' +
         '<div class="tbl-wrap"><div class="cmp" role="table" aria-label="Personal loan compared with overdraft">' +
-        '<div class="th" role="columnheader"></div><div class="th" role="columnheader">Personal loan<small>' + r + ' fixed</small></div><div class="th" role="columnheader">Overdraft<small>11.5% variable</small></div>' +
-        '<div class="rk">Monthly payment</div><div>' + lei(s.loan.monthly) + '</div><div>' + lei(s.od.monthly) + '</div>' +
-        '<div class="rk on">Total cost</div><div class="on">' + lei(s.loan.cost) + '</div><div class="on">' + lei(s.od.cost) + '</div>' +
-        '<div class="rk">Your rate</div><div>Never changes</div><div>Can change monthly</div>' +
-        '<div class="rk">Early repayment</div><div>0.5% fee</div><div>Anytime, free</div>' +
-        '<div class="rk">Flexibility</div><div>Fixed schedule</div><div>Use and top up</div>' +
-        '</div></div><p class="gc-note">Nothing is preselected. The lower total cost is highlighted, not recommended.</p></div>';
+        '<div class="th" role="columnheader"></div><div class="th' + L + '" role="columnheader">Personal loan<small>' + r + ' fixed</small>' + (L ? recBadge() : '') + '</div><div class="th' + O + '" role="columnheader">Overdraft<small>11.5% variable</small>' + (O ? recBadge() : '') + '</div>' +
+        '<div class="rk">Monthly payment</div><div class="' + L + '">' + lei(s.loan.monthly) + '</div><div class="' + O + '">' + lei(s.od.monthly) + '</div>' +
+        '<div class="rk on">Total cost</div><div class="on' + L + '">' + lei(s.loan.cost) + '</div><div class="on' + O + '">' + lei(s.od.cost) + '</div>' +
+        '<div class="rk">Your rate</div><div class="' + L + '">Never changes</div><div class="' + O + '">Can change monthly</div>' +
+        '<div class="rk">Early repayment</div><div class="' + L + '">0.5% fee</div><div class="' + O + '">Anytime, free</div>' +
+        '<div class="rk">Flexibility</div><div class="' + L + '">Fixed schedule</div><div class="' + O + '">Use and top up</div>' +
+        '</div></div><div class="rec-why"><div class="rec-why-h"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>Why I recommend ' + rec.name + '</div>' +
+        '<ul>' + rec.reasons.map(function (t) { return '<li>' + ic('check') + '<span>' + t + '</span></li>'; }).join('') + '</ul>' +
+        '<p class="rec-alt">' + rec.alt + ' Both options stay open, and the choice is yours.</p></div></div>';
     }
     if (c.type === 'sim') {
       var id = uid('amt'), tl = uid('term'), terms = [6, 12, 24, 36, 60];
@@ -773,11 +839,11 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
         '<div class="ctrl"><span class="label" id="' + tl + '">Term</span><div class="terms" role="group" aria-labelledby="' + tl + '">' +
         terms.map(function (t) { return '<button type="button" data-term="' + t + '" aria-pressed="' + (t === c.term) + '">' + t + ' mo</button>'; }).join('') + '</div></div>' +
         '<div class="opts">' +
-        '<div class="opt" data-k="loan"><div class="opt-h">Personal loan<span class="micro">' + (c.rate * 100).toFixed(1) + '% fixed</span></div><div class="big"></div>' +
+        '<div class="opt" data-k="loan"><div class="opt-h">' + recBadge(true) + 'Personal loan<span class="micro">' + (c.rate * 100).toFixed(1) + '% fixed</span></div><div class="big"></div>' +
         '<div class="kv"><span>Total cost</span><b></b></div><div class="costbar"><span></span></div></div>' +
-        '<div class="opt" data-k="od"><div class="opt-h">Overdraft<span class="micro">11.5% variable</span></div><div class="big"></div>' +
+        '<div class="opt" data-k="od"><div class="opt-h">' + recBadge(true) + 'Overdraft<span class="micro">11.5% variable</span></div><div class="big"></div>' +
         '<div class="kv"><span>Total cost</span><b></b></div><div class="costbar"><span></span></div><p class="opt-note" hidden></p></div>' +
-        '</div><p class="sim-say"><span class="ava-ghid" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div></div>';
+        '</div><p class="sim-say"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div></div>';
     }
     if (c.type === 'savings') {
       function row(icn, nm, ds, rt, liq, cls, tag) {
@@ -810,7 +876,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
         '</div></div>' +
         '<div class="book"><div class="adv"><span class="ava" aria-hidden="true">AM</span><div><b>Andreea M., personal advisor</b><span class="micro">Floreasca branch · or video call</span></div></div>' +
         '<div class="slots" role="group" aria-label="Choose a time">' + ['Mon 09:00', 'Tue 10:30', 'Wed 15:00', 'Thu 12:00'].map(function (t) { return '<button type="button" aria-pressed="false">' + t + '</button>'; }).join('') + '</div>' +
-        '<label class="check"><input type="checkbox" class="share"><span><b>Share Ghid’s summary with Andreea</b><br>Only this conversation, only for this meeting.</span></label>' +
+        '<label class="check"><input type="checkbox" class="share"><span><b>Share Raiffy’s summary with Andreea</b><br>Only this conversation, only for this meeting.</span></label>' +
         '<div class="book-row"><button type="button" class="btn btn-dark btn-sm do-book" disabled>' + ic('calendar-check') + 'Book meeting</button><span class="micro">Pick a time first</span></div>' +
         '</div></div></div>';
     }
@@ -848,11 +914,14 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       note.hidden = false;
       note.textContent = P > 15000 ? 'Overdraft limits go up to 15,000 lei.' : 'Overdrafts renew every 12 months, so they don’t fit longer terms.';
     }
-    var say;
-    if (!s.od.ok) say = 'For ' + lei(P) + ' over ' + n + ' months only the loan fits. You’d pay ' + lei(s.loan.monthly) + ' a month and ' + lei(s.loan.cost) + ' in total costs.';
-    else if (s.od.cost < s.loan.cost) say = 'The overdraft costs ' + lei(s.loan.cost - s.od.cost) + ' less in total. The loan costs more but its rate can’t go up.';
-    else say = 'The loan costs ' + lei(s.od.cost - s.loan.cost) + ' less in total, and its rate can’t go up.';
-    card.querySelector('.say').textContent = say;
+    var rec = recommend(s, P, n);
+    [L, O].forEach(function (el) {
+      var on = el.dataset.k === rec.k;
+      el.classList.toggle('rec', on);
+      el.querySelector('.rec-badge').hidden = !on;
+    });
+    card.querySelector('.say').innerHTML = '<b style="font-weight:600">I recommend ' + rec.name + '.</b> ' + rec.reasons.join(' ') +
+      '<span class="alt">' + rec.alt + ' The choice is yours.</span>';
     return { amount: P, term: n };
   }
 
@@ -864,15 +933,28 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     if (m.text) { var b = document.createElement('div'); b.className = 'bubble'; b.textContent = m.text; el.appendChild(b); }
     return el;
   }
-  function ghidShell() {
+  function raiffyShell() {
     var el = document.createElement('div');
-    el.className = 'msg msg-ghid';
-    el.innerHTML = '<span class="ava-ghid" aria-hidden="true">' + ic('compass') + '</span><div class="ghid-body"><div class="ghid-text"></div></div>';
+    el.className = 'msg msg-raiffy';
+    el.innerHTML = '<span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><div class="raiffy-body"><div class="raiffy-text"></div></div>';
     return el;
   }
-  function renderGhid(m, enter) {
-    var el = ghidShell(), body = el.querySelector('.ghid-body'), txt = el.querySelector('.ghid-text');
+  function thinkLines(lines, live) {
+    return lines.map(function (t, i) {
+      var on = live && i === lines.length - 1;
+      return '<li class="think-line' + (on ? ' on' : '') + '">' + (on ? '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>' : '') + '<span>' + t + '</span></li>';
+    }).join('');
+  }
+  function thinkHTML(lines) {
+    var d = document.createElement('details');
+    d.className = 'think';
+    d.innerHTML = '<summary>' + ic('chevron-right') + 'How I worked this out · ' + lines.length + (lines.length === 1 ? ' step' : ' steps') + '</summary><ol class="think-lines">' + thinkLines(lines) + '</ol>';
+    return d;
+  }
+  function renderRaiffy(m, enter) {
+    var el = raiffyShell(), body = el.querySelector('.raiffy-body'), txt = el.querySelector('.raiffy-text');
     el.dataset.flow = m.flow;
+    if (m.thinking && m.thinking.length) body.insertBefore(thinkHTML(m.thinking), txt);
     m.paras.forEach(function (p) { var e = document.createElement('p'); e.textContent = p; txt.appendChild(e); });
     if (m.stopped) txt.insertAdjacentHTML('beforeend', '<p class="stopped">You stopped this reply.</p>');
     if (m.card) {
@@ -899,7 +981,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     el._msg = m;
     return el;
   }
-  function renderMsg(m, enter) { var el = m.role === 'user' ? renderUser(m) : renderGhid(m, enter); if (enter && m.role === 'user') el.classList.add('enter'); return el; }
+  function renderMsg(m, enter) { var el = m.role === 'user' ? renderUser(m) : renderRaiffy(m, enter); if (enter && m.role === 'user') el.classList.add('enter'); return el; }
 
   function renderThread() {
     var c = conv();
@@ -914,7 +996,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     }
     c.messages.forEach(function (m) { thread.appendChild(renderMsg(m)); });
     icons();
-    var last = c.messages.filter(function (m) { return m.role === 'ghid'; }).pop();
+    var last = c.messages.filter(function (m) { return m.role === 'raiffy'; }).pop();
     setChips(last ? FLOWS[last.flow]().chips : []);
     scroller.scrollTop = empty ? 0 : scroller.scrollHeight;
     stick = true; $('jump').hidden = true;
@@ -927,7 +1009,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     $('title').textContent = c.title;
     $('meta').textContent = c.messages.length ? (c.group === 'Today' ? 'Today, ' : '') + c.time + ' · ' + (k ? k + (k === 1 ? ' source' : ' sources') : 'no sources yet') : 'New conversation';
     $('rename').hidden = !c.messages.length;
-    document.title = (c.messages.length ? c.title + ' · ' : '') + 'Ghid';
+    document.title = (c.messages.length ? c.title + ' · ' : '') + 'Raiffy';
   }
 
   function renderSidebar() {
@@ -977,17 +1059,41 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
   function renderAll() { renderSidebar(); renderHeader(); renderThread(); renderCtx(); }
 
   /* ───────────── Chips + composer ───────────── */
+  /* Follow-ups come pre-generated with each answer. Tab fills the composer with the marked one,
+     Tab again moves to the next, and after the last one Tab moves focus as usual. Enter sends. */
+  var chipList = [], PH = input.placeholder;
   function setChips(list) {
     var el = $('chips');
+    chipList = list.slice();
     el.innerHTML = '';
     list.forEach(function (t) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.dataset.ask = t; el.appendChild(b); });
     el.hidden = !list.length;
+    input.placeholder = list.length ? 'Ask a follow-up, or press Tab for a suggestion' : PH;
+    markTab(0);
+  }
+  function markTab(n) {
+    var chips = $('chips').children;
+    for (var k = 0; k < chips.length; k++) {
+      var kb = chips[k].querySelector('.tab-kbd');
+      if (k === n && !kb) chips[k].insertAdjacentHTML('beforeend', '<kbd class="tab-kbd" aria-hidden="true">Tab</kbd>');
+      if (k !== n && kb) kb.remove();
+    }
   }
   function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 200) + 'px'; }
   var attached = false;
   function syncSend() { if (!job) sendBtn.disabled = !input.value.trim() && !attached; }
-  input.addEventListener('input', function () { autosize(); syncSend(); });
+  input.addEventListener('input', function () { autosize(); syncSend(); if (chipList.indexOf(input.value.trim()) < 0) markTab(input.value ? -1 : 0); });
   input.addEventListener('keydown', function (e) {
+    if (e.key === 'Tab' && !e.shiftKey && !job && chipList.length) {
+      var v = input.value.trim(), at = chipList.indexOf(v);
+      if (!v || (at >= 0 && at < chipList.length - 1)) {
+        e.preventDefault();
+        var n = v ? at + 1 : 0;
+        input.value = chipList[n]; autosize(); syncSend(); markTab(n + 1);
+        announce('Suggestion: ' + chipList[n] + '. Press Enter to send.');
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!job) submit(); }
     if (e.key === 'ArrowUp' && !input.value && !job) {
       var last = conv().messages.filter(function (m) { return m.role === 'user' && m.text; }).pop();
@@ -1035,21 +1141,28 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 
   function stream(c, flow) {
     var plan = FLOWS[flow]();
-    var el = ghidShell(), txt = el.querySelector('.ghid-text');
+    var el = raiffyShell(), txt = el.querySelector('.raiffy-text');
     el.classList.add('enter');
-    txt.innerHTML = '<div class="thinking"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="tl"></span></div>';
+    var panel = document.createElement('div');
+    panel.className = 'think think-live';
+    panel.innerHTML = '<ol class="think-lines" aria-label="Raiffy is working"></ol>';
+    el.querySelector('.raiffy-body').insertBefore(panel, txt);
     thread.appendChild(el); icons(); follow();
     setBusy(true);
     var timer = null, i = 0, done = [], words = [], p = null, pi = 0;
-    var tl = txt.querySelector('.tl');
-    announce('Ghid is thinking.');
+    var lines = panel.querySelector('.think-lines');
+    announce('Raiffy is thinking.');
 
     function think() {
-      if (i < plan.thinking.length) { tl.textContent = plan.thinking[i++]; timer = setTimeout(think, reduce.matches ? 500 : 800); }
+      if (i < plan.thinking.length) {
+        i++; lines.innerHTML = thinkLines(plan.thinking.slice(0, i), true); follow();
+        timer = setTimeout(think, reduce.matches ? 500 : 800);
+      }
       else startText();
     }
     function startText() {
-      txt.innerHTML = '';
+      var folded = thinkHTML(plan.thinking);
+      panel.parentNode.replaceChild(folded, panel); panel = folded; icons();
       if (reduce.matches) { done = plan.paras.slice(); return finish(false); }
       nextPara();
     }
@@ -1070,7 +1183,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     }
     function finish(stopped) {
       clearTimeout(timer);
-      var gm = { role: 'ghid', flow: flow, paras: done, card: stopped ? null : plan.card, sources: stopped ? [] : plan.sources, stopped: stopped };
+      var gm = { role: 'raiffy', flow: flow, thinking: plan.thinking.slice(0, i), paras: done, card: stopped ? null : plan.card, sources: stopped ? [] : plan.sources, stopped: stopped };
       if (stopped && p && p._text && done.indexOf(p._text) < 0 && pi < plan.paras.length) gm.paras = done.concat(p._text + '…');
       if (stopped && !gm.paras.length) gm.paras = [];
       c.messages.push(gm);
@@ -1081,7 +1194,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       job = null; setBusy(false);
       setChips(stopped ? [] : plan.chips);
       renderHeader(); renderCtx();
-      announce(stopped ? 'Reply stopped.' : 'Ghid replied: ' + plan.paras.join(' '));
+      announce(stopped ? 'Reply stopped.' : 'Raiffy replied: ' + plan.paras.join(' '));
     }
     job = { stop: function () { finish(true); }, conv: c.id };
     timer = setTimeout(think, 120);
@@ -1120,7 +1233,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
         var on = act.getAttribute('aria-pressed') !== 'true';
         msgEl.querySelectorAll('[data-act="up"],[data-act="down"]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
         act.setAttribute('aria-pressed', on);
-        if (on) announce(a === 'up' ? 'Thanks for the feedback.' : 'Thanks. This helps Ghid improve.');
+        if (on) announce(a === 'up' ? 'Thanks for the feedback.' : 'Thanks. This helps Raiffy improve.');
       } else if (a === 'pin') {
         if (m.pinned) { pins = pins.filter(function (p) { return p.id !== m.pinned; }); m.pinned = null; act.setAttribute('aria-pressed', 'false'); announce('Unpinned.'); }
         else { var meta = PIN_META[m.card.type](m.card); meta.id = uid('p'); meta.conv = active; pins.unshift(meta); m.pinned = meta.id; act.setAttribute('aria-pressed', 'true'); announce('Pinned to context.'); }
@@ -1163,7 +1276,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     if (book) {
       var bx = book.closest('.book'), when = bx.querySelector('.slots [aria-pressed="true"]').textContent, share = bx.querySelector('.share').checked;
       bx.innerHTML = '<div class="booked">' + ic('calendar-check') + '<span><b>Booked: ' + when + '</b> with Andreea M., Floreasca branch. ' +
-        (share ? 'Ghid’s summary will be shared before the meeting.' : 'No summary shared.') + '</span></div>';
+        (share ? 'Raiffy’s summary will be shared before the meeting.' : 'No summary shared.') + '</span></div>';
       icons(); announce('Meeting booked for ' + when + '.');
       return;
     }
@@ -1237,7 +1350,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       var name = document.getElementById(sw.getAttribute('aria-labelledby')).textContent;
       var note = $('perm-note');
       note.hidden = false;
-      note.textContent = on ? 'Ghid can use your ' + name.toLowerCase() + ' again from your next question.' : 'Ghid will stop using your ' + name.toLowerCase() + ' from your next question.';
+      note.textContent = on ? 'Raiffy can use your ' + name.toLowerCase() + ' again from your next question.' : 'Raiffy will stop using your ' + name.toLowerCase() + ' from your next question.';
       announce(note.textContent);
     });
   });
