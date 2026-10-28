@@ -2,8 +2,10 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { memoryKind, memoryScopeFields } from "./memoryValidators";
 
-/** Vector size of the embedding model the chunks were indexed with (multilingual-e5-base). */
-export const EMBEDDING_DIMENSIONS = 768;
+/** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
+export const EMBEDDING_DIMENSIONS = 1536;
+
+const track = v.union(v.literal("personal"), v.literal("business"));
 
 const sectionType = v.union(
   v.literal("overview"),
@@ -46,8 +48,10 @@ export default defineSchema({
     chunkId: v.string(),
     text: v.string(),
     searchText: v.string(),
-    embedding: v.array(v.float64()),
-    embeddingModel: v.string(),
+    /** Filled by `embeddings:embedPending` after import; chunks without it are not in the vector index yet. */
+    embedding: v.optional(v.array(v.float64())),
+    embeddingModel: v.optional(v.string()),
+    embedded: v.boolean(),
     visiblePersonal: v.boolean(),
     visibleBusiness: v.boolean(),
     sourceType: v.union(v.literal("product_page"), v.literal("pdf")),
@@ -67,6 +71,7 @@ export default defineSchema({
     currencies: v.optional(v.array(v.string())),
   })
     .index("by_chunkId", ["chunkId"])
+    .index("by_embedded", ["embedded"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: EMBEDDING_DIMENSIONS,
@@ -76,4 +81,21 @@ export default defineSchema({
       searchField: "searchText",
       filterFields: ["visiblePersonal", "visibleBusiness"],
     }),
+
+  /** A conversation is bound to one track for its whole life, so personal and business data never mix. */
+  ragThreads: defineTable({
+    track,
+    title: v.string(),
+    /** Optional only for legacy schema migration; authorization rejects unowned records. */
+    ownerKey: v.optional(v.string()),
+    organizationKey: v.optional(v.union(v.null(), v.string())),
+  }).index("by_owner_scope", ["ownerKey", "track", "organizationKey"]),
+
+  ragMessages: defineTable({
+    threadId: v.id("ragThreads"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+    /** The validated RagAnswer (sources, checks, searches) for assistant messages. */
+    answer: v.optional(v.any()),
+  }).index("by_thread", ["threadId"]),
 });

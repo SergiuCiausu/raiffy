@@ -1,0 +1,8 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+
+# Slow shared network at the venue: large native binaries (Next's SWC, ~32 MB) need minutes, not the 60 s default
+fetchTimeout: 1800000
+fetchRetries: 6
+networkConcurrency: 4

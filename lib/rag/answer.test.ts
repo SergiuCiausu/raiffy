@@ -1,13 +1,13 @@
 import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
 import { assembleCitations, checkNumbers, citedSegments, ragAnswerSchema } from "./answer";
-import { buildUserContent, toSearchResult } from "./prompt";
+import { toSearchResult, toToolResult } from "./prompt";
 import type { SearchHit } from "./schemas";
 
 const hit = (id: string, url: string, text: string): SearchHit => ({
   chunkId: id,
   text,
-  embeddingModel: "test",
+  embedded: true,
   visiblePersonal: true,
   visibleBusiness: false,
   sourceType: "product_page",
@@ -42,19 +42,19 @@ const response = [
 ] as unknown as BetaContentBlock[];
 
 describe("prompt building", () => {
-  it("splits a chunk into one citable block per line, with citations on", () => {
+  it("splits a chunk into one citable block per line, after the collection date", () => {
     const result = toSearchResult(hits[0]!);
-    expect(result.content.map((b) => b.text)).toEqual(["Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an"]);
+    expect(result.content.map((b) => b.text)).toEqual([
+      "Collected on 2026-10-28.", "Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an",
+    ]);
     expect(result.citations).toEqual({ enabled: true });
     expect(result.title).toBe("Depozite la termen · Dobânzi");
   });
 
-  it("puts a dated header first and the question last", () => {
-    const content = buildUserContent({ question: "Rate?", hits, firstTurn: true });
-    expect(content[0]).toMatchObject({ type: "text" });
-    expect((content[0] as { text: string }).text).toContain("2026-10-28");
-    expect(content.filter((b) => b.type === "search_result")).toHaveLength(3);
-    expect((content.at(-1) as { text: string }).text).toMatch(/AI assistant[\s\S]*Customer question: Rate\?/);
+  it("returns only search results in a tool result, or a note when there are none", () => {
+    const withHits = toToolResult("t1", hits);
+    expect(Array.isArray(withHits.content) && withHits.content.every((b) => b.type === "search_result")).toBe(true);
+    expect(toToolResult("t2", []).content).toMatch(/No results/);
   });
 });
 
@@ -75,6 +75,45 @@ describe("answer assembly", () => {
     expect(checks.uncitedSegmentsWithNumbers).toBe(1);
   });
 
+  it("rejects a value found only in an unrelated retrieved fragment", () => {
+    expect(checkNumbers([{ text: "The deposit pays 6.20%.", hitIndexes: [0] }], hits, "q").ungroundedNumbers).toEqual(["6.20"]);
+  });
+
+  it("does not let the customer's question establish a financial number", () => {
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [0] }], hits, "Can I get 7.10%?").ungroundedNumbers).toEqual(["7.10"]);
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [] }], hits, "Can I get 7.10%?")).toMatchObject({
+      ungroundedNumbers: ["7.10"], uncitedSegmentsWithNumbers: 1,
+    });
+  });
+
+  it("requires numeric evidence for each segment's own citation", () => {
+    expect(checkNumbers([
+      { text: "It pays 4.70%.", hitIndexes: [0] },
+      { text: "Another deposit pays 4.70%.", hitIndexes: [2] },
+    ], hits, "q").ungroundedNumbers).toEqual(["4.70"]);
+  });
+
+  it.each([-1, 0.5, 99, Number.NaN, Number.POSITIVE_INFINITY])("rejects invalid citation index %s even without numbers", (index) => {
+    expect(checkNumbers([{ text: "A banking fact.", hitIndexes: [index] }], hits, "q")).toMatchObject({ invalidCitationIndexes: 1 });
+  });
+
+  it("does not let an invalid citation stand in for valid evidence", () => {
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [99] }], hits, "q")).toEqual({
+      ungroundedNumbers: ["4.70"], uncitedSegmentsWithNumbers: 1, invalidCitationIndexes: 1,
+    });
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [0, 99] }], hits, "q")).toEqual({
+      ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, invalidCitationIndexes: 1,
+    });
+  });
+
+  it("accepts a cited collection date without allowing an unrelated snapshot's date", () => {
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], hits, "q")).toEqual({
+      ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0,
+    });
+    const distinctDate = { ...hits[0]!, scrapedAt: "2025-09-17T00:00:00Z" };
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], [distinctDate, hits[1]!], "q").ungroundedNumbers).toEqual(["2026", "10", "28"]);
+  });
+
   it("produces an answer the schema accepts", () => {
     const assembled = assembleCitations(citedSegments(response), hits);
     expect(() => ragAnswerSchema.parse({
@@ -82,7 +121,8 @@ describe("answer assembly", () => {
       status: "answered",
       checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 },
       model: "claude-sonnet-5-5",
-      promptVersion: "rag-answer@1",
+      promptVersion: "rag-agent@1",
+      searches: [{ query: "dobanda depozit", focus: "interest_rates", results: 3 }],
       retrieval: [{ chunkId: "d#1", score: 0.03, denseRank: 1 }],
     })).not.toThrow();
   });
