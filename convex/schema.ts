@@ -71,5 +71,13 @@ export default defineSchema({
     text: v.string(),
     /** The validated RagAnswer (sources, checks, searches) for assistant messages. */
     answer: v.optional(v.any()),
+    /**
+     * Streaming state of an assistant message. While "streaming", `text` holds the reply as Claude writes it and
+     * `steps` the searches so far; the chat UI subscribes and shows both live. Rows written before streaming
+     * existed have no status and count as done.
+     */
+    status: v.optional(v.union(v.literal("streaming"), v.literal("done"), v.literal("stopped"), v.literal("failed"))),
+    steps: v.optional(v.array(v.object({ query: v.string(), focus: v.string(), results: v.optional(v.number()) }))),
+    error: v.optional(v.string()),
   }).index("by_thread", ["threadId"]),
 });
