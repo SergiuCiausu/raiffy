@@ -1,0 +1,26 @@
+{
+ "description": "Adversarial track and collection isolation for search_knowledge. Each query asks one track or collection for content that belongs elsewhere; a case passes only when nothing out of scope comes back (see isolationViolations in lib/rag/evaluation.ts). Corporate content must never appear.",
+ "cases": [
+  {"id": "iso-p-factoring", "kind": "isolation", "track": "personal", "collection": "bank_product_docs", "lang": "en", "question": "How much of my company's invoices does Raiffeisen advance through factoring for SMEs?", "tags": ["business_query", "imm"]},
+  {"id": "iso-p-cosme", "kind": "isolation", "track": "personal", "collection": "bank_product_docs", "lang": "en", "question": "What is the maximum loan my company can get through the EIF COSME guarantee program?", "tags": ["business_query", "imm"]},
+  {"id": "iso-p-srl-account", "kind": "isolation", "track": "personal", "collection": "bank_product_docs", "lang": "ro", "question": "Ce pachet de cont curent aveți pentru un SRL nou înființat?", "tags": ["business_query", "imm"]},
+  {"id": "iso-p-custody", "kind": "isolation", "track": "personal", "collection": "bank_product_docs", "lang": "en", "question": "What does Raiffeisen's custody service for corporations include?", "tags": ["corporate_query"]},
+  {"id": "iso-p-ing-business-deposit", "kind": "isolation", "track": "personal", "collection": "competitor_docs", "lang": "en", "question": "What rate does ING's Business Bonus deposit pay for companies?", "tags": ["business_query", "ing"]},
+  {"id": "iso-p-bcr-george-business", "kind": "isolation", "track": "personal", "collection": "competitor_docs", "lang": "ro", "question": "Cât costă contul George pentru afacerea mea la BCR?", "tags": ["business_query", "bcr"]},
+  {"id": "iso-p-bcr-corporate-card", "kind": "isolation", "track": "personal", "collection": "competitor_docs", "lang": "en", "question": "What are the fees for BCR's Mastercard Corporate debit card in EUR?", "tags": ["corporate_query", "bcr"]},
+  {"id": "iso-p-raiffeisen-in-competitors", "kind": "isolation", "track": "personal", "collection": "competitor_docs", "lang": "en", "question": "What is the starting fixed rate on Raiffeisen's Casa Ta mortgage?", "tags": ["cross_collection"]},
+  {"id": "iso-p-ing-in-own-docs", "kind": "isolation", "track": "personal", "collection": "bank_product_docs", "lang": "en", "question": "What fixed interest range does ING Personal have?", "tags": ["cross_collection", "ing"]},
+  {"id": "iso-p-help-rates", "kind": "isolation", "track": "personal", "collection": "banking_help", "lang": "en", "question": "What is the interest rate on the 3-month term deposit in lei?", "tags": ["cross_collection", "faq_only"]},
+  {"id": "iso-p-help-business", "kind": "isolation", "track": "personal", "collection": "banking_help", "lang": "ro", "question": "Cum pot să îmi finanțez firma prin factoring?", "tags": ["business_query", "faq_only"]},
+  {"id": "iso-p-user-memory", "kind": "isolation", "track": "personal", "collection": "user_memory", "lang": "en", "question": "Which savings goals did I tell you about last time?", "tags": ["unavailable"]},
+  {"id": "iso-p-unknown-collection", "kind": "isolation", "track": "personal", "collection": "corporate_docs", "lang": "en", "question": "Corporate cash management services", "tags": ["unavailable", "corporate_query"]},
+  {"id": "iso-b-casa-ta", "kind": "isolation", "track": "business", "collection": "bank_product_docs", "lang": "en", "question": "What down payment does the Casa Ta mortgage need for my family home?", "tags": ["personal_query"]},
+  {"id": "iso-b-fresh-money", "kind": "isolation", "track": "business", "collection": "bank_product_docs", "lang": "en", "question": "What rate does the Fresh Money deposit for individuals pay?", "tags": ["personal_query"]},
+  {"id": "iso-b-standard-card", "kind": "isolation", "track": "business", "collection": "bank_product_docs", "lang": "ro", "question": "Ce DAE are cardul de cumpărături Standard pentru persoane fizice?", "tags": ["personal_query"]},
+  {"id": "iso-b-corporate", "kind": "isolation", "track": "business", "collection": "bank_product_docs", "lang": "en", "question": "Custody services and syndicated loans for large corporations", "tags": ["corporate_query"]},
+  {"id": "iso-b-ing-personal", "kind": "isolation", "track": "business", "collection": "competitor_docs", "lang": "en", "question": "What fixed interest range does ING Personal have for individuals?", "tags": ["personal_query", "ing"]},
+  {"id": "iso-b-bcr-credit-george", "kind": "isolation", "track": "business", "collection": "competitor_docs", "lang": "ro", "question": "Ce dobândă are Credit George de nevoi personale la BCR?", "tags": ["personal_query", "bcr"]},
+  {"id": "iso-b-help-personal", "kind": "isolation", "track": "business", "collection": "banking_help", "lang": "en", "question": "How do I open a personal current account online?", "tags": ["personal_query", "faq_only"]},
+  {"id": "iso-b-user-memory", "kind": "isolation", "track": "business", "collection": "user_memory", "lang": "en", "question": "What did my company save as its funding goal?", "tags": ["unavailable"]}
+ ]
+}

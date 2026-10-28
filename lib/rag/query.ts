@@ -1,5 +1,11 @@
 import { foldDiacritics, MAX_SEARCH_TERMS, queryTerms, tokenize } from "./normalize";
 import type { DocType, SearchFocus, SectionType } from "./schemas";
+import type { Bank } from "./schemas";
+
+export function namedBanks(question: string): Bank[] {
+  const tokens = tokenize(question);
+  return (["raiffeisen", "ing", "bcr"] as const).filter(bank => tokens.includes(bank));
+}
 
 /**
  * English banking terms -> the folded Romanian words the website uses, for the keyword leg of hybrid search.
@@ -42,6 +48,14 @@ const EN_TO_RO: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["investment loan", ["credit", "investitii"]],
   ["liberal professions", ["profesii", "liberale"]],
   ["fee schedule", ["tarife", "comisioane"]],
+  ["administration", ["administrare"]],
+  ["analysis", ["analiza"]],
+  ["opening", ["deschidere"]],
+  ["maximum", ["maxim", "maxima"]],
+  ["minimum", ["minim", "minima"]],
+  ["without", ["fara"]],
+  ["fixed", ["fixa", "fix"]],
+  ["variable", ["variabila"]],
   ["interest", ["dobanda", "dobanzi"]],
   ["rate", ["dobanda"]],
   ["apr", ["dae"]],
@@ -116,13 +130,14 @@ const INTENT_TERMS: Record<Intent, readonly string[]> = {
 
 const INTENT_SECTIONS: Record<Intent, readonly SectionType[]> = {
   cost: ["fees", "fee_table", "interest_rates", "pdf"],
-  interest: ["interest_rates", "representative_example", "fee_table"],
+  interest: ["interest_rates", "rate_table", "representative_example", "fee_table", "table"],
   documents: ["required_documents"],
   eligibility: ["eligibility"],
   example: ["representative_example"],
 };
 
 export type QueryPlan = {
+  banks?: Bank[];
   /** Folded terms for the keyword leg: the question's own words, then English->Romanian expansions. */
   lexicalTerms: string[];
   intents: Intent[];
@@ -151,13 +166,18 @@ export function planQuery(question: string, maxTerms: number = MAX_SEARCH_TERMS)
     words.forEach((w) => consumed.add(w));
     for (const term of romanian) if (!own.includes(term) && !expansions.includes(term)) expansions.push(term);
   }
-  const lexicalTerms = [...own, ...expansions].slice(0, maxTerms);
+  const english = tokens.some(t => ["what", "how", "which", "does", "is", "are"].includes(t));
+  const banks = namedBanks(question);
+  // Keep untranslated names and numbers before expansion; long English queries must not lose the product.
+  const specific = own.filter(term => !consumed.has(term));
+  const lexicalTerms = [...new Set(english ? [...specific, ...expansions, ...own] : [...own, ...expansions])].slice(0, maxTerms);
 
   const intents = (Object.keys(INTENT_TERMS) as Intent[]).filter((intent) =>
     INTENT_TERMS[intent].some((term) => tokens.includes(term)),
   );
   const preferredSections = [...new Set(intents.flatMap((intent) => INTENT_SECTIONS[intent]))];
   return {
+    ...(banks.length ? { banks } : {}),
     lexicalTerms,
     intents,
     preferredSections,

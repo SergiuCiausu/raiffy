@@ -13,6 +13,8 @@
     "sync:prototypes": "node scripts/sync-prototypes.mjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.21",
+    "convex": "1.48.0",
     "lucide-react": "0.468.0",
     "next": "16.4.3",
     "react": "19.3.0",
@@ -20,6 +22,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@clerk/backend": "^3.26.3",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",

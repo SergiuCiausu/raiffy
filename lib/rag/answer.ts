@@ -1,8 +1,33 @@
 import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { z } from "zod";
+import type { Passage } from "./knowledge";
 import { findUngroundedNumbers } from "./numbers";
-import { resultTitle } from "./prompt";
-import { docTypeSchema, searchFocusSchema, sectionTypeSchema, type SearchHit } from "./schemas";
+import { type DocType, docTypeSchema, type SectionType, sectionTypeSchema } from "./schemas";
+
+/** A fragment the model saw as a search_result block, in the order it saw it. Citations point into this list. */
+export type Citable = {
+  chunkId: string;
+  label: string;
+  url: string;
+  text: string;
+  collectedAt: string;
+  sectionType: SectionType;
+  docType?: DocType;
+  score: number;
+};
+
+export function citableFromPassage(passage: Passage): Citable {
+  return {
+    chunkId: passage.passageId,
+    label: passage.title,
+    url: passage.provenance.url,
+    text: passage.text,
+    collectedAt: passage.provenance.collectedAt,
+    sectionType: passage.sectionType,
+    ...(passage.docType ? { docType: passage.docType } : {}),
+    score: passage.score,
+  };
+}
 
 export const ragSourceSchema = z.object({
   id: z.string(),
@@ -38,7 +63,12 @@ export const ragAnswerSchema = z.object({
   model: z.string(),
   promptVersion: z.string(),
   /** The searches the agent ran, in order. */
-  searches: z.array(z.object({ query: z.string(), focus: searchFocusSchema, results: z.number().int().nonnegative() })),
+  searches: z.array(z.object({
+    query: z.string(),
+    collection: z.string(),
+    status: z.enum(["ok", "unavailable"]),
+    results: z.number().int().nonnegative(),
+  })),
   /** Every fragment shown to the model, in the order it saw them. */
   retrieval: z.array(
     z.object({
@@ -67,7 +97,7 @@ export function citedSegments(content: readonly BetaContentBlock[]): CitedSegmen
 }
 
 /** Turn cited segments into answer text, per-segment source ids and one source per cited page. */
-export function assembleCitations(segments: readonly CitedSegment[], hits: readonly SearchHit[]) {
+export function assembleCitations(segments: readonly CitedSegment[], hits: readonly Citable[]) {
   const sources: RagSource[] = [];
   const idByUrl = new Map<string, string>();
   const out = segments.map((segment) => {
@@ -82,8 +112,8 @@ export function assembleCitations(segments: readonly CitedSegment[], hits: reado
         sources.push({
           id,
           url: hit.url,
-          title: resultTitle(hit),
-          collectedOn: hit.scrapedAt.slice(0, 10),
+          title: hit.label,
+          collectedOn: hit.collectedAt.slice(0, 10),
           sectionType: hit.sectionType,
           ...(hit.docType ? { docType: hit.docType } : {}),
           chunkIds: [hit.chunkId],
@@ -104,18 +134,18 @@ export function assembleCitations(segments: readonly CitedSegment[], hits: reado
  * This is not a verifier of financial meaning, units, product identity or semantic entailment.
  * Keep the question argument for compatibility with existing callers.
  */
-export function checkNumbers(segments: readonly CitedSegment[], hits: readonly SearchHit[], _question: string) {
+export function checkNumbers(segments: readonly CitedSegment[], hits: readonly Citable[], _question: string) {
   const ungroundedNumbers: string[] = [];
   let uncitedSegmentsWithNumbers = 0;
   let invalidCitationIndexes = 0;
   for (const segment of segments) {
-    const citedHits: SearchHit[] = [];
+    const citedHits: Citable[] = [];
     for (const index of segment.hitIndexes) {
       const hit = Number.isInteger(index) && index >= 0 ? hits[index] : undefined;
       if (hit) citedHits.push(hit);
       else invalidCitationIndexes++;
     }
-    const allowed = citedHits.flatMap((hit) => [hit.text, hit.scrapedAt.slice(0, 10)]);
+    const allowed = citedHits.flatMap((hit) => [hit.text, hit.collectedAt.slice(0, 10)]);
     ungroundedNumbers.push(...findUngroundedNumbers(segment.text, allowed));
     if (!citedHits.length && findUngroundedNumbers(segment.text, []).length > 0) uncitedSegmentsWithNumbers++;
   }

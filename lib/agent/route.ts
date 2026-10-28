@@ -3,6 +3,7 @@ import { trackSchema } from "../rag/schemas";
 import { AGENT_POLICY, agentPolicySchema, modelConfigSchema, type AgentPolicy } from "./config";
 import { INQUIRIES, jevResponseSchema, RISKS } from "./jev";
 import { memoryCandidateSchema, scoreMemoryCandidate } from "./memory";
+import { bankSchema } from "../rag/schemas";
 
 export const COLLECTIONS = ["bank_product_docs", "competitor_docs", "banking_help", "user_memory"] as const;
 export const TOOLS = ["search_knowledge", "get_product_terms", "get_expense_summary", "get_approved_offers", "calculate_scenario", "propose_memory_change", "manage_memory", "request_human_handoff"] as const;
@@ -16,6 +17,7 @@ export const routeContextSchema = z.object({
   /** Capabilities actually wired on this deployment. Does not grant access to any user's records. */
   availableTools: z.array(z.enum(TOOLS)),
   availableCollections: z.array(z.enum(COLLECTIONS)),
+  requestedBanks: z.array(bankSchema).optional(),
 });
 export type RouteContext = z.infer<typeof routeContextSchema>;
 
@@ -103,7 +105,10 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   }
   const multiGoal = multi >= policy.thresholds.multiGoalProbability;
   const complex = multiGoal || a.complexity.choice === "complex";
-  const resources = RESOURCES[inquiry];
+  const defaultResources = RESOURCES[inquiry];
+  const competitorOnly = context.requestedBanks?.length && context.requestedBanks.every(bank => bank !== "raiffeisen");
+  const resources = competitorOnly ? { ...defaultResources,
+    collections: [...new Set(defaultResources.collections.map(id => id === "bank_product_docs" || id === "banking_help" ? "competitor_docs" as const : id))] } : defaultResources;
   const collections = context.availableTools.includes("search_knowledge")
     ? resources.collections.filter((id) => context.availableCollections.includes(id)) : [];
   const requestedTools = [...new Set<Tool>([...resources.tools, ...(resources.collections.some((id) => context.availableCollections.includes(id)) ? ["search_knowledge" as const] : [])])];

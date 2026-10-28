@@ -97,6 +97,14 @@ describe("backend route policy", () => {
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "confirm_track_before_access", track: "personal", collections: [] });
   });
 
+  it("routes an explicitly named competitor to its collection without broadening private access", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "product_explanation");
+    const plan = planAgentRoute(raw, { ...full, requestedBanks: ["ing"] });
+    expect(plan.collections).toEqual(["competitor_docs"]);
+    expect(plan.track).toBe("personal");
+    expect(plan.collections).not.toContain("user_memory");
+  });
+
   it("routes multiple goals through orchestration and only opts into Opus by policy", () => {
     const raw = response(); raw.answers.multi_goal.noul = 0.95;
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "multiple_goals", model: AGENT_POLICY.complexModel });
