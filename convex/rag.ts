@@ -9,7 +9,7 @@ import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type Se
 import { rankHits, type StoredChunk } from "../lib/rag/search";
 import { requireAgentScope } from "./agentAuth";
 
-const CANDIDATES = 32;
+const CANDIDATES = 64;
 
 export const trackArg = v.union(v.literal("personal"), v.literal("business"));
 const focusArg = v.union(...SEARCH_FOCUS.map((focus) => v.literal(focus)));

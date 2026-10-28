@@ -30,6 +30,7 @@ export function rankHits(
   };
   return fuseRankings(denseIds, lexicalIds, { boost })
     .filter((candidate) => docs.has(candidate.id))
+    .filter(candidate => !plan.banks?.length || plan.banks.includes(docs.get(candidate.id)!.bank))
     .slice(0, k)
     .map((candidate) => {
       const { _id, ...doc } = docs.get(candidate.id)!;

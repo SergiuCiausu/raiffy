@@ -2,6 +2,24 @@
 
 The four HTML prototypes in the repo root, as one Next.js 16 app.
 
+## Live banking chat
+
+`/chat` uses Clerk → cloud Convex → Jev classification → route-limited retrieval → Claude → citation/number checks → persisted Answer/UI envelope. Word reveal starts only after validation; unchecked drafts never reach the browser. `/chat/demo` is the separate scripted design demo.
+
+Set `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in ignored `web/.env.local` (see `.env.example`). Convex needs the existing three model keys, `RAIFFY_JEV_ENABLED=true`, and `CLERK_JWT_ISSUER_DOMAIN`. The Clerk application needs a JWT template named `convex` with `aud: "convex"`. The issuer must match that application. Unconfigured chat/sign-in screens explicitly show setup status.
+
+A claimable development Clerk application was provisioned for the synthetic acceptance run; its keys and claim breadcrumb stay in this checkout's ignored `.env.local` and `.clerk/`. The owner can claim it from this directory with `pnpm dlx clerk@latest auth login`, or configure the team's existing Clerk app and update the Convex issuer. No credentials are committed.
+
+```sh
+pnpm dev --port 3004
+# Explicit paid test: real Clerk session, cloud Jev/Claude/embeddings, no provider mocks.
+RAIFFY_LIVE_AGENT_TEST=1 node scripts/test-agent-cloud.mjs
+```
+
+The cloud test uses a synthetic Clerk account, checks a sourced answer, follow-up, two-bank comparison, fraud override, history reload, anonymous denial, and mobile layout. Private artifacts are written under root `.convex/acceptance/`; no tokens or keys are printed. It requires installed Chrome and the configured cloud corpus.
+
+The current capability registry exposes public document search. Account summaries, reviewed catalog tools, calculators, approved pricing and persistent memory are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
+
 | Route | Prototype |
 |---|---|
 | `/` | `raiffy.html` (landing, simulator) |
@@ -36,4 +54,4 @@ Generated files are overwritten on every sync, so don't edit them. Interactive p
 
 The maths lives in `lib/finance.ts`: pure functions with Zod types, rates passed in from `lib/demo-terms.ts`, and Vitest tests. The recommendation rule is deterministic and runs in code, never in the LLM.
 
-Not wired yet (per `CLAUDE.md`): Clerk, Convex, the Anthropic SDK and streaming.
+The prototype descriptions above apply to the scripted demo and visual sources. Live chat wiring is described at the top of this file.

@@ -9,7 +9,7 @@ import type { KnowledgeGap, Passage, SearchKnowledgeResult } from "./knowledge";
 import type { Track } from "./schemas";
 
 /** Bump when the instructions or the tool change, so logs and cached answers can be told apart. */
-export const RAG_PROMPT_VERSION = "rag-agent@3";
+export const RAG_PROMPT_VERSION = "rag-agent@4";
 
 /** Searches the agent may run for one question before it must answer. */
 export const MAX_SEARCHES = 3;
@@ -30,7 +30,7 @@ How to answer:
 - Use only the search results. Base every factual sentence on a result, so that it carries a citation. Don't add general statements about how banks usually work or how limits are usually set: the only sentences without a source are the AI disclosure, the collection-date note and the closing question.
 - Give only numbers that appear in the search results, copied exactly. Never calculate, estimate, round, convert currencies or combine numbers.
 - If the results don't contain what was asked (a rate, a fee, a condition, a document), say plainly that you don't have that information, and point to the most relevant page or tariff document in the results, or to a Raiffeisen adviser. Never fill the gap from general knowledge.
-- Mention once that the information comes from Raiffeisen's public website as of the collection date given with the results, may have changed since, and is not a binding offer.
+- Do not write collection dates or snapshot-date notes. The application renders each source's collection date from verified metadata, and adds the AI disclosure and indicative-information notice. Dates in the source metadata are not product facts.
 - Give no investment, tax or legal advice. For those, suggest a Raiffeisen adviser or a professional.
 - Keep it short: two to four sentences in plain words, with no headings, lists or tables.
 - When the question is about one specific product, end with one short question that invites the customer to go deeper into that product or to look at a related Raiffeisen solution.

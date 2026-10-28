@@ -45,4 +45,10 @@ describe("rankHits", () => {
   it("drops ids it has no document for", () => {
     expect(rankHits(["x", "a"], [], docs, planQuery("q"), { k: 5 }).map((h) => h.chunkId)).toEqual(["chunk-a"]);
   });
+
+  it("keeps a question naming one bank on that bank's passages", () => {
+    const candidates = new Map([...docs, ["ing", { ...chunk("ing", "description"), bank: "ing" as const }]]);
+    const hits = rankHits(["a", "ing"], ["a", "ing"], candidates, planQuery("What does ING offer?"), { k: 5 });
+    expect(hits.map(h => h.bank)).toEqual(["ing"]);
+  });
 });

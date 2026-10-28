@@ -45,15 +45,17 @@ export type AgentInput = {
   /** Earlier turns of the conversation as plain text (no citations), oldest first. */
   history?: readonly HistoryTurn[];
   model: string;
+  allowedCollections?: readonly string[];
 };
 
 /**
  * Agentic RAG: Claude decides when and what to search, code runs each search scoped to the session's track,
  * the fragments go back as search_result blocks, and the final text is checked so every number is grounded.
  */
-export async function runAgent({ question, track, history = [], model }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
+export async function runAgent({ question, track, history = [], model, allowedCollections }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
   const system = buildSystem(track);
-  const tools = [SEARCH_TOOL];
+  const tools = [allowedCollections ? { ...SEARCH_TOOL, input_schema: { ...SEARCH_TOOL.input_schema,
+    properties: { ...(SEARCH_TOOL.input_schema.properties as Record<string, unknown>), collection: { type: "string", enum: [...allowedCollections] } } } } : SEARCH_TOOL];
   const messages: BetaMessageParam[] = [
     ...history.map((turn) => ({ role: turn.role, content: turn.text })),
     { role: "user", content: buildUserTurn(question, history.length === 0) },

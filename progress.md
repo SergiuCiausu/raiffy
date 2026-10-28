@@ -2,7 +2,18 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 (search_knowledge handler and retrieval evals). Branch: `backend/retrieval-search-knowledge`.
+Last updated: 2026-10-28 (live UI/Jev/agent/RAG integration). Branch: `codex/agent-rag-integration`.
+
+## Live UI → Jev → agent → RAG, 2026-10-28
+
+- Integrated retrieval commit `f29e082` with current main (`e8dac1d`) in a separate checkout. Existing voice/demo-profile changes in other checkouts were preserved. Reused the live chat frontend from `ui/agent-chat` with new auth and pipeline contracts; its older unauthenticated backend was not adopted.
+- `/chat` now uses real Clerk authentication, a `convex` JWT template and owner-scoped cloud functions. A claimable development Clerk app was provisioned for synthetic testing; local private keys/claim files are ignored. Its issuer is configured in cloud Convex. Claim/setup instructions are in `web/README.md`.
+- `agent:send` screens input before storage, derives scope from verified identity, rate-limits per owner, and allocates the reply. `agent:run` starts each request once under that identity, runs live Jev, applies risk/confidence/track gates and restricts Claude to the planned public collections. Cancellation, history and every thread operation enforce ownership. Private memory writes remain off.
+- Claude receives only bounded, screened history and allowed tool results. A five-passage budget reserves evidence from both bank collections for comparisons. Completed answers pass existing citation/number checks before publication; checked text then reveals word by word. Code composes the UI envelope, follow-ups, disclosure and source-date presentation. Unchecked/truncated answers are withheld. Collection-date prose was removed from the model prompt to avoid failing the numeric guard on metadata; prompt version is `rag-agent@4`.
+- Read-only cloud audit: **9,334 chunks, all embedded, zero scope violations**. Earlier empty-cloud observations below are historical. Offline checks validate all 72 competitor/coverage cases, 21 isolation cases and 82 legacy cases against the source data. Live isolation: **21/21**. Broader competitor exact-passage hit@5 is **66%** (70 hit cases; English 64%, Romanian 78%); page@5 is 84%, and coverage checks are 2/2. This is below the retrieval plan's acceptance target; successful live examples are not a full quality acceptance.
+- Real Chrome/cloud acceptance passed: sourced personal-loan document answer, contextual follow-up, Raiffeisen/BCR comparison citing both banks, fraud override without Claude, persistent history after reload, anonymous access denied, and no mobile overflow. Observed sourced-answer samples were roughly 6–9 seconds to backend completion and 9–11 seconds including checked word reveal; fraud about 1–2 seconds. These are samples, not latency guarantees. Private results/screenshots are under `.convex/acceptance/`.
+- Validation: 212 backend tests and root/Convex type checks pass; web has 17 passing unit tests, scoped lint/type checks and a production build. Live tests use synthetic accounts and real providers; ordinary unit tests mock providers.
+- Remaining product capabilities are explicit gaps: reviewed `productTerms` catalog/lookup and exact financial comparisons, deterministic calculator/expense tools, authorized offer negotiation/adviser booking, broader retrieval/classifier evaluation, real-user privacy/consent acceptance and memory retrieval/confirmation UI. These are not advertised as connected by the capability registry. The current live milestone is authenticated, sourced public-product Q&A and factual document comparisons.
 
 ## Task 2: search_knowledge handler and retrieval evals 2026-10-28
 
