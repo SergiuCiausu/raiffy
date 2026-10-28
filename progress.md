@@ -9,7 +9,8 @@ Last updated: 2026-10-28 (backend integration review). Branch: `codex/backend-in
 - Combined local memory/Jev work with teammate PR #4 (already merged into main at `2bb0b37`). Preserved memory/provenance tables and added RAG threads plus 1536-dimensional OpenAI embeddings from the PR. UI source was identical to main and was not rewritten; the raw competitor package and design references remain outside this source commit.
 - Closed unauthenticated paid agent/search entry points and enforced user/organization ownership on every thread path. Legacy unowned threads fail closed. Capped history and message reads.
 - Bound numeric presence checks to valid cited fragments, rejected invalid citations and truncated model replies, and made exhausted-loop fallback schema-valid. Semantic financial fact validation remains open.
-- Read-only cloud audit verified the three provider-key names are set, public RAG and memory tables are empty, and the running deployment still uses the earlier public-product action. No provider calls or corpus embedding were run for this assessment.
+- Read-only cloud audit verified the three provider-key names are set, public RAG and memory tables are empty, and the running deployment initially used the earlier public-product action. Deployed the tested merged backend to the same cloud dev target; verified `agent:ask` and `rag:search` reject unauthenticated calls. No provider calls or corpus embedding were run for this assessment.
+- Validation: 138 backend tests and root/Convex type checks pass; generated setup is consistent. The separate `ui/agent-chat` streaming branch remains unmerged and must retain the new ownership guards.
 - Current status and shortest path to in-app testing: `raiffy-spec/docs/plans/backend-integration-status.md`. The live UI, Clerk/PII pipeline, Jev-to-answer connection, combined-bank importer, structured calculators/catalog/offers and real-user memory acceptance remain unfinished.
 
 ## Memory store and Jev transport 2026-10-28
@@ -21,7 +22,7 @@ Last updated: 2026-10-28 (backend integration review). Branch: `codex/backend-in
 - Authenticated the Convex MCP using this machine's saved Convex login and registered it in Codex as `convex`. Verified dev `diligent-rhinoceros-830` in EU West (`andrei-cazacu:raiffy:dev/andrei-cazacu`). Stopped the previous local dev process; `.env.local` selects cloud dev. New root guidance explicitly excludes anonymous/local backends.
 - Added `convex-test` lifecycle and transport fault tests, `evals/memory-store.json`, `evals/jev-transport.json`, `pnpm convex:typecheck`, and the cloud dev `pnpm memory:check-mcp` check. Published the updated functions to cloud dev. Through MCP, verified tables, a synthetic proposal, customer confirmation, idempotent re-confirmation and deletion; restored the original demo settings and deployment pin afterward. No pre-existing demo memories were deleted.
 - Validation: 107 Vitest tests pass; root and Convex TypeScript checks, generated setup consistency, and diff whitespace checks pass. Live cloud MCP memory lifecycle check passes. Jev tests use mocked transport only; no live provider calls.
-- Full agent loop, UI confirmation, real Clerk/PII integration, structured catalog/comparison and approved offers remain next. Source checkpoint preserved in commit `9c94852`; combined with PR #4 during backend integration.
+- Jev-to-RAG orchestration, UI confirmation, real Clerk/PII integration, structured catalog/comparison and approved offers remain next. Source checkpoint preserved in commit `9c94852`; combined with PR #4 during backend integration.
 
 ## Agent foundation update 2026-10-28
 

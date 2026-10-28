@@ -16,6 +16,8 @@ The merge also fixes issues found during review:
 
 These changes do not implement a full PII pipeline, prove semantic financial correctness or connect Jev to the RAG loop.
 
+A separate committed branch, `ui/agent-chat` at `436ddc4`, already contains a live Convex chat UI and streaming response work. It was not part of teammate PR #4 or the root checkout being merged. Reuse that implementation rather than rebuilding the chat screen, but reconcile its streaming mutations with the new authentication and thread ownership checks before merging it. Its additional public send/stop/thread-list paths also need those guards. Its local integration harness is not evidence of real authenticated cloud operation.
+
 ## Milestone assessment
 
 | Milestone | Working components | Still required |
@@ -32,7 +34,7 @@ Counting source files or assigning an overall percentage would overstate readine
 
 ## Data and cloud checks
 
-The configured development deployment is `diligent-rhinoceros-830` in EU West. Read-only checks verified the presence of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `TYPESAFE_API_KEY` without reading their values. The first RAG/memory rows were absent. No customer message was sent to a model and no bulk embedding was started during this audit.
+The configured development deployment is `diligent-rhinoceros-830` in EU West. Read-only checks verified the presence of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `TYPESAFE_API_KEY` without reading their values. The first RAG/memory rows were absent. After the source merge, the tested backend was deployed to this same development target. Live smoke tests confirmed that both `agent:ask` and `rag:search` reject unauthenticated requests before provider calls. The cloud tables remain empty. No customer message was sent to a model and no bulk embedding was started during this audit.
 
 The source package contains 10,100 chunks. Against the current import schema, 8,568 validate and 1,532 fail enum validation. The schema strips the bank field from every accepted row and strips status when present. Importing this package unchanged would lose information needed to distinguish banks and exclude withdrawn products. The existing builder defaults to the older Raiffeisen-only package.
 
@@ -45,11 +47,11 @@ Numeric presence in a cited fragment still does not prove that a rate, currency,
 1. Wire Clerk to the backend and browser, and put shared PII screening at the chat/provider boundary. Start with synthetic test accounts and messages. Keep server-derived identity and the new thread isolation guards.
 2. Normalize and preserve the three-bank metadata, import public chunks, generate their embeddings and verify exact expected source URLs in the top five for a small EN/RO product, fee and competitor set. Add an authenticated evaluation path; the old unauthenticated retrieval evaluator now correctly fails at the access guard.
 3. Connect the existing Jev action and planner before the existing Claude RAG loop. For the first testable slice, support product explanations and sourced factual comparisons. Return an explicit unavailable state for calculators, account data, offers and memory that are not connected.
-4. Bind the real chat UI to that backend action and validate the `Answer` response. Run normal, ambiguous, no-source, stale/withdrawn, fraud, hardship, wrong-user, provider-timeout and invalid-citation scenarios. Measure actual latency, tokens, answer support and classification outcomes.
+4. Reconcile and merge `ui/agent-chat` with the authenticated backend contract, then validate the `Answer` response. Run normal, ambiguous, no-source, stale/withdrawn, fraud, hardship, wrong-user, provider-timeout and invalid-citation scenarios. Measure actual latency, tokens, answer support and classification outcomes.
 5. Add deterministic finance/expense tools and then authorized negotiation. Connect customer-confirmed memory to the same chat loop after real-user privacy controls are accepted.
 
 The first live milestone is a signed-in synthetic customer receiving a sourced answer through Jev and the Claude retrieval loop in the app. Full negotiation and account-data personalization can follow that verified path.
 
 ## Validation
 
-The merged backend suite currently contains 138 passing tests. Root and Convex TypeScript checks, generated agent setup consistency and whitespace checks pass. Tests include thread user/organization isolation, unauthenticated paid-call denial, memory lifecycle, provider transport faults, bounded loops and citation regressions. Provider calls in these tests are mocked; live classification quality and full in-app behavior are unmeasured.
+The merged backend suite currently contains 138 passing tests. Root and Convex TypeScript checks, generated agent setup consistency and whitespace checks pass. The root checkout was also synchronized to the merged source and passed the same checks. Tests include thread user/organization isolation, unauthenticated paid-call denial, memory lifecycle, provider transport faults, bounded loops and citation regressions. Provider calls in these tests are mocked; live classification quality and full in-app behavior are unmeasured.
