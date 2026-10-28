@@ -1,0 +1,384 @@
+[
+ {
+  "question": "What is the maximum loan amount my company can get through the COSME European guarantee program?",
+  "expected_url_contains": "programe-eif-cosme",
+  "expected_text_contains": "675 mii Lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "daca dau facturile firmei la factoring, cat imi avanseaza banca din ele?",
+  "expected_url_contains": "factoring-pentru-imm",
+  "expected_text_contains": "100 % a contravalorii facturilor",
+  "track": "business",
+  "tags": [
+   "informal",
+   "no_diacritics",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "Firma mea nu e start-up, nu e condusă de femei și nu are activitate inovatoare. Cât din valoarea creditului poate garanta BID?",
+  "expected_url_contains": "credite-imm-garantate-de-bid",
+  "expected_text_contains": "maximum 70%",
+  "track": "business",
+  "tags": [
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "Am un cabinet medical individual și vreau creditul de investiții pentru profesii liberle. Ce acte trebuie să depun?",
+  "expected_url_contains": "credit-de-investitii-profesii-liberale",
+  "expected_text_contains": "registru jurnal",
+  "track": "business",
+  "tags": [
+   "typo",
+   "business",
+   "loan",
+   "documents"
+  ]
+ },
+ {
+  "question": "Ce suprafata minima de teren agricol trebuie sa aiba firma mea ca sa ia creditul pentru investitii in agricultura?",
+  "expected_url_contains": "creditul-pentru-investitii-in-agricultura",
+  "expected_text_contains": "100 Ha",
+  "track": "business",
+  "tags": [
+   "no_diacritics",
+   "business",
+   "loan",
+   "eligibility"
+  ]
+ },
+ {
+  "question": "Ce sumă maximă pot obține pe un overdraft pentru firma mea?",
+  "expected_url_contains": "imm/produse-si-servicii/finantare/linie-de-credit",
+  "expected_text_contains": "35% din cifra de afaceri",
+  "track": "business",
+  "tags": [
+   "cross_segment",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "Pentru mine, ca persoană fizică: cât pot primi pe overdraft dacă îmi încasez salariul la Raiffeisen?",
+  "expected_url_contains": "credite/overdraft",
+  "expected_text_contains": "6 salarii sau pensii",
+  "track": "personal",
+  "tags": [
+   "cross_segment",
+   "loan"
+  ]
+ },
+ {
+  "question": "Cât trebuie să cheltuim cu cardul de debit Gold al firmei ca să avem intrare gratuită în Business Lounge la Otopeni?",
+  "expected_url_contains": "carduri-de-debit-visa-business",
+  "expected_text_contains": "rulaj minim de 5.000 lei",
+  "track": "business",
+  "tags": [
+   "cross_segment",
+   "business",
+   "card"
+  ]
+ },
+ {
+  "question": "Câte zile de grație am la cardul de credit pentru firma mea?",
+  "expected_url_contains": "imm/produse-si-servicii/carduri-de-credit",
+  "expected_text_contains": "până la 45 zile",
+  "track": "business",
+  "tags": [
+   "cross_segment",
+   "business",
+   "card"
+  ]
+ },
+ {
+  "question": "Mi-am înființat SRL-ul acum 3 luni. Există un pachet de cont curent fără comision lunar de administrare pentru firma mea și până când e gratuit?",
+  "expected_url_contains": "pachet-imm-cont-curent-start",
+  "expected_text_contains": "12 luni de la înființare",
+  "track": "business",
+  "tags": [
+   "cross_segment",
+   "business",
+   "account",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "Ce avans minim îmi cere banca la un credit de investiții pentru firma mea?",
+  "expected_url_contains": "credit-de-investitii-imm",
+  "expected_text_contains": "Avans: minim 15%",
+  "track": "business",
+  "tags": [
+   "cross_segment",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "Pentru mine, ca persoană fizică: vreau să cumpăr un apartament ca să-l închiriez. Ce avans minim îmi trebuie la creditul pentru investiții imobiliare?",
+  "expected_url_contains": "credit-investitii-imobiliare",
+  "expected_text_contains": "între 25% și 30%",
+  "track": "personal",
+  "tags": [
+   "cross_segment",
+   "loan",
+   "faq"
+  ]
+ },
+ {
+  "question": "Care este suma maxima pe care o pot depune in depozitele Fresh Money?",
+  "expected_url_contains": "economii/depozit-fresh-money",
+  "expected_text_contains": "1,000,000 lei",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "deposit",
+   "savings"
+  ]
+ },
+ {
+  "question": "cat pot sa retrag din flexidepozti fara sa il inchid?",
+  "expected_url_contains": "economii/depozit-cu-depuneri-ulterioare",
+  "expected_text_contains": "20%",
+  "track": "personal",
+  "tags": [
+   "typo",
+   "no_diacritics",
+   "deposit",
+   "savings",
+   "faq"
+  ]
+ },
+ {
+  "question": "What's the minimum amount needed to open a Super Acces Plus savings account?",
+  "expected_url_contains": "economii/cont-de-economii",
+  "expected_text_contains": "1 Leu, 1 Eur, 1 Usd",
+  "track": "personal",
+  "tags": [
+   "english",
+   "savings",
+   "account"
+  ]
+ },
+ {
+  "question": "What's the APR on the Raiffeisen Platinum credit card?",
+  "expected_url_contains": "carduri/cardul-de-cumparaturi-platinum",
+  "expected_text_contains": "37,88%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "card",
+   "interest_rate",
+   "representative_example"
+  ]
+ },
+ {
+  "question": "pana la ce varsta pot sa-mi fac carrdul de student?",
+  "expected_url_contains": "carduri/card-de-student",
+  "expected_text_contains": "18 - 25 de ani",
+  "track": "personal",
+  "tags": [
+   "informal",
+   "typo",
+   "no_diacritics",
+   "card",
+   "eligibility"
+  ]
+ },
+ {
+  "question": "cat e dobanda anuala efectiva (DAE) la overdraf pe contul de salariu?",
+  "expected_url_contains": "credite/overdraft",
+  "expected_text_contains": "22.84%",
+  "track": "personal",
+  "tags": [
+   "typo",
+   "no_diacritics",
+   "loan",
+   "interest_rate",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "What's the repayment term for a personal loan without a mortgage?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "18 luni și 5 ani",
+  "track": "personal",
+  "tags": [
+   "english",
+   "loan"
+  ]
+ },
+ {
+  "question": "Cat costa evaluarea unui apartament pentru creditul Noua Casa?",
+  "expected_url_contains": "credite/creditul-imobiliar-prin-programul-guvernamental-noua-casa",
+  "expected_text_contains": "605 LEI",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "loan",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "cat ma costa pe luna contul Zero Simplu daca nu fac nicio plata cu cardul?",
+  "expected_url_contains": "pachetul-de-cont-curent-zero-simplu",
+  "expected_text_contains": "15 lei, taxă lunara",
+  "track": "personal",
+  "tags": [
+   "informal",
+   "no_diacritics",
+   "account",
+   "cost_fee",
+   "faq"
+  ]
+ },
+ {
+  "question": "cat ma costa asigurarea de calatorie Around the World pe un an, doar pt mine?",
+  "expected_url_contains": "asigurari/asigurare-de-calatorie-around-the-world",
+  "expected_text_contains": "149 lei/an",
+  "track": "personal",
+  "tags": [
+   "informal",
+   "no_diacritics",
+   "insurance",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "If my home becomes unlivable after an insured event, how much per day does Welcome Home insurance pay for temporary accommodation?",
+  "expected_url_contains": "asigurare-completa-locuinta-welcome-home",
+  "expected_text_contains": "250 RON",
+  "track": "personal",
+  "tags": [
+   "english",
+   "insurance",
+   "faq"
+  ]
+ },
+ {
+  "question": "cat e comisonul la direct debit pt fiecare factrua de lumina sau gaz?",
+  "expected_url_contains": "produsele-noastre/direct-debit",
+  "expected_text_contains": "1,5 Lei",
+  "track": "personal",
+  "tags": [
+   "typo",
+   "informal",
+   "no_diacritics",
+   "payments",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "Cat ma costa fiecare plata de poprire pe contul firmei?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Plata poprire 50 lei",
+  "track": "business",
+  "tags": [
+   "no_diacritics",
+   "business",
+   "cost_fee",
+   "tariff_pdf"
+  ]
+ },
+ {
+  "question": "Cât costă pe lună un cont curent în lei suplimentar, în afara pachetului, pentru firma mea?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Cont curent suplimentar 20 lei",
+  "track": "business",
+  "tags": [
+   "business",
+   "cost_fee",
+   "tariff_pdf",
+   "account"
+  ]
+ },
+ {
+  "question": "Ce taxă de întârziere la plată are cardul de credit Visa Business?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Taxă de plată întârziată 100 lei",
+  "track": "business",
+  "tags": [
+   "business",
+   "cost_fee",
+   "tariff_pdf",
+   "card"
+  ]
+ },
+ {
+  "question": "Platesc comision daca mut bani intre conturile mele in Smart Mobile?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "aceluiași client 0 lei",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "cost_fee",
+   "tariff_pdf",
+   "payments"
+  ]
+ },
+ {
+  "question": "Cat costa lunar pachetul ZERO Tot daca nu fac nicio tranzactie electronica?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "ZERO Tot 0*/20 lei/lună",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "cost_fee",
+   "tariff_pdf",
+   "account"
+  ]
+ },
+ {
+  "question": "Care e taxa anuala pentru cardul de debit Visa Gold?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "administrare card** 25 lei 200 lei",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "cost_fee",
+   "tariff_pdf",
+   "card"
+  ]
+ },
+ {
+  "question": "Ce varsta trebuie sa am pentru un credit de nevoi personale fara ipoteca?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "21 și 63",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "eligibility",
+   "loan"
+  ]
+ },
+ {
+  "question": "Ce acte imi trebuie pentru un credit de nevoi personale fara ipoteca?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "acordul de consultare a veniturilor",
+  "track": "personal",
+  "tags": [
+   "no_diacritics",
+   "documents",
+   "loan"
+  ]
+ },
+ {
+  "question": "Care este DAE minimă la creditul de refinanțare fără ipotecă?",
+  "expected_url_contains": "credit-de-refinantare-fara-ipoteca",
+  "expected_text_contains": "7.88%",
+  "track": "personal",
+  "tags": [
+   "representative_example",
+   "interest_rate",
+   "loan"
+  ]
+ }
+]

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Secrets (commit .env.example with key names only)
+.env
+.env.local
+.env.*.local
+
+# Convex: local deployment data and generated code
+.convex/
+convex/_generated/
+
+# RAG build artifacts
+tools/rag/.cache/
+*.import.jsonl
+raiffeisen-rag-package/.venv/
+raiffeisen-rag-package/starter/index/
+__pycache__/
+
+# Large optional RAG data (re-add on request)
+raiffeisen-rag-package/data/optional/
+raiffeisen-rag-package/data/pdf_extracts/

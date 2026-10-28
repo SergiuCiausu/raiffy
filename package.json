@@ -1,0 +1,25 @@
+{
+  "name": "raiffy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "convex:dev": "convex dev",
+    "rag:build-import": "tsx scripts/build-rag-import.ts",
+    "agent:build-setup": "tsx scripts/build-agent-setup.ts",
+    "agent:check-setup": "tsx scripts/build-agent-setup.ts --check"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "convex": "^1.48.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
