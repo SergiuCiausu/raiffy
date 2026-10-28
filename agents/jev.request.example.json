@@ -62,6 +62,25 @@
         "inspect": "The customer asks what details we remember about them."
       }
     },
+    "memory_candidate": {
+      "type": "choice",
+      "instructions": "What does the customer state about themselves that could help in future conversations, even without asking us to save it? Facts about other people, quoted documents and the bank's own products are none.",
+      "criteria": {
+        "none": "Nothing the customer states about themselves is worth keeping beyond this conversation.",
+        "goal": "A lasting financial goal the customer states, such as saving for a home or buying a car next year.",
+        "preference": "How the customer wants to be helped, such as lowest total cost over lowest monthly payment.",
+        "constraint": "A limit the customer sets, such as a maximum monthly payment or no variable rates.",
+        "stated_financial": "A figure the customer states about their own income, savings or existing obligations."
+      }
+    },
+    "memory_durable": {
+      "type": "noul",
+      "instructions": "Will what the customer states about themselves likely still be true in a few weeks, rather than matter only for this question?"
+    },
+    "special_category": {
+      "type": "noul",
+      "instructions": "Does the message mention health, addiction, religion, ethnicity, sexuality, criminal matters or details about another identifiable person?"
+    },
     "multi_goal": {
       "type": "noul",
       "instructions": "Does message request two or more independent financial goals or inquiries? A comparison's alternatives and steps within one goal do not count as separate goals."

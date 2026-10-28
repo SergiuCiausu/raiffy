@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { trackSchema } from "../rag/schemas";
 import { AGENT_POLICY, agentPolicySchema, modelConfigSchema, type AgentPolicy } from "./config";
-import { INQUIRIES, jevResponseSchema } from "./jev";
+import { INQUIRIES, jevResponseSchema, RISKS } from "./jev";
+import { memoryCandidateSchema, scoreMemoryCandidate } from "./memory";
 
 export const COLLECTIONS = ["bank_product_docs", "competitor_docs", "banking_help", "user_memory"] as const;
 export const TOOLS = ["search_knowledge", "get_product_terms", "get_expense_summary", "get_approved_offers", "calculate_scenario", "propose_memory_change", "manage_memory", "request_human_handoff"] as const;
@@ -25,6 +26,8 @@ export const routePlanSchema = z.object({
   reason: z.string(),
   inquiry: z.enum(Object.keys(INQUIRIES) as [Inquiry, ...Inquiry[]]).nullable(),
   memoryOperation: z.enum(["none", "remember", "update", "forget", "inspect"]).nullable(),
+  /** Something the customer stated that Claude may propose for memory alongside the answer. */
+  memoryCandidate: memoryCandidateSchema.nullable(),
   confidence: z.number().min(0).max(1).nullable(),
   scope: z.enum(["compare", "solution", "detail"]).nullable(),
   track: trackSchema,
@@ -61,7 +64,7 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const parsed = jevResponseSchema.safeParse(rawResponse);
   const base: RoutePlan = {
     policyVersion: policy.version, classifierModel: parsed.success ? parsed.data.model : null,
-    handler: "unavailable", reason: "invalid_classifier_response", inquiry: null, memoryOperation: null, confidence: null, scope: null,
+    handler: "unavailable", reason: "invalid_classifier_response", inquiry: null, memoryOperation: null, memoryCandidate: null, confidence: null, scope: null,
     track: context.track, suppressOffers: true, model: null, collections: [], tools: [], unavailable: [],
     limits: { publicChunks: policy.retrieval.maxPublicChunks, memories: policy.retrieval.maxMemories },
   };
@@ -72,7 +75,7 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const finish = (changes: Partial<RoutePlan>) => routePlanSchema.parse({ ...plan, ...changes });
 
   // Risks are independent. A customer may be negotiating and in distress in the same message.
-  for (const risk of ["crisis", "fraud", "hardship", "aml_evasion", "prompt_injection"] as const) {
+  for (const risk of RISKS) {
     if (a[risk].noul >= policy.thresholds.riskReviewProbability) {
       const handler = risk === "aml_evasion" || risk === "prompt_injection" ? "safe_boundary" : risk;
       return finish({ handler, reason: `risk_${risk}` });
@@ -106,10 +109,16 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const requestedTools = [...new Set<Tool>([...resources.tools, ...(resources.collections.some((id) => context.availableCollections.includes(id)) ? ["search_knowledge" as const] : [])])];
   const tools = requestedTools.filter((id) => context.availableTools.includes(id));
   const unavailable = [...resources.collections.filter((id) => !collections.includes(id)), ...requestedTools.filter((id) => !tools.includes(id))];
+  // A stated goal, preference, constraint or figure adds a proposal tool to the answer; it never changes the handler.
+  const memoryCandidate = tools.length ? scoreMemoryCandidate(a, policy) : null;
+  const canPropose = memoryCandidate !== null && context.availableTools.includes("propose_memory_change");
   return finish({
     handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable", reason: multiGoal ? "multiple_goals" : "classified",
     suppressOffers: inquiry === "security_complaint",
     model: !tools.length ? null : complex ? (policy.allowEscalation ? policy.escalationModel : policy.complexModel) : policy.standardModel,
-    collections, tools, unavailable,
+    memoryCandidate,
+    collections,
+    tools: canPropose ? [...tools, "propose_memory_change"] : tools,
+    unavailable: memoryCandidate && !canPropose ? [...unavailable, "propose_memory_change"] : unavailable,
   });
 }

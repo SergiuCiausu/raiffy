@@ -9,7 +9,9 @@
     "convex:dev": "convex dev",
     "rag:build-import": "tsx scripts/build-rag-import.ts",
     "agent:build-setup": "tsx scripts/build-agent-setup.ts",
-    "agent:check-setup": "tsx scripts/build-agent-setup.ts --check"
+    "agent:check-setup": "tsx scripts/build-agent-setup.ts --check",
+    "memory:check-mcp": "tsx scripts/check-memory-mcp.ts",
+    "convex:typecheck": "tsc --noEmit -p convex/tsconfig.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -18,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "convex-test": "^0.0.65",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

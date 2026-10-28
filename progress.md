@@ -2,17 +2,28 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 (agent foundation draft). Branch: `backend/rag-foundation`.
+Last updated: 2026-10-28 (local memory store and Jev transport). Branch: `codex/jev-agent-foundation`.
+
+## Memory store and Jev transport 2026-10-28
+
+- Owner approved a dev-only synthetic identity in this session. Implemented `memoryProposals`, `userMemories` and minimal masked conversation/message provenance in Convex, separate from public RAG. Ownership is derived server-side; organization scope comes from signed identity claims. The demo identity is personal-only and requires explicit flags plus loopback runtime URLs. Real-customer writes remain disabled.
+- Internal proposal validation checks an exact stored quote and requires proposed text to be an excerpt. Customer `confirm`, `reject`, `listMine`, `forgetOne` and `forgetAll` enforce scope. Confirm retries are idempotent; corrections replace atomically; deletion clears consent/pending updates and revokes source eligibility. No memory embeddings or private caches exist.
+- Configured synthetic-demo retention: financial statements 90 days, constraints 180, goals/preferences 365, pending proposals 7 and source provenance 30. Dates run from the statement, not confirmation. Reads exclude expired rows immediately; an hourly cron deletes in bounded batches. The pattern-based demo privacy screen is not a complete privacy pipeline; production persistence stays off.
+- Added internal stored-source Jev action and server transport pinned to `jev-1.14.0`: 2500 ms total deadline, 64 KiB response cap, validated output, no automatic retry or provider fallback. `RAIFFY_JEV_ENABLED` defaults off. No live Jev call, measured accuracy or threshold calibration.
+- Added `convex-test` lifecycle and transport fault tests, `evals/memory-store.json`, `evals/jev-transport.json`, `pnpm convex:typecheck`, and the explicit-local `pnpm memory:check-mcp` check. Local Convex was initialized and the functions/schema deployed. Convex MCP 1.48 rejects anonymous access at its account-login gate; local CLI smoke-test approval is pending.
+- Validation: 106 Vitest tests pass; root and Convex TypeScript checks, generated setup consistency, and diff whitespace checks pass. Live MCP lifecycle validation remains blocked on account authorization or the owner's approval for a local CLI fallback. Jev tests use mocked transport only.
+- Full agent loop, UI confirmation, real Clerk/PII integration, structured catalog/comparison and approved offers remain next. No commit or push made.
 
 ## Agent foundation update 2026-10-28
 
 - Refreshed backend through `e480df3`. Added pure TypeScript Jev request/response contracts, deterministic routing, model policy and memory retrieval boundaries in `lib/agent/`.
 - The current owner request adds **TypeSafe Jev for inquiry classification**, while Claude remains the generator. This is separate from the previously rejected Jev Router gateway below.
 - Generated console-style setup is in `agents/raiffy.agent.yaml`; request and policy examples sit alongside it. Regenerate with `pnpm agent:build-setup`; check with `pnpm agent:check-setup`.
-- Setup guide: `raiffy-spec/docs/plans/agent-foundation.md`. Initial assumptions are the existing Convex/Messages API runtime and memory only on explicit user request. Sonnet remains the default; optional Opus escalation is disabled.
-- Tool declarations are contracts, not implemented handlers. No new provider transport, full agent loop, auth/PII adapter, expense connection, competitor collection or private memory persistence is enabled. The existing public-product RAG action remains separate.
+- Setup guide: `raiffy-spec/docs/plans/agent-foundation.md`. Initial assumptions are the existing Convex/Messages API runtime and memory proposals confirmed by the customer (see the memory candidates entry below). Sonnet remains the default; optional Opus escalation is disabled.
+- Tool declarations remain unwired to the full agent loop. The later local memory/transport implementation is recorded above; no real auth/PII adapter, expense connection, competitor collection or private memory persistence is enabled. The existing public-product RAG action remains separate.
 - Added labeled EN/RO routing examples under `evals/agent-routing.json`. These are not measured Jev results. Confidence thresholds are provisional and need calibration.
 - Validation: generated setup matches its sources; TypeScript checks pass. Unit tests cover routing, risk overrides, capability checks and memory isolation. No live provider or in-app acceptance run yet.
+- **Memory candidates from Jev (policy `raiffy-agent@2`).** Jev now also asks what the customer stated about themselves (`memory_candidate`: goal, preference, constraint, stated figure), whether it is durable and whether the message has special-category or third-party details. `scoreMemoryCandidate` in `lib/agent/memory.ts` accepts a candidate when P(kind) × P(durable) ≥ 0.6 and no risk, special-category or explicit memory operation applies. The route planner then adds `propose_memory_change` to the normal answer without changing the handler or model. The customer confirms every memory; persistence stays disabled. Thresholds are provisional; new labeled cases are in `evals/agent-routing.json`.
 
 ## Decisions so far
 

@@ -1,11 +1,13 @@
 {
   "persistenceEnabled": false,
-  "consent": "explicit_user_request",
+  "candidates": "explicit_request_or_jev_classifier",
+  "consent": "customer_confirms_each_memory",
   "toolWrites": "proposals_only",
   "retain": [
     "user_stated_goals",
     "user_stated_preferences",
-    "user_stated_constraints"
+    "user_stated_constraints",
+    "user_stated_financials"
   ],
   "exclude": [
     "credentials",
@@ -13,11 +15,21 @@
     "card_numbers",
     "IBAN",
     "sensitive_merchant_details",
+    "special_category_data",
     "inferred_traits",
     "other_people_data"
   ],
   "ownerScope": "server_derived_user_and_authorized_organization",
-  "retention": "must_be_configured_before_enabling_persistence",
+  "retention": "configured_for_dev_synthetic_demo_only",
+  "retentionDays": {
+    "goal": 365,
+    "preference": 365,
+    "constraint": 180,
+    "stated_financial": 90
+  },
+  "proposalRetentionDays": 7,
+  "sourceRetentionDays": 30,
+  "devDemo": "explicit_identity_and_persistence_flags_plus_verified_dev_deployment_url_pin",
   "corrections": "supersede_and_remove_old_embedding",
   "deletion": "delete_record_embedding_and_user_caches"
 }
