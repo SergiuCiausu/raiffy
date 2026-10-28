@@ -1,0 +1,18 @@
+[
+  {"question": "Ce dobândă are depozitul la termen pe 3 luni în lei?",
+   "expected_url_contains": "economii/depozite-la-termen", "expected_text_contains": "4.70%"},
+  {"question": "Cât este dobânda la Depozitul Fresh Money pe 4 luni?",
+   "expected_url_contains": "economii/depozite-la-termen", "expected_text_contains": "6.20%"},
+  {"question": "Care este DAE pentru cardul de credit Raiffeisen Standard?",
+   "expected_url_contains": "cardul-de-cumparaturi-standard", "expected_text_contains": "32,40%"},
+  {"question": "Ce DAE are cardul de credit Signature?",
+   "expected_url_contains": "cardul-visa-credit-signature", "expected_text_contains": "51,85%"},
+  {"question": "Ce vârstă trebuie să am pentru cardul de cumpărături Standard?",
+   "expected_url_contains": "cardul-de-cumparaturi-standard", "expected_text_contains": "22 - 65"},
+  {"question": "Cât este rata lunară în exemplul de credit de nevoi personale fără ipotecă de 50.000 lei?",
+   "expected_url_contains": "credit-de-nevoi-personale-fara-ipoteca", "expected_text_contains": "961,21"},
+  {"question": "Ce DAE are cardul de credit eMAG?",
+   "expected_url_contains": "cardul-de-cumparaturi-emag", "expected_text_contains": "33,37%"},
+  {"question": "Ce documente îmi trebuie pentru overdraft?",
+   "expected_url_contains": "credite/overdraft", "expected_text_contains": "Documente"}
+]

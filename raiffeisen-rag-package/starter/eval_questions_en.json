@@ -1,0 +1,494 @@
+[
+ {
+  "question": "What interest rate does the 3-month term deposit in lei pay?",
+  "expected_url_contains": "economii/depozite-la-termen",
+  "expected_text_contains": "4.70%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What's the interest rate on the 4-month Fresh Money deposit?",
+  "expected_url_contains": "economii/depozite-la-termen",
+  "expected_text_contains": "6.20%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What's the APR on the Raiffeisen Standard credit card?",
+  "expected_url_contains": "cardul-de-cumparaturi-standard",
+  "expected_text_contains": "32,40%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What's the APR of the Signature credit card?",
+  "expected_url_contains": "cardul-visa-credit-signature",
+  "expected_text_contains": "51,85%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "How old do I have to be to get the Standard shopping card?",
+  "expected_url_contains": "cardul-de-cumparaturi-standard",
+  "expected_text_contains": "22 - 65",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "In the representative example for a 50,000 lei personal loan without a mortgage, what's the monthly payment?",
+  "expected_url_contains": "credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "961,21",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What's the APR on the eMAG credit card?",
+  "expected_url_contains": "cardul-de-cumparaturi-emag",
+  "expected_text_contains": "33,37%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What documents do I need for an overdraft?",
+  "expected_url_contains": "credite/overdraft",
+  "expected_text_contains": "Documente",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated"
+  ]
+ },
+ {
+  "question": "What is the maximum loan amount my company can get through the COSME European guarantee program?",
+  "expected_url_contains": "programe-eif-cosme",
+  "expected_text_contains": "675 mii Lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "If I factor my company's invoices, how much of their value can the bank finance up front?",
+  "expected_url_contains": "factoring-pentru-imm",
+  "expected_text_contains": "100 % a contravalorii facturilor",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "My company isn't a start-up, isn't led by women and has no innovative activity. What share of the loan can the BID guarantee cover?",
+  "expected_url_contains": "credite-imm-garantate-de-bid",
+  "expected_text_contains": "maximum 70%",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "I run an individual medical practice and want the investment loan for liberal professions. What documents do I need to submit?",
+  "expected_url_contains": "credit-de-investitii-profesii-liberale",
+  "expected_text_contains": "registru jurnal",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "loan",
+   "documents"
+  ]
+ },
+ {
+  "question": "What minimum area of farmland does my company need for the agricultural investment loan?",
+  "expected_url_contains": "creditul-pentru-investitii-in-agricultura",
+  "expected_text_contains": "100 Ha",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "loan",
+   "eligibility"
+  ]
+ },
+ {
+  "question": "What's the maximum overdraft my company can get?",
+  "expected_url_contains": "imm/produse-si-servicii/finantare/linie-de-credit",
+  "expected_text_contains": "35% din cifra de afaceri",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "For me personally, as an individual: how much can I get as an overdraft if my salary is paid into Raiffeisen?",
+  "expected_url_contains": "credite/overdraft",
+  "expected_text_contains": "6 salarii sau pensii",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "loan"
+  ]
+ },
+ {
+  "question": "How much do we need to spend with the company's Gold debit card to get free Business Lounge access at Otopeni?",
+  "expected_url_contains": "carduri-de-debit-visa-business",
+  "expected_text_contains": "rulaj minim de 5.000 lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "business",
+   "card"
+  ]
+ },
+ {
+  "question": "How many grace days does my company's credit card have?",
+  "expected_url_contains": "imm/produse-si-servicii/carduri-de-credit",
+  "expected_text_contains": "până la 45 zile",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "business",
+   "card"
+  ]
+ },
+ {
+  "question": "I set up my SRL 3 months ago. Is there a current account package with no monthly administration fee for my company, and until when is it free?",
+  "expected_url_contains": "pachet-imm-cont-curent-start",
+  "expected_text_contains": "12 luni de la înființare",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "business",
+   "account",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "What minimum down payment does the bank require on an investment loan for my company?",
+  "expected_url_contains": "credit-de-investitii-imm",
+  "expected_text_contains": "Avans: minim 15%",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "business",
+   "loan"
+  ]
+ },
+ {
+  "question": "For me personally, as an individual: I want to buy a flat to rent out. What minimum down payment do I need for the real estate investment loan?",
+  "expected_url_contains": "credit-investitii-imobiliare",
+  "expected_text_contains": "între 25% și 30%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "cross_segment",
+   "loan",
+   "faq"
+  ]
+ },
+ {
+  "question": "What's the maximum amount I can put into Fresh Money deposits?",
+  "expected_url_contains": "economii/depozit-fresh-money",
+  "expected_text_contains": "1,000,000 lei",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "deposit",
+   "savings"
+  ]
+ },
+ {
+  "question": "How much can I withdraw from my Flexidepozit without closing it?",
+  "expected_url_contains": "economii/depozit-cu-depuneri-ulterioare",
+  "expected_text_contains": "20%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "deposit",
+   "savings",
+   "faq"
+  ]
+ },
+ {
+  "question": "What's the minimum amount needed to open a Super Acces Plus savings account?",
+  "expected_url_contains": "economii/cont-de-economii",
+  "expected_text_contains": "1 Leu, 1 Eur, 1 Usd",
+  "track": "personal",
+  "tags": [
+   "english",
+   "savings",
+   "account"
+  ]
+ },
+ {
+  "question": "What's the APR on the Raiffeisen Platinum credit card?",
+  "expected_url_contains": "carduri/cardul-de-cumparaturi-platinum",
+  "expected_text_contains": "37,88%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "card",
+   "interest_rate",
+   "representative_example"
+  ]
+ },
+ {
+  "question": "Up to what age can I get the student card?",
+  "expected_url_contains": "carduri/card-de-student",
+  "expected_text_contains": "18 - 25 de ani",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "card",
+   "eligibility"
+  ]
+ },
+ {
+  "question": "What's the APR (DAE) of the overdraft on my salary account?",
+  "expected_url_contains": "credite/overdraft",
+  "expected_text_contains": "22.84%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "loan",
+   "interest_rate",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "What's the repayment term for a personal loan without a mortgage?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "18 luni și 5 ani",
+  "track": "personal",
+  "tags": [
+   "english",
+   "loan"
+  ]
+ },
+ {
+  "question": "How much does the property valuation for an apartment cost with the Noua Casa loan?",
+  "expected_url_contains": "credite/creditul-imobiliar-prin-programul-guvernamental-noua-casa",
+  "expected_text_contains": "605 LEI",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "loan",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "How much does the Zero Simplu account cost per month if I don't make any card payment?",
+  "expected_url_contains": "pachetul-de-cont-curent-zero-simplu",
+  "expected_text_contains": "15 lei, taxă lunara",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "account",
+   "cost_fee",
+   "faq"
+  ]
+ },
+ {
+  "question": "How much does the Around the World travel insurance cost for a year, just for me?",
+  "expected_url_contains": "asigurari/asigurare-de-calatorie-around-the-world",
+  "expected_text_contains": "149 lei/an",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "insurance",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "If my home becomes unlivable after an insured event, how much per day does Welcome Home insurance pay for temporary accommodation?",
+  "expected_url_contains": "asigurare-completa-locuinta-welcome-home",
+  "expected_text_contains": "250 RON",
+  "track": "personal",
+  "tags": [
+   "english",
+   "insurance",
+   "faq"
+  ]
+ },
+ {
+  "question": "What's the direct debit fee for each electricity or gas bill?",
+  "expected_url_contains": "produsele-noastre/direct-debit",
+  "expected_text_contains": "1,5 Lei",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "payments",
+   "cost_fee"
+  ]
+ },
+ {
+  "question": "How much does my company pay for each garnishment (poprire) payment from its account?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Plata poprire 50 lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "cost_fee",
+   "tariff_pdf"
+  ]
+ },
+ {
+  "question": "What's the monthly fee for an extra lei current account outside a package for my company?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Cont curent suplimentar 20 lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "cost_fee",
+   "tariff_pdf",
+   "account"
+  ]
+ },
+ {
+  "question": "What's the late payment fee on a Visa Business credit card?",
+  "expected_url_contains": "tarife-si-comisioane-imm-si-profesii-liberale",
+  "expected_text_contains": "Taxă de plată întârziată 100 lei",
+  "track": "business",
+  "tags": [
+   "english",
+   "translated",
+   "business",
+   "cost_fee",
+   "tariff_pdf",
+   "card"
+  ]
+ },
+ {
+  "question": "Is there a fee to move money between my own Raiffeisen accounts in Smart Mobile?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "aceluiași client 0 lei",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "cost_fee",
+   "tariff_pdf",
+   "payments"
+  ]
+ },
+ {
+  "question": "How much is the monthly fee for the ZERO Tot package if I make no electronic transactions?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "ZERO Tot 0*/20 lei/lună",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "cost_fee",
+   "tariff_pdf",
+   "account"
+  ]
+ },
+ {
+  "question": "What's the annual fee for a Visa Gold debit card?",
+  "expected_url_contains": "tarife-comisioane-standard-pf",
+  "expected_text_contains": "administrare card** 25 lei 200 lei",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "cost_fee",
+   "tariff_pdf",
+   "card"
+  ]
+ },
+ {
+  "question": "How old do I need to be to get a personal loan without a mortgage?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "21 și 63",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "eligibility",
+   "loan"
+  ]
+ },
+ {
+  "question": "What documents do I need for a personal loan without a mortgage?",
+  "expected_url_contains": "credite/credit-de-nevoi-personale-fara-ipoteca",
+  "expected_text_contains": "acordul de consultare a veniturilor",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "documents",
+   "loan"
+  ]
+ },
+ {
+  "question": "What's the minimum APR on the unsecured refinancing loan?",
+  "expected_url_contains": "credit-de-refinantare-fara-ipoteca",
+  "expected_text_contains": "7.88%",
+  "track": "personal",
+  "tags": [
+   "english",
+   "translated",
+   "representative_example",
+   "interest_rate",
+   "loan"
+  ]
+ }
+]
