@@ -1,0 +1,26 @@
+{
+  "version": "raiffy-agent@1",
+  "classifierModel": "jev-1.14.0",
+  "standardModel": {
+    "id": "claude-sonnet-5-5",
+    "effort": "low"
+  },
+  "complexModel": {
+    "id": "claude-sonnet-5-5",
+    "effort": "medium"
+  },
+  "escalationModel": {
+    "id": "claude-opus-5-5",
+    "effort": "medium"
+  },
+  "allowEscalation": false,
+  "thresholds": {
+    "routingConfidence": 0.8,
+    "riskReviewProbability": 0.3,
+    "multiGoalProbability": 0.7
+  },
+  "retrieval": {
+    "maxPublicChunks": 5,
+    "maxMemories": 3
+  }
+}
