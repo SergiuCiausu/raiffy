@@ -92,5 +92,12 @@ export default defineSchema({
     text: v.string(),
     /** The validated RagAnswer (sources, checks, searches) for assistant messages. */
     answer: v.optional(v.any()),
+    status: v.optional(v.union(v.literal("streaming"), v.literal("done"), v.literal("stopped"), v.literal("failed"))),
+    requestMessageId: v.optional(v.id("ragMessages")),
+    startedAt: v.optional(v.number()),
+    steps: v.optional(v.array(v.object({ query: v.string(), focus: v.string(), results: v.optional(v.number()) }))),
+    error: v.optional(v.string()),
   }).index("by_thread", ["threadId"]),
+  agentRateLimits: defineTable({ ownerKey: v.string(), windowStart: v.number(), requests: v.number() })
+    .index("by_owner", ["ownerKey"]),
 });

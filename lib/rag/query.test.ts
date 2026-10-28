@@ -35,6 +35,12 @@ describe("planQuery", () => {
   it("returns no intents for a neutral question", () => {
     expect(planQuery("Tell me about Smart Mobile").intents).toEqual([]);
   });
+
+  it("keeps product names, bank names and terms ahead of translations in long English questions", () => {
+    const plan = planQuery("What is the maximum administration fee and fixed interest rate for the BCR George personal loan over 60 months without insurance?");
+    expect(plan.lexicalTerms).toEqual(expect.arrayContaining(["bcr", "george", "60", "administrare"]));
+    expect(plan.banks).toEqual(["bcr"]);
+  });
 });
 
 describe("withFocus", () => {

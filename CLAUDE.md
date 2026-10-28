@@ -1,6 +1,10 @@
 # Raiffy
 
-Concept work for **Raiffy**, an AI financial assistant for Raiffeisen Bank Romania. The reference page is `raiffy.html`, a single self-contained HTML file. All rates and figures are illustrative.
+**Raiffy** is an AI financial assistant for Raiffeisen Bank Romania. The application is in `web/`, the backend in `convex/`, and pure logic in `lib/`. Root HTML pages remain the visual references; their demo figures are illustrative.
+
+## Current runtime
+
+`/chat` uses real Clerk authentication and cloud Convex: screened message → Jev → trusted route → allowed public collections → Claude with citations → checked answer and UI envelope. The scripted UI is explicitly at `/chat/demo`. Read the latest entry in `progress.md` and `web/README.md` for configuration and acceptance. Account data, catalog-backed calculations, approved offers and real-user memory writes are not connected; never present them as available. The privacy screen is pattern-based, not a complete semantic privacy classifier.
 
 ## Design
 
@@ -41,14 +45,14 @@ Use `/setup-app` for bootstrap details. Where it defaults to Supabase, **Convex 
 - **RAG:** store chunks with `.vectorIndex()` (fixed `dimensions`, plus `filterFields` such as language, productId and isActive) and use `.searchIndex()` for the keyword half of hybrid search. `ctx.vectorSearch` runs only inside actions.
 - Embeddings: **OpenAI `text-embedding-3-small`** (1536 dimensions), called only from Convex actions with `OPENAI_API_KEY` from the Convex environment. Anthropic has no embeddings API. Claude does the reasoning, tool calls and answers. OpenAI's EU data residency needs approval, so EU hosting for embeddings is still open for production.
 - Product numbers come from the catalog tables, never from the vector store. See `raiffy-spec/CLAUDE.md`.
-- Use the Convex MCP only, pointed at a dev deployment. The deploy key goes in `.env.local`, never in code or `NEXT_PUBLIC_*`.
+- Prefer Convex MCP on the configured dev deployment. If the connector is unavailable, use the project's Convex CLI and saved login against that same cloud dev target. Secrets stay in ignored environment files, never in code or `NEXT_PUBLIC_*`.
 - Development runs on the team's **EU cloud Convex deployment**, selected in `.env.local`. Do not initialize or start an anonymous/local backend. Before MCP mutations, verify that its dev URL matches the configured `CONVEX_URL`. Use the saved Convex login; never copy account tokens into repository files.
 
 ### Clerk
 
 - Wire it in with `ClerkProvider` and `ConvexProviderWithClerk`, plus `convex/auth.config.ts` pointing at the Clerk "convex" JWT template.
 - **Default deny:** `clerkMiddleware` in `src/proxy.ts` (Next 16's name for middleware) protects every route except the public ones (landing, sign-in, sign-up).
-- **Every Convex function and server action checks identity first** (`ctx.auth.getUserIdentity()` or `auth()`). Middleware protects pages, not function calls.
+- **Every public Convex function and server action checks identity first** (`ctx.auth.getUserIdentity()` or `auth()`). Protect server resources directly; middleware initializes Clerk, and is not the authorization boundary. Internal admin-only evals and retention jobs have separate trusted entry points.
 - Mirror users into a Convex `users` table keyed by the Clerk user ID, and upsert on first authenticated use. Don't rely on webhooks alone.
 - **Roles** (proposed, confirm before building):
   - App roles go in Clerk `publicMetadata.role`: `customer`, `operator` (the specialist who verifies answers) and `admin`.
@@ -61,16 +65,16 @@ Use `/setup-app` for bootstrap details. Where it defaults to Supabase, **Convex 
 - **Sign-up consents:** accepting the terms and privacy notice is required. Marketing consent is a **separate, unticked, optional** checkbox ("I'd like to receive personalised offers from Raiffeisen") and is never a condition of access. Store it in Clerk `publicMetadata` with a timestamp.
 - Restyle Clerk's UI to match `DESIGN.md` (the ink, the 10px button radius, Geist), or build custom forms from `login.html`.
 
-### Working before Next.js exists
+### Code boundaries and prototype workflow
 
-Two tracks run in parallel until the conversion: **HTML pages** for the UI, and **framework-free TypeScript** for the logic. Both are written so they move into the Next.js app unchanged or nearly so.
+HTML pages define the visual reference; `web/` is the running Next.js app. Backend logic stays framework-free and is shared through validated contracts.
 
 ```
 *.html    UI prototypes in the repo root, one self-contained file per page (DESIGN.md applies)
 lib/      pure TS: calculations, Zod schemas, composer, router, guards (+ tests)
 convex/   schema, queries, mutations, RAG actions (runs with `pnpm dlx convex dev`, no Next needed)
 evals/    promptfoo cases
-app/      Next.js, added at conversion time. Don't create it until asked.
+web/      Next.js app, real Clerk/Convex chat and explicit scripted demo
 ```
 
 **HTML pages, built for conversion:**
@@ -89,7 +93,7 @@ app/      Next.js, added at conversion time. Don't create it until asked.
 - **Output is language-neutral:** return numbers and keys, not formatted strings. Formatting with `Intl` happens in the UI.
 - **Every calculation and guard has a Vitest test.** When a spec behavior rule is implemented, add its eval case under `evals/`.
 - pnpm, TypeScript strict, and one shared `tsconfig` with the `@/*` alias, so imports don't change when `app/` arrives.
-- **Leave for the Next.js conversion:** real Clerk auth and roles, real streaming through the Vercel AI SDK, and wiring the HTML pages to Convex.
+- `/chat` has Clerk/Convex wiring and reveals only verified final text word by word. Further HTML conversions, organization roles and financial-data connections remain scoped work.
 
 ### Secrets
 

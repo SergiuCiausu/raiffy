@@ -9,7 +9,7 @@ import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type Se
 import { rankHits, type StoredChunk } from "../lib/rag/search";
 import { requireAgentScope } from "./agentAuth";
 
-const CANDIDATES = 32;
+const CANDIDATES = 64;
 
 export const trackArg = v.union(v.literal("personal"), v.literal("business"));
 const focusArg = v.union(...SEARCH_FOCUS.map((focus) => v.literal(focus)));
@@ -42,8 +42,13 @@ export const getChunks = internalQuery({
 
 /** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to one track and collection, fused in code. */
 export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
+  await requireAgentScope(ctx, input.track);
+  return hybridSearch(ctx, input);
+}
+
+/** The same search without the identity check. Internal callers only (the retrieval eval). */
+export async function hybridSearch(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
   const { question, track, collection, k, focus } = searchArgsSchema.parse(input);
-  await requireAgentScope(ctx, track);
   const plan = withFocus(planQuery(question), focus);
   const field = scopeField(track, collection);
 

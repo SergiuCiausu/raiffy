@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { AuthScreen } from "@/components/auth/AuthScreen";
 import "@/styles/generated/auth.css";
+import { SignIn } from "@clerk/nextjs";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Sign in · Raiffy",
@@ -8,5 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function SignInPage() {
-  return <AuthScreen initialFlow="login" />;
+  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    ? <main className="agent-setup"><Suspense><SignIn routing="hash" /></Suspense></main>
+    : <main className="agent-setup"><h1>Sign-in setup is incomplete</h1><p>Authentication must be configured before you can access private chat.</p></main>;
 }

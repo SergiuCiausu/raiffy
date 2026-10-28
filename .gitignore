@@ -1,5 +1,8 @@
 # Dependencies
-node_modules/
+node_modules
+.clerk/
+.clerk-init.log
+.convex-retrieval-eval.log
 
 # Secrets (commit .env.example with key names only)
 .env

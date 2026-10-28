@@ -1,12 +1,29 @@
 import type { Metadata } from "next";
-import { ChatApp } from "@/components/chat/ChatApp";
+import { Suspense } from "react";
+import { auth } from "@clerk/nextjs/server";
+import { AgentChat } from "@/components/agent/AgentChat";
+import { ConvexClientProvider } from "@/components/agent/ConvexClientProvider";
 import "@/styles/generated/chat.css";
+import "@/styles/agent.css";
 
 export const metadata: Metadata = {
   title: "Raiffy",
-  description: "Concept chat with Raiffy, an AI financial assistant for Raiffeisen Bank Romania customers.",
+  description: "Chat with Raiffy, an AI financial assistant for Raiffeisen Bank Romania customers.",
 };
 
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+
 export default function ChatPage() {
-  return <ChatApp />;
+  if (!CONVEX_URL || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) return <main className="agent-setup"><h1>Chat setup is incomplete</h1><p>The secure banking chat is waiting for authentication configuration.</p></main>;
+  // The Convex client is per visitor (its connection id is random), so it renders per request, not in the static shell
+  return (
+    <Suspense>
+      <SecureChat url={CONVEX_URL} />
+    </Suspense>
+  );
+}
+
+async function SecureChat({ url }: { url: string }) {
+  await auth.protect();
+  return <ConvexClientProvider url={url}><AgentChat /></ConvexClientProvider>;
 }

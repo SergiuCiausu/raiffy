@@ -1,8 +1,11 @@
 import type { BetaContentBlock } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
-import { assembleCitations, checkNumbers, citedSegments, ragAnswerSchema } from "./answer";
+import { assembleCitations, citableFromPassage, checkNumbers, citedSegments, ragAnswerSchema } from "./answer";
+import { buildKnowledgeResult, toPassage } from "./knowledge";
 import { toSearchResult, toToolResult } from "./prompt";
 import type { SearchHit } from "./schemas";
+
+const NOW = Date.parse("2026-11-01T12:00:00Z");
 
 const hit = (id: string, url: string, text: string): SearchHit => ({
   chunkId: id,
@@ -24,11 +27,13 @@ const hit = (id: string, url: string, text: string): SearchHit => ({
   score: 0.03,
 });
 
-const hits = [
+const searchHits = [
   hit("d#1", "https://www.raiffeisen.ro/depozite.html", "Depozite la termen\nDobânzi\n3 luni: dobândă 4.70% pe an"),
   hit("d#2", "https://www.raiffeisen.ro/depozite.html", "Depozite la termen\n6 luni: dobândă 5.60% pe an"),
   hit("f#1", "https://www.raiffeisen.ro/fresh.html", "Fresh Money\n4 luni: 6.20%"),
 ];
+const passages = searchHits.map((h) => toPassage(h, "bank_product_docs", NOW));
+const hits = passages.map(citableFromPassage);
 
 const citation = (index: number) => ({
   type: "search_result_location" as const,
@@ -48,7 +53,7 @@ const response = [
 
 describe("prompt building", () => {
   it("splits a chunk into one citable block per line, after the collection date", () => {
-    const result = toSearchResult(hits[0]!);
+    const result = toSearchResult(passages[0]!);
     expect(result.content.map((b) => b.text)).toEqual([
       "Collected on 2026-10-28.", "Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an",
     ]);
@@ -57,9 +62,13 @@ describe("prompt building", () => {
   });
 
   it("returns only search results in a tool result, or a note when there are none", () => {
-    const withHits = toToolResult("t1", hits);
+    const found = buildKnowledgeResult({ collection: "bank_product_docs", query: "depozit", limit: 3, hits: searchHits, now: NOW });
+    const withHits = toToolResult("t1", found);
     expect(Array.isArray(withHits.content) && withHits.content.every((b) => b.type === "search_result")).toBe(true);
-    expect(toToolResult("t2", []).content).toMatch(/No results/);
+    const none = buildKnowledgeResult({ collection: "bank_product_docs", query: "depozit", limit: 3, hits: [], now: NOW });
+    expect(toToolResult("t2", none).content).toMatch(/No results/);
+    const memory = toToolResult("t3", { ...none, status: "unavailable", collection: "user_memory", reason: "collection_not_connected" });
+    expect(memory.content).toMatch(/user_memory collection is unavailable/);
   });
 });
 
@@ -115,7 +124,7 @@ describe("answer assembly", () => {
     expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], hits, "q")).toEqual({
       ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0,
     });
-    const distinctDate = { ...hits[0]!, scrapedAt: "2025-09-17T00:00:00Z" };
+    const distinctDate = { ...hits[0]!, collectedAt: "2025-09-17T00:00:00Z" };
     expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], [distinctDate, hits[1]!], "q").ungroundedNumbers).toEqual(["2026", "10", "28"]);
   });
 
@@ -126,9 +135,9 @@ describe("answer assembly", () => {
       status: "answered",
       checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 },
       model: "claude-sonnet-5-5",
-      promptVersion: "rag-agent@1",
-      searches: [{ query: "dobanda depozit", focus: "interest_rates", results: 3 }],
-      retrieval: [{ chunkId: "d#1", score: 0.03, denseRank: 1 }],
+      promptVersion: "rag-agent@3",
+      searches: [{ query: "dobanda depozit", collection: "bank_product_docs", status: "ok", results: 3 }],
+      retrieval: [{ chunkId: "d#1", score: 0.03 }],
     })).not.toThrow();
   });
 });

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { AuthScreen } from "@/components/auth/AuthScreen";
 import "@/styles/generated/auth.css";
+import { SignUp } from "@clerk/nextjs";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Create account · Raiffy",
@@ -8,5 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function SignUpPage() {
-  return <AuthScreen initialFlow="signup" />;
+  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    ? <main className="agent-setup"><Suspense><SignUp routing="hash" /></Suspense></main>
+    : <main className="agent-setup"><h1>Sign-up setup is incomplete</h1><p>Authentication must be configured before an account can be created.</p></main>;
 }

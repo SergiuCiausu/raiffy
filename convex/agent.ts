@@ -1,23 +1,27 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { v, ConvexError } from "convex/values";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
-import { trackArg, searchChunks } from "./rag";
+import { action, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx } from "./_generated/server";
+import { searchKnowledge } from "./knowledge";
+import { trackArg } from "./rag";
 import { runAgent, type HistoryTurn } from "../lib/rag/agent";
 import { ragAnswerSchema, type RagAnswer } from "../lib/rag/answer";
 import { requireAgentScope, requireAgentThread } from "./agentAuth";
+import { screenChat } from "../lib/agent/privacy";
+import { requestJev } from "./jevTransport";
+import { planAgentRoute, type RoutePlan } from "../lib/agent/route";
+import { composeAnswer, containsFinancialFigure, routeResponse } from "../lib/agent/composer";
+import { unavailableResult } from "../lib/rag/knowledge";
+import { namedBanks } from "../lib/rag/query";
 
-const DEFAULT_MODEL = "claude-sonnet-5-5";
-type Effort = "low" | "medium" | "high";
 const HISTORY_TURNS = 10;
-const RESULTS_PER_SEARCH = 5;
 
 export const createThread = internalMutation({
   args: { track: trackArg, title: v.string() },
   handler: async (ctx, args) => {
     const scope = await requireAgentScope(ctx, args.track);
-    return ctx.db.insert("ragThreads", { ...args, ...scope });
+    return ctx.db.insert("ragThreads", { ...args, title: screenChat(args.title).text, ...scope });
   },
 });
 
@@ -60,65 +64,204 @@ export const listMessages = query({
     await requireAgentThread(ctx, threadId);
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("message_limit_invalid");
     const rows = await ctx.db.query("ragMessages").withIndex("by_thread", (q) => q.eq("threadId", threadId)).order("desc").take(limit);
-    return rows.reverse();
+    return rows.reverse().map(row => row.status === "streaming" || row.status === "stopped"
+      ? { ...row, text: "", answer: undefined } : row);
   },
 });
 
-/**
- * Ask Raiffy. Claude (Anthropic) runs the agent loop and decides what to search; OpenAI embeddings power the
- * vector leg of the search. Pass `threadId` to continue a conversation; a thread keeps the track it started with.
- */
-export const ask = action({
-  args: { question: v.string(), track: trackArg, threadId: v.optional(v.id("ragThreads")) },
-  handler: async (ctx, { question, track, threadId }): Promise<{ threadId: Id<"ragThreads">; answer: RagAnswer }> => {
-    await requireAgentScope(ctx, track);
-    const text = question.trim();
-    if (!text || text.length > 2000) throw new Error("The question must be 1-2000 characters long");
+const sendArgs = { question: v.string(), track: trackArg, threadId: v.optional(v.id("ragThreads")) };
+type SendArgs = { question: string; track: "personal" | "business"; threadId?: Id<"ragThreads"> };
 
-    let id = threadId;
-    if (id) {
-      const thread = await ctx.runQuery(internal.agent.getThread, { threadId: id });
-      if (!thread) throw new Error("Conversation not found");
-      if (thread.track !== track) throw new Error("This conversation belongs to the other track; start a new one");
-    } else {
-      id = await ctx.runMutation(internal.agent.createThread, { track, title: text.slice(0, 60) });
+async function enqueueHandler(ctx: MutationCtx, { question, track, threadId }: SendArgs) {
+  const scope = await requireAgentScope(ctx, track);
+  if (!question.trim() || question.length > 2000) throw new ConvexError("question_length_invalid");
+  const text = screenChat(question).text;
+  if (threadId) {
+    const thread = await requireAgentThread(ctx, threadId);
+    if (thread.track !== track) throw new ConvexError("This conversation belongs to the other track");
+    const latest = await ctx.db.query("ragMessages").withIndex("by_thread", q => q.eq("threadId", threadId)).order("desc").take(1);
+    if (latest[0]?.status === "streaming") throw new ConvexError("reply_in_progress");
+  }
+  const now = Date.now();
+  const rate = await ctx.db.query("agentRateLimits").withIndex("by_owner", q => q.eq("ownerKey", scope.ownerKey)).unique();
+  if (rate && now - rate.windowStart < 60_000 && rate.requests >= 10) throw new ConvexError("rate_limit_exceeded");
+  const next = { windowStart: rate && now - rate.windowStart < 60_000 ? rate.windowStart : now,
+    requests: rate && now - rate.windowStart < 60_000 ? rate.requests + 1 : 1 };
+  if (rate) await ctx.db.patch(rate._id, next);
+  else await ctx.db.insert("agentRateLimits", { ownerKey: scope.ownerKey, ...next });
+  const id = threadId ?? await ctx.db.insert("ragThreads", { ...scope, title: text.slice(0, 60) });
+  const requestMessageId = await ctx.db.insert("ragMessages", { threadId: id, role: "user", text });
+  const messageId = await ctx.db.insert("ragMessages", { threadId: id, role: "assistant", text: "", status: "streaming", requestMessageId, steps: [] });
+  return { threadId: id, messageId };
+}
+
+export const send = mutation({ args: sendArgs, handler: enqueueHandler });
+export const enqueue = internalMutation({ args: sendArgs, handler: enqueueHandler });
+
+export const listThreads = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 50 }) => {
+    const scope = await requireAgentScope(ctx, "personal");
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new ConvexError("thread_limit_invalid");
+    const personal = await ctx.db.query("ragThreads").withIndex("by_owner_scope", q => q.eq("ownerKey", scope.ownerKey).eq("track", "personal").eq("organizationKey", null)).order("desc").take(limit);
+    const identity = await ctx.auth.getUserIdentity();
+    const org = typeof identity?.org_id === "string" ? identity.org_id : null;
+    const business = org ? await ctx.db.query("ragThreads").withIndex("by_owner_scope", q => q.eq("ownerKey", scope.ownerKey).eq("track", "business").eq("organizationKey", org)).order("desc").take(limit) : [];
+    return [...personal, ...business].sort((a,b) => b._creationTime - a._creationTime).slice(0, limit);
+  },
+});
+
+const messageArgs = { messageId: v.id("ragMessages") };
+export const request = internalQuery({
+  args: messageArgs,
+  handler: async (ctx, { messageId }) => {
+    const message = await ctx.db.get(messageId);
+    if (!message) { await requireAgentScope(ctx, "personal"); throw new ConvexError("conversation_unavailable"); }
+    const thread = await requireAgentThread(ctx, message.threadId);
+    if (message.role !== "assistant" || !message.requestMessageId) throw new ConvexError("request_unavailable");
+    const source = await ctx.db.get(message.requestMessageId);
+    if (!source || source.threadId !== thread._id || source.role !== "user") throw new ConvexError("request_unavailable");
+    const rows = await ctx.db.query("ragMessages").withIndex("by_thread", q => q.eq("threadId", thread._id)).order("desc").take(HISTORY_TURNS + 2);
+    const history = rows.filter(m => m._creationTime < source._creationTime && m.text.trim() && (!m.status || m.status === "done"))
+      .reverse().map(m => ({ role: m.role, text: screenChat(m.text.slice(0, 4000)).text }));
+    return { message, source, thread, history };
+  },
+});
+
+export const begin = internalMutation({
+  args: messageArgs,
+  handler: async (ctx, { messageId }) => {
+    const m = await ctx.db.get(messageId);
+    if (!m) throw new ConvexError("request_unavailable");
+    await requireAgentThread(ctx, m.threadId);
+    if (m.status !== "streaming" || m.startedAt !== undefined) return false;
+    await ctx.db.patch(messageId, { startedAt: Date.now() });
+    return true;
+  },
+});
+
+export const progress = internalMutation({
+  args: { ...messageArgs, step: v.object({ query: v.string(), focus: v.string(), results: v.optional(v.number()) }) },
+  handler: async (ctx, { messageId, step }) => {
+    const m = await ctx.db.get(messageId);
+    if (!m) throw new ConvexError("request_unavailable");
+    await requireAgentThread(ctx, m.threadId);
+    if (m.status !== "streaming") throw new ConvexError("reply_stopped");
+    await ctx.db.patch(messageId, { steps: [...(m.steps ?? []).slice(-5), step] });
+  },
+});
+
+export const complete = internalMutation({
+  args: { ...messageArgs, answer: v.optional(v.any()), error: v.optional(v.string()) },
+  handler: async (ctx, { messageId, answer, error }) => {
+    const m = await ctx.db.get(messageId);
+    if (!m) throw new ConvexError("request_unavailable");
+    await requireAgentThread(ctx, m.threadId);
+    if (m.status !== "streaming") return;
+    if (error) await ctx.db.patch(messageId, { status: "failed", text: "", error });
+    else {
+      const parsed = ragAnswerSchema.parse(answer);
+      await ctx.db.patch(messageId, { status: "done", text: parsed.text, answer });
     }
+  },
+});
 
-    const history = await ctx.runQuery(internal.agent.recentTurns, { threadId: id, limit: HISTORY_TURNS });
-    await ctx.runMutation(internal.agent.saveMessage, { threadId: id, role: "user", text });
+export const stop = mutation({
+  args: messageArgs,
+  handler: async (ctx, { messageId }) => {
+    const m = await ctx.db.get(messageId);
+    if (!m) throw new ConvexError("request_unavailable");
+    await requireAgentThread(ctx, m.threadId);
+    if (m.role !== "assistant") throw new ConvexError("request_unavailable");
+    if (m.status === "streaming") await ctx.db.patch(messageId, { status: "stopped", text: "" });
+    return null;
+  },
+});
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set on this Convex deployment");
-    const client = new Anthropic({ apiKey });
-    const model = process.env.RAG_MODEL ?? DEFAULT_MODEL;
-    // Medium is the starting point for multistep tool use on Sonnet 5.5; at low it tends to stop after one search.
-    const effort = (process.env.RAG_EFFORT ?? "medium") as Effort;
+/** Runs under the browser's verified identity. Scheduled functions must not impersonate that identity. */
+export const run = action({
+  args: messageArgs,
+  handler: async (ctx, { messageId }): Promise<null> => {
+    const input = await ctx.runQuery(internal.agent.request, { messageId });
+    if (!await ctx.runMutation(internal.agent.begin, { messageId })) return null;
+    try {
+      const question = screenChat(input.source.text).text;
+      const classified = await requestJev({ message: question, recentContext: input.history.map(m => m.text).join("\n").slice(-2000) },
+        { enabled: process.env.RAIFFY_JEV_ENABLED === "true", apiKey: process.env.TYPESAFE_API_KEY });
+      const plan = planAgentRoute(classified.status === "classified" ? classified.classification : {}, {
+        track: input.thread.track, availableTools: ["search_knowledge"],
+        availableCollections: ["bank_product_docs", "competitor_docs", "banking_help"],
+        requestedBanks: namedBanks(question),
+      });
+      let answer: RagAnswer;
+      if (!plan.model || !["answer", "orchestrator"].includes(plan.handler)) answer = routeResponse(plan);
+      else answer = await generate(ctx, question, input.history, plan, messageId);
+      const requiresCatalog = answer.status === "answered" && containsFinancialFigure(answer.text);
+      const verification = { status: answer.status, checks: answer.checks, searches: answer.searches, model: answer.model,
+        financialTermsSupported: !requiresCatalog };
+      // Failed drafts are neither shown nor retained. Only the checked final response reaches the UI.
+      if (answer.status === "failed_checks" || answer.status === "refused") answer = routeResponse({ ...plan, handler: "unavailable" });
+      if (requiresCatalog) answer = routeResponse({ ...plan, handler: "unavailable", reason: "catalog_required" });
+      if (answer.sources.length > 0) {
+        const notice = "This is dated public information, not a binding offer; check the source dates below.";
+        answer = { ...answer, text: `${answer.text}\n\n${notice}`, segments: [...answer.segments, { text: ` ${notice}`, sourceIds: [] }] };
+      }
+      const envelope = composeAnswer(messageId, plan, answer);
+      await ctx.runMutation(internal.agent.complete, { messageId, answer: { ...answer,
+        routing: { handler: plan.handler, inquiry: plan.inquiry, confidence: plan.confidence, classifierModel: plan.classifierModel,
+          collections: plan.collections, unavailable: plan.unavailable, reason: classified.status === "unavailable" ? classified.reason : plan.reason },
+        classifierConfidences: classified.status === "classified" ? Object.fromEntries(Object.entries(classified.classification.answers)
+          .filter(([, a]) => a.type === "choice").map(([key, a]) => [key, a.type === "choice" ? a.confidence : null])) : {},
+        verification, ui: envelope } });
+    } catch {
+      await ctx.runMutation(internal.agent.complete, { messageId, error: "Raiffy couldn't verify an answer. Please try again." });
+    }
+    return null;
+  },
+});
 
-    const answer = await runAgent(
-      { question: text, track, history, model },
-      {
-        createMessage: ({ system, tools, messages }) =>
-          client.beta.messages.create({
-            model,
-            max_tokens: 16000,
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default",
-            output_config: { effort },
-            system,
-            tools,
-            messages,
-          }),
-        search: ({ query, focus }) => searchChunks(ctx, { question: query, track, k: RESULTS_PER_SEARCH, focus }),
-      },
-    );
+async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[], plan: RoutePlan, messageId: Id<"ragMessages">): Promise<RagAnswer> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || !plan.model) return routeResponse({ ...plan, handler: "unavailable" });
+  const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 45_000 });
+  const seen = new Set<string>();
+  const comparedCollections = plan.collections.includes("bank_product_docs") && plan.collections.includes("competitor_docs")
+    ? ["bank_product_docs", "competitor_docs"] : [];
+  const searchedCollections = new Set<string>();
+  return runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections }, {
+    createMessage: async ({ system, tools, messages }) => {
+      const state = await ctx.runQuery(internal.agent.request, { messageId });
+      if (state.message.status !== "streaming") throw new ConvexError("reply_stopped");
+      return client.beta.messages.create({ model: plan.model!.id, max_tokens: 8000,
+        output_config: { effort: plan.model!.effort }, system: [...system, { type: "text", text:
+          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog, account data, saved memory or approved offers are connected. Exact rates, fees, monetary amounts and credit limits are unavailable: do not quote them from RAG, even with citations. Explain sourced non-price conditions and documents instead. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` }], tools, messages });
+    },
+    search: async raw => {
+      if (!plan.collections.includes(raw.collection)) return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
+      const remaining = plan.limits.publicChunks - seen.size;
+      const reserved = comparedCollections.filter(c => c !== raw.collection && !searchedCollections.has(c)).length * 2;
+      const available = remaining - reserved;
+      if (available <= 0) return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
+      const safe = { ...raw, query: screenChat(raw.query).text, limit: Math.min(raw.limit, available) };
+      const result = await searchKnowledge(ctx, plan.track, safe);
+      searchedCollections.add(raw.collection);
+      const passages = result.passages.filter(p => !seen.has(p.passageId)).slice(0, safe.limit);
+      passages.forEach(p => seen.add(p.passageId));
+      await ctx.runMutation(internal.agent.progress, { messageId, step: { query: safe.query, focus: safe.collection, results: passages.length } });
+      return { ...result, passages, coverage: { ...result.coverage, returned: passages.length } };
+    },
+  });
+}
 
-    const validated = ragAnswerSchema.parse(answer);
-    await ctx.runMutation(internal.agent.saveMessage, {
-      threadId: id,
-      role: "assistant",
-      text: validated.text,
-      answer: validated,
-    });
-    return { threadId: id, answer: validated };
+/** CLI/API harness uses the identical UI pipeline, including Jev and server-side ownership checks. */
+export const ask = action({
+  args: sendArgs,
+  handler: async (ctx, args): Promise<{ threadId: Id<"ragThreads">; answer: RagAnswer }> => {
+    await requireAgentScope(ctx, args.track);
+    const sent = await ctx.runMutation(internal.agent.enqueue, args);
+    await ctx.runAction(api.agent.run, { messageId: sent.messageId });
+    const result = await ctx.runQuery(internal.agent.request, { messageId: sent.messageId });
+    if (!result.message.answer) throw new ConvexError(result.message.error ?? "reply_unavailable");
+    return { threadId: sent.threadId, answer: result.message.answer };
   },
 });

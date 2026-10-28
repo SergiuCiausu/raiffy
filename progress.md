@@ -2,7 +2,42 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 (retrieval merge review). Branch: `main`.
+Last updated: 2026-10-28 (live UI/Jev/agent/RAG integration). Branch: `codex/agent-rag-integration`.
+
+## Live UI → Jev → agent → RAG, 2026-10-28
+
+- Integrated retrieval commit `f29e082` with current main (`e8dac1d`) in a separate checkout. Existing voice/demo-profile changes in other checkouts were preserved. Reused the live chat frontend from `ui/agent-chat` with new auth and pipeline contracts; its older unauthenticated backend was not adopted.
+- `/chat` now uses real Clerk authentication, a `convex` JWT template and owner-scoped cloud functions. A claimable development Clerk app was provisioned for synthetic testing; local private keys/claim files are ignored. Its issuer is configured in cloud Convex. Claim/setup instructions are in `web/README.md`.
+- `agent:send` screens input before storage, derives scope from verified identity, rate-limits per owner, and allocates the reply. `agent:run` starts each request once under that identity, runs live Jev, applies risk/confidence/track gates and restricts Claude to the planned public collections. Cancellation, history and every thread operation enforce ownership. Private memory writes remain off.
+- Claude receives only bounded, screened history and allowed tool results. A five-passage budget reserves evidence from both bank collections for comparisons. Completed answers pass existing citation/number checks before publication; checked text then reveals word by word. Code composes the UI envelope, follow-ups, disclosure and source-date presentation. Unchecked/truncated answers are withheld. Collection-date prose was removed from the model prompt to avoid failing the numeric guard on metadata; prompt version is `rag-agent@4`.
+- Read-only cloud audit: **9,334 chunks, all embedded, zero scope violations**. Earlier empty-cloud observations below are historical. Offline checks validate all 72 competitor/coverage cases, 21 isolation cases and 82 legacy cases against the source data. Live isolation: **21/21**. Broader competitor exact-passage hit@5 is **66%** (70 hit cases; English 64%, Romanian 78%); page@5 is 84%, and coverage checks are 2/2. This is below the retrieval plan's acceptance target; successful live examples are not a full quality acceptance.
+- Real Chrome/cloud acceptance passed: sourced personal-loan document answer, contextual follow-up, Raiffeisen/BCR comparison citing both banks, fraud override without Claude, persistent history after reload, anonymous access denied, and no mobile overflow. Observed sourced-answer samples were roughly 6–9 seconds to backend completion and 9–14 seconds including checked word reveal; fraud about 1–2 seconds. These are samples, not latency guarantees. Private results/screenshots are under `.convex/acceptance/`.
+- Validation: 213 backend tests and root/Convex type checks pass; web has 17 passing unit tests, scoped lint/type checks and a production build. Live tests use synthetic accounts and real providers; ordinary unit tests mock providers. Exact financial figures are withheld until a reviewed catalog is connected, even if they appear in a retrieved passage.
+- Remaining product capabilities are explicit gaps: reviewed `productTerms` catalog/lookup and exact financial comparisons, deterministic calculator/expense tools, authorized offer negotiation/adviser booking, broader retrieval/classifier evaluation, real-user privacy/consent acceptance and memory retrieval/confirmation UI. These are not advertised as connected by the capability registry. The current live milestone is authenticated, sourced public-product Q&A and factual document comparisons.
+
+## Task 2: search_knowledge handler and retrieval evals 2026-10-28
+
+- **Handler** on Denis's contract (`lib/agent/prompt.ts`): `convex/knowledge.ts` checks the identity first; the pure part is `lib/rag/knowledge.ts`. Output: `{status: ok|unavailable, collection, passages[{passageId, bank, product, productId, sectionType, docType, text, provenance, score}], coverage{requested, returned, gaps}, reason?}`.
+  - Stale passages are left out and counted as `stale_excluded`. If every passage is stale, the result is `unavailable` with `stale_sources`.
+  - Gaps: `no_results`, `fewer_results_than_requested`, `stale_excluded`, `fees_in_shared_tariff_pdfs`, `ing_pdfs_not_collected`.
+  - `user_memory` returns `unavailable` (`collection_not_connected`) and unknown collections return `unknown_collection`. Neither searches, and neither falls back to another collection.
+- **Agent** (`lib/rag/agent.ts`, `convex/agent.ts`) now uses Denis's tool definition. Prompt `rag-agent@3` says which collection to pick; coverage gaps reach Claude as a separate system note.
+- **Evals**, run with `pnpm rag:eval` (`--offline` checks every expected passage against `chunks.jsonl`; `--audit` checks every stored chunk). Scoring is in `lib/rag/evaluation.ts`; every case fails on any out-of-scope passage.
+  - `evals/retrieval-competitors.json`: 70 hit cases from `comparatie.csv` (61 English, 9 Romanian) and 2 coverage cases. Raiffeisen rows search `bank_product_docs`; ING and BCR rows search `competitor_docs`.
+  - `evals/retrieval-isolation.json`: 21 adversarial cases (business queries on personal and the reverse, corporate, cross-collection, FAQ-only, `user_memory`, unknown collection).
+  - The 82 legacy Raiffeisen cases run as `bank_product_docs` hit cases.
+- `retrievalEval:run` is internal (deploy key only). The Convex CLI can't act as a user on internal functions, so it calls the handler without the identity check (`searchKnowledgeForTrack`, `hybridSearch`). The identity check has its own tests in `convex/knowledge.test.ts`.
+- **Cloud dev:** `.env.local` selected the local anonymous backend again; it now selects `diligent-rhinoceros-830` (EU West). Pushed the functions, imported the 9,334 chunks into the empty `ragChunks` table and embedded them all. The push also removed the indexes `demoRuns.by_profile` and `demoProfiles.by_profile`: those two tables aren't in our schema or git history. Their data is kept.
+- **Results** (live, top 5):
+
+  | Set | hit@1 | hit@5 | Right page in top 5 | MRR |
+  | --- | --- | --- | --- | --- |
+  | Competitors (70) | 29% | 61% | 90% | 0.40 |
+  | Legacy Raiffeisen (82) | 40% | 79% | 87% | 0.55 |
+
+  Isolation: 21/21 pass. Coverage: 2/2. No out-of-scope passage in any set. Data audit: 9,334 chunks, 0 violations.
+- **Finding:** most competitor misses return the right page but another chunk of it. The main cases are BCR deposit rates in a PDF table, and the Casa Ta and ING mortgage conditions. Options to decide together: one passage per page in the top 5, more candidates, or chunk-level boosts.
+- Validation: 173 Vitest tests pass; root and Convex type checks are clean.
 
 ## Retrieval merge review 2026-10-28
 
@@ -96,7 +131,7 @@ Settings: `max_tokens` 16000, effort `medium` (`RAG_EFFORT`), `fallbacks: "defau
 | Convex import builder (Zod-validated, track visibility, search text, no vectors) | `scripts/build-rag-import.ts` | Done. 3,750 docs: 2,308 personal, 761 business, 681 hidden (corporate) |
 | Retrieval eval sets: original 8, extended 33, English 41 | `raiffeisen-rag-package/starter/eval_questions*.json` | Done. Every expected pair was checked against `chunks.jsonl` |
 | `starter/eval.py` with `--questions` and `--backend convex` | `raiffeisen-rag-package/starter/eval.py` | Done |
-| Local Convex deployment with `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` set | `.env.local` | Running on http://127.0.0.1:3210 |
+| Cloud dev Convex deployment `diligent-rhinoceros-830` (EU West) with `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` set | `.env.local` | 9,334 chunks imported and embedded |
 
 Tests: 44 Vitest tests pass; typecheck is clean.
 
@@ -120,7 +155,7 @@ Agent checks, run live:
 
 ## Next steps
 
-1. Improve retrieval on the English set: translate the query to Romanian for the keyword leg, or let the agent always run one Romanian query.
+1. Improve chunk ranking within a page (see the finding above) and retrieval on the English set: translate the query to Romanian for the keyword leg, or let the agent always run one Romanian query.
 2. Agent eval: run the 41 English questions through `agent:ask` and check that the answer cites the expected source (it costs Anthropic tokens: ask first).
 3. Answer-formulation plan (individuals, business, user-type adaptation, tool catalog, `chat.html` mapping): the individuals section is drafted; the business and tools sections need a rerun.
 4. Add tools: the financing simulation (`chat.html` `simCalc`, with the deterministic recommendation), a financial plan from a chat, a new chat that keeps context.
@@ -140,13 +175,18 @@ Agent checks, run live:
 pnpm install
 pnpm test && pnpm typecheck
 
-# Convex (local deployment; keep `pnpm exec convex dev` running to push changes)
+# Convex (the cloud dev deployment selected in .env.local; `pnpm exec convex dev --once` pushes changes)
 pnpm rag:build-import                                                   # -> ragChunks.import.jsonl
-pnpm exec convex import --table ragChunks --replace -y ragChunks.import.jsonl
+pnpm exec convex import --table ragChunks --append -y ragChunks.import.jsonl   # --replace only if you mean to wipe it
 pnpm exec convex run embeddings:embedPending                             # OpenAI embeddings for every chunk
 pnpm exec convex run agent:ask '{"question": "What does the 3-month deposit pay?", "track": "personal"}'
 
-# Retrieval eval against Convex
+# Retrieval evals (search_knowledge): offline data check, live sets, data-level isolation audit
+pnpm rag:eval --offline
+pnpm rag:eval                       # or: pnpm rag:eval competitors isolation legacy
+pnpm rag:eval --audit
+
+# Older retrieval eval against Convex
 raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex
 raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex --questions raiffeisen-rag-package/starter/eval_questions_en.json
 ```
