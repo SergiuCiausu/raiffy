@@ -2,7 +2,7 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 13:40 (Bucharest). Branch: `backend/rag-foundation`.
+Last updated: 2026-10-28 15:10 (Bucharest). Branch: `backend/rag-foundation`.
 
 ## Decisions so far
 
@@ -12,76 +12,93 @@ Last updated: 2026-10-28 13:40 (Bucharest). Branch: `backend/rag-foundation`.
 | 2026-10-28 | The team builds **backend, LLM, RAG and pipeline only**. UI and design belong to the UI team | Andrei |
 | 2026-10-28 | **No Docker** | Andrei |
 | 2026-10-28 | Clerk roles are deferred; Convex functions get identity checks when Clerk is wired | Andrei; `CLAUDE.md` |
-| 2026-10-28 | LLM through the **Anthropic SDK** (OpenRouter and Jev Router were considered and rejected). RAG answers use **Claude Sonnet 5.5** (`claude-sonnet-5-5`) | Andrei |
+| 2026-10-28 | LLM through the **Anthropic SDK** (OpenRouter and Jev Router were rejected). The agent uses **Claude Sonnet 5.5** (`claude-sonnet-5-5`, override with the `RAG_MODEL` env var). `claude-3-5-sonnet-latest` was retired on 2025-10-28 and can't be called | Andrei |
+| 2026-10-28 | **Embeddings: OpenAI `text-embedding-3-small`** (1536 dimensions), called from Convex actions. This replaces the earlier plan for a local e5/bge-m3 benchmark | Andrei |
+| 2026-10-28 | **Agentic RAG**: Claude decides when and what to search through a `search_knowledge` tool; code runs each search scoped to the conversation's track | Andrei |
 | 2026-10-28 | Vector store: **Convex** vector search plus a full-text index (hybrid search), on a local anonymous deployment for development | Andrei; `CLAUDE.md` |
-| 2026-10-28 | Embedding model picked by a **local benchmark** (multilingual-e5-base, multilingual-e5-large, bge-m3) on the retrieval eval. Query embeddings come from a small local Python service | Andrei |
-| 2026-10-28 | Track to data segments: individuals see `persoane fizice`, `premium banking` and `private banking`; business sees `IMM`; `corporate` is out of scope. PDFs follow the products that link to them (in this dataset, every PDF links to products of a single track) | Andrei; data check |
+| 2026-10-28 | Track to data segments: individuals see `persoane fizice`, `premium banking` and `private banking`; business sees `IMM`; `corporate` is out of scope. PDFs follow the products that link to them (every PDF links to products of a single track) | Andrei; data check |
 | 2026-10-28 | POC rules from commit `38ff692`: English only (questions may still come in Romanian), answer scope (`compare` / `solution` / `detail`), one recommended option chosen by deterministic code, 2-3 pre-generated follow-ups, word-by-word streaming | `CLAUDE.md`, `raiffy-spec/CLAUDE.md`, `DESIGN.md` |
+
+## How the agentic RAG works
+
+1. `agent:ask({ question, track, threadId? })` creates or continues a conversation. A conversation keeps the track it started with, so personal and business data never mix.
+2. Claude Sonnet 5.5 gets a cached system prompt (core rules plus a track overlay), the last 10 turns as plain text, and one strict tool: `search_knowledge({ query, focus })`.
+3. Each search embeds the query with OpenAI, runs the Convex vector search and the full-text search, both filtered to the track, and fuses them with reciprocal rank fusion. Fee, rate, eligibility, document and tariff-PDF sections get a small boost when the query or the `focus` asks for them. It returns the top 5 fragments.
+4. The fragments go back as `search_result` blocks with citations, one citable block per line, with the collection date first. Claude can search up to 3 times.
+5. The final text is checked in code: every number must appear in a retrieved fragment, the question or the collection date. If one doesn't, Claude gets one retry. If an answer cites nothing after a single search, Claude is told to search once more with other words.
+6. The answer is validated with Zod (`RagAnswer`: text, per-segment source ids, one source per cited page, checks, searches, retrieval) and saved with the question in `ragMessages`.
+
+Settings: `max_tokens` 16000, effort `medium` (`RAG_EFFORT`), `fallbacks: "default"` (server-side fallback when a safety classifier declines), refusals handled.
 
 ## Built so far
 
 | What | Where | Status |
 | --- | --- | --- |
-| TypeScript project (pnpm 12, TypeScript strict, Vitest, tsx; Zod 4.6, `@anthropic-ai/sdk` 1.3, Convex 1.48) | `package.json`, `tsconfig.json`, `vitest.config.ts`, `pnpm-workspace.yaml` (allows the esbuild build script) | Done |
-| Git ignores for secrets, Convex local data, RAG build artifacts and the Python venv | `.gitignore` | Done |
-| RAG Zod schemas: raw chunk, the stored Convex document, search hit, search arguments | `lib/rag/schemas.ts` | Done, tested |
-| Text normalization: diacritic folding, tokens, Romanian and English stopwords, the 16-term search cap | `lib/rag/normalize.ts` | Done, tested |
-| Track visibility derived from segments and linked products | `lib/rag/visibility.ts` | Done, tested |
-| Query plan: English-to-Romanian keyword expansion for the keyword leg, intent detection (cost, interest, documents, eligibility, example), soft section preferences | `lib/rag/query.ts` | Done, tested |
-| Reciprocal rank fusion of the vector and keyword rankings | `lib/rag/fusion.ts` | Done, tested |
-| Number grounding: every number in an answer must appear in the sources (reads `50.000` and `50,000` as the same value) | `lib/rag/numbers.ts` | Done, tested |
-| Retrieval eval sets: the package's original 8 questions (unchanged), 33 extended questions (no diacritics, typos, informal, business, cross-segment, tariff PDFs, eligibility, documents) and an English set of all 41 (the POC answers in English) | `raiffeisen-rag-package/starter/eval_questions.json`, `eval_questions_extended.json`, `eval_questions_en.json` | Done. Every expected source and text was checked against `chunks.jsonl` |
-| Python venv for the starter and benchmarks (reuses the system torch 2.11 CPU build; adds sentence-transformers 6.2 and the Convex Python client) | `raiffeisen-rag-package/.venv` | Done |
-| Hybrid ranking: fusion plus soft section and tariff-PDF preference, top-k hits | `lib/rag/search.ts` | Done, tested |
-| Prompt: cached system prompt with a track overlay; chunks as `search_result` blocks (one citable block per line); dated header; retry note | `lib/rag/prompt.ts` | Done, tested |
-| Answer assembly: citations to one source per page, number grounding checks, `RagAnswer` Zod schema | `lib/rag/answer.ts` | Done, tested |
-| Convex schema: `ragChunks` with a 768-dim vector index and full-text index, both filtered by `visiblePersonal`/`visibleBusiness` | `convex/schema.ts` | Done, pushed to the local deployment |
-| Convex search action `rag:search` (query embedding, vector + keyword legs scoped to the track, fusion) | `convex/rag.ts` | Done, not yet run on data |
-| Convex answer action `ragAnswer:answer` (Claude Sonnet 5.5, effort low, `fallbacks: "default"`, refusal handling, number check with one retry) | `convex/ragAnswer.ts` | Done, needs `ANTHROPIC_API_KEY` |
-| Embedding tools: shared embedder (e5 prefixes), chunk embedder, local query-embedding service on 127.0.0.1:8765 | `tools/rag/embedding.py`, `embed_chunks.py`, `embed_server.py` | Done |
-| Convex import builder (Zod-validated docs, track visibility, search text) | `scripts/build-rag-import.ts` | Done |
-| `starter/eval.py`: `--questions` and `--backend convex` options (default behaviour unchanged) | `raiffeisen-rag-package/starter/eval.py` | Done |
-| Local Convex deployment (anonymous, no account) | `.env.local`, `.convex/` | Running on http://127.0.0.1:3210 |
-| Model downloader that fetches only the files sentence-transformers needs | `tools/rag/download_models.py` | Done; downloads running |
+| TypeScript project (pnpm 12, TypeScript 7 strict, Vitest 5, tsx; Zod 4.6, `@anthropic-ai/sdk` 1.3, Convex 1.48) | `package.json`, `tsconfig.json`, `vitest.config.ts`, `pnpm-workspace.yaml` | Done |
+| RAG Zod schemas (raw chunk, stored doc, search hit, search args, search focus) | `lib/rag/schemas.ts` | Done, tested |
+| Text normalization, track visibility, query plan (EN to RO keyword expansion, intents, focus), fusion, ranking | `lib/rag/normalize.ts`, `visibility.ts`, `query.ts`, `fusion.ts`, `search.ts` | Done, tested |
+| Number grounding (reads `50.000` and `50,000` as the same value) | `lib/rag/numbers.ts` | Done, tested |
+| Agent prompts, the strict `search_knowledge` tool, `search_result` and tool-result builders | `lib/rag/prompt.ts` | Done, tested |
+| Citation parsing and answer assembly, `RagAnswer` schema | `lib/rag/answer.ts` | Done, tested |
+| Agent loop (pure: the model call and the search are passed in) | `lib/rag/agent.ts` | Done, 8 tests with a scripted fake model |
+| Convex schema: `ragChunks` (1536-dim vector index, full-text index, `embedded` index), `ragThreads`, `ragMessages` | `convex/schema.ts` | Done, deployed |
+| OpenAI embeddings helper and batch indexing (`embeddings:embedPending`) | `convex/openai.ts`, `convex/embeddings.ts` | Done. All 3,750 chunks embedded in 2 min 12 s |
+| Hybrid search action `rag:search` | `convex/rag.ts` | Done, deployed |
+| Agent action `agent:ask` and query `agent:listMessages` | `convex/agent.ts` | Done, tested live |
+| Convex import builder (Zod-validated, track visibility, search text, no vectors) | `scripts/build-rag-import.ts` | Done. 3,750 docs: 2,308 personal, 761 business, 681 hidden (corporate) |
+| Retrieval eval sets: original 8, extended 33, English 41 | `raiffeisen-rag-package/starter/eval_questions*.json` | Done. Every expected pair was checked against `chunks.jsonl` |
+| `starter/eval.py` with `--questions` and `--backend convex` | `raiffeisen-rag-package/starter/eval.py` | Done |
+| Local Convex deployment with `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` set | `.env.local` | Running on http://127.0.0.1:3210 |
 
-## In progress
+Tests: 44 Vitest tests pass; typecheck is clean.
 
-- **Embedding model downloads.** The network is slow (about 0.3 MB/s): multilingual-e5-base (~1.1 GB) is nearly done; e5-large and bge-m3 (~2.2 GB each) will take hours. The first starter run stalled on its own model download and was restarted.
-- **Baseline:** `python starter/ingest.py` then `python starter/eval.py` (multilingual-e5-base), as soon as e5-base is downloaded.
-- **Convex RAG:** `convex/schema.ts` (`ragChunks` with vector and full-text indexes and track visibility fields), a search action (hybrid search, track filter, fusion), a grounded answer action (Claude Sonnet 5.5, fragments passed as `search_result` blocks with citations, number check, one retry), the import builder and the query-embedding service.
-- **Answer-formulation plan** (individuals track, business track, user-type adaptation, tool catalog, `chat.html` mapping). The individuals section is drafted; the business and tools sections stopped at the account's 5-hour usage limit and resume after 14:30.
+## Results
 
-## Blocked or waiting
+Retrieval eval, hit@5 (the expected source in the top 5):
 
-| Item | Why | Unblocks when |
+| Set | Starter (numpy, multilingual-e5-base, dense only, no track filter) | Raiffy (Convex hybrid, OpenAI embeddings, track filter) |
 | --- | --- | --- |
-| Parallel agents (plan drafting, eval verification) | The account hit its 5-hour usage limit | 14:30 Bucharest |
-| Live answer generation | `ANTHROPIC_API_KEY` is not set on this machine | Someone sets the key with `pnpm exec convex env set ANTHROPIC_API_KEY ...` (never in code or `NEXT_PUBLIC_*`) |
-| e5-large and bge-m3 benchmark | Slow model downloads | Downloads finish |
+| Original 8 (Romanian) | 4/8 | **8/8** |
+| Extended 33 (no diacritics, typos, business, tariffs) | not run | 27/33 |
+| English 41 | not run | 30/41 |
+
+Several misses return a page that answers the question but isn't the one the eval expects (the general personal-loan conditions page instead of the product page; the tariff PDF instead of the Zero Simplu page). Real misses: English questions about IMM investment loans and some fee questions. The agent makes up for part of this by searching again in Romanian.
+
+Agent checks, run live:
+
+- "What interest rate does the 3-month term deposit in lei pay?" (personal): one search; 4.70% and 5.00% given, cited and grounded; AI disclosure and collection date included; 10.5 s.
+- "What is the maximum overdraft my company can get?" (business): with effort `low` and one search it said it couldn't find the limit. With effort `medium` and the search-again rule it searched twice and gave "maximum 35% of turnover, minimum 7.000 Euro/Lei", cited; 10.8 s.
+- Follow-up in the same thread, "And what is the exact analysis fee for it?": said plainly the fee isn't in the pages and pointed to the IMM tariff PDF and the product page.
 
 ## Next steps
 
-1. Unit tests for every `lib/rag` module.
-2. Convex schema, search and answer functions; build and import the chunk documents; start the embedding service.
-3. Run the baseline `starter/eval.py`, then the same questions against Convex (`--backend convex`), with and without the track filter, on the Romanian and English sets.
-4. Pick the embedding model from the benchmark.
-5. Finish the answer-formulation plan and save it under `raiffy-spec/docs/plans/`.
+1. Improve retrieval on the English set: translate the query to Romanian for the keyword leg, or let the agent always run one Romanian query.
+2. Agent eval: run the 41 English questions through `agent:ask` and check that the answer cites the expected source (it costs Anthropic tokens: ask first).
+3. Answer-formulation plan (individuals, business, user-type adaptation, tool catalog, `chat.html` mapping): the individuals section is drafted; the business and tools sections need a rerun.
+4. Add tools: the financing simulation (`chat.html` `simCalc`, with the deterministic recommendation), a financial plan from a chat, a new chat that keeps context.
+5. Wire Clerk: identity checks in `agent:ask` and `agent:listMessages`. Right now anyone with a thread id can read that thread (fine for local development only).
 
 ## Open questions for the team
 
 - Money and rates in schemas: integer bani and basis points?
 - Answer cache: cache only what the LLM writes (never numbers), exact-match first and semantic later?
-- Should the `track` field go into the Answer envelope now, with only the personal track implemented?
+- Should the `track` field go into the Answer envelope now?
 - Follow-ups: built by code from pattern templates, with the LLM only choosing and phrasing them?
+- EU hosting for embeddings in production (OpenAI EU residency needs approval).
 
-## How to run (so far)
+## How to run
 
 ```bash
-pnpm install                     # Node dependencies
-pnpm test                        # Vitest (lib/)
-pnpm typecheck
+pnpm install
+pnpm test && pnpm typecheck
 
-# Python side (RAG data package)
-raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/ingest.py
-raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py
+# Convex (local deployment; keep `pnpm exec convex dev` running to push changes)
+pnpm rag:build-import                                                   # -> ragChunks.import.jsonl
+pnpm exec convex import --table ragChunks --replace -y ragChunks.import.jsonl
+pnpm exec convex run embeddings:embedPending                             # OpenAI embeddings for every chunk
+pnpm exec convex run agent:ask '{"question": "What does the 3-month deposit pay?", "track": "personal"}'
+
+# Retrieval eval against Convex
+raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex
+raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex --questions raiffeisen-rag-package/starter/eval_questions_en.json
 ```

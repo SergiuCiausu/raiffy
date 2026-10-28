@@ -6,7 +6,7 @@ const chunk = (id: string, sectionType: StoredChunk["sectionType"], docType?: St
   _id: id,
   chunkId: `chunk-${id}`,
   text: `text ${id}`,
-  embeddingModel: "test",
+  embedded: true,
   visiblePersonal: true,
   visibleBusiness: false,
   sourceType: docType ? "pdf" : "product_page",
