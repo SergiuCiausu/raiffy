@@ -79,6 +79,8 @@ const SECTION_TITLES: Record<SectionType, string> = {
   description: "Description",
   fees: "Fees",
   fee_table: "Fees and rates",
+  rate_table: "Interest rates table",
+  table: "Table",
   interest_rates: "Interest rates",
   eligibility: "Eligibility",
   required_documents: "Required documents",
@@ -89,6 +91,7 @@ const SECTION_TITLES: Record<SectionType, string> = {
 
 const DOC_TITLES: Record<DocType, string> = {
   tarife: "Fees and commissions",
+  dobanzi: "Interest rates",
   contract: "Contract",
   fisa: "Product information sheet",
   regulament: "Campaign rules",
@@ -97,13 +100,16 @@ const DOC_TITLES: Record<DocType, string> = {
   altele: "Document",
 };
 
+const BANK_NAMES: Record<SearchHit["bank"], string> = { raiffeisen: "Raiffeisen Bank", ing: "ING Bank", bcr: "BCR" };
+
 export function resultTitle(hit: SearchHit): string {
+  const bank = BANK_NAMES[hit.bank];
   if (hit.sourceType === "pdf") {
     const kind = hit.docType ? DOC_TITLES[hit.docType] : SECTION_TITLES.pdf;
     const pages = hit.pageStart ? `, p. ${hit.pageStart}${hit.pageEnd && hit.pageEnd !== hit.pageStart ? `-${hit.pageEnd}` : ""}` : "";
-    return `${kind}: ${hit.title ?? "Raiffeisen document"}${pages}`;
+    return `${bank} · ${kind}: ${hit.title ?? "document"}${pages}`;
   }
-  return `${hit.product ?? "Raiffeisen"} · ${hit.heading ?? SECTION_TITLES[hit.sectionType]}`;
+  return `${bank} · ${hit.product ?? "product"} · ${hit.heading ?? SECTION_TITLES[hit.sectionType]}`;
 }
 
 /**

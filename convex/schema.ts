@@ -1,40 +1,34 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { BANKS, type ScopeField, scopeFlagsSchema, SECTION_TYPES } from "../lib/rag/schemas";
 
 /** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
 export const EMBEDDING_DIMENSIONS = 1536;
 
 const track = v.union(v.literal("personal"), v.literal("business"));
 
-const sectionType = v.union(
-  v.literal("overview"),
-  v.literal("features"),
-  v.literal("description"),
-  v.literal("fees"),
-  v.literal("fee_table"),
-  v.literal("interest_rates"),
-  v.literal("eligibility"),
-  v.literal("required_documents"),
-  v.literal("faq"),
-  v.literal("representative_example"),
-  v.literal("pdf"),
-);
+const sectionType = v.union(...SECTION_TYPES.map((type) => v.literal(type)));
+const bank = v.union(...BANKS.map((name) => v.literal(name)));
+/** One boolean per (track, public collection): see `scopeField` in lib/rag/schemas.ts. */
+const SCOPE_FIELDS = Object.keys(scopeFlagsSchema.shape) as ScopeField[];
+const scopeFlags = Object.fromEntries(SCOPE_FIELDS.map((field) => [field, v.boolean()])) as Record<ScopeField, ReturnType<typeof v.boolean>>;
 
 export default defineSchema({
   ragChunks: defineTable({
     chunkId: v.string(),
+    bank,
     text: v.string(),
     searchText: v.string(),
     /** Filled by `embeddings:embedPending` after import; chunks without it are not in the vector index yet. */
     embedding: v.optional(v.array(v.float64())),
     embeddingModel: v.optional(v.string()),
     embedded: v.boolean(),
-    visiblePersonal: v.boolean(),
-    visibleBusiness: v.boolean(),
+    ...scopeFlags,
     sourceType: v.union(v.literal("product_page"), v.literal("pdf")),
     sectionType,
     url: v.string(),
     scrapedAt: v.string(),
+    pageType: v.optional(v.string()),
     segment: v.optional(v.string()),
     product: v.optional(v.string()),
     productId: v.optional(v.string()),
@@ -52,11 +46,11 @@ export default defineSchema({
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
       dimensions: EMBEDDING_DIMENSIONS,
-      filterFields: ["visiblePersonal", "visibleBusiness"],
+      filterFields: SCOPE_FIELDS,
     })
     .searchIndex("search_text", {
       searchField: "searchText",
-      filterFields: ["visiblePersonal", "visibleBusiness"],
+      filterFields: SCOPE_FIELDS,
     }),
 
   /** A conversation is bound to one track for its whole life, so personal and business data never mix. */

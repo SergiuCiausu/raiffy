@@ -5,21 +5,21 @@ import { action, type ActionCtx, internalQuery } from "./_generated/server";
 import { embedTexts } from "./openai";
 import { toSearchText } from "../lib/rag/normalize";
 import { planQuery, withFocus } from "../lib/rag/query";
-import { SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
+import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
 import { rankHits, type StoredChunk } from "../lib/rag/search";
-import { visibilityField } from "../lib/rag/visibility";
 
 const CANDIDATES = 32;
 
 export const trackArg = v.union(v.literal("personal"), v.literal("business"));
 const focusArg = v.union(...SEARCH_FOCUS.map((focus) => v.literal(focus)));
+export const collectionArg = v.union(...PUBLIC_COLLECTIONS.map((c) => v.literal(c)));
 
-/** Keyword leg: full-text search over the folded text, scoped to the track. */
+/** Keyword leg: full-text search over the folded text, scoped to one track and collection. */
 export const textSearch = internalQuery({
-  args: { terms: v.string(), track: trackArg, limit: v.number() },
-  handler: async (ctx, { terms, track, limit }) => {
+  args: { terms: v.string(), track: trackArg, collection: collectionArg, limit: v.number() },
+  handler: async (ctx, { terms, track, collection, limit }) => {
     if (!terms.trim()) return [];
-    const field = visibilityField(track);
+    const field = scopeField(track, collection);
     const docs = await ctx.db
       .query("ragChunks")
       .withSearchIndex("search_text", (q) => q.search("searchText", terms).eq(field, true))
@@ -39,11 +39,11 @@ export const getChunks = internalQuery({
   },
 });
 
-/** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to the track, fused in code. */
+/** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to one track and collection, fused in code. */
 export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
-  const { question, track, k, focus } = searchArgsSchema.parse(input);
+  const { question, track, collection, k, focus } = searchArgsSchema.parse(input);
   const plan = withFocus(planQuery(question), focus);
-  const field = visibilityField(track);
+  const field = scopeField(track, collection);
 
   const [dense, lexicalIds] = await Promise.all([
     embedTexts([question]).then(([vector]) =>
@@ -56,6 +56,7 @@ export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<S
     ctx.runQuery(internal.rag.textSearch, {
       terms: plan.lexicalTerms.map(toSearchText).join(" "),
       track,
+      collection,
       limit: CANDIDATES,
     }),
   ]);
@@ -69,6 +70,12 @@ export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<S
 
 /** Retrieval only (used by starter/eval.py --backend convex). Public product data, no customer data. */
 export const search = action({
-  args: { question: v.string(), track: trackArg, k: v.optional(v.number()), focus: v.optional(focusArg) },
+  args: {
+    question: v.string(),
+    track: trackArg,
+    collection: v.optional(collectionArg),
+    k: v.optional(v.number()),
+    focus: v.optional(focusArg),
+  },
   handler: async (ctx, args): Promise<SearchHit[]> => searchChunks(ctx, args),
 });
