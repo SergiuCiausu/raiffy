@@ -14,6 +14,11 @@ Last updated: 2026-10-28 15:10 (Bucharest). Branch: `backend/rag-foundation`.
 - Added labeled EN/RO routing examples under `evals/agent-routing.json`. These are not measured Jev results. Confidence thresholds are provisional and need calibration.
 - Validation: generated setup matches its sources; TypeScript checks pass. Unit tests cover routing, risk overrides, capability checks and memory isolation. No live provider or in-app acceptance run yet.
 
+## Task 2: retrieval and catalog (Andrei), 2026-10-28
+
+- Plan agreed: `raiffy-spec/docs/plans/retrieval.md`. It uses Denis's architecture and contracts (`search_knowledge`, `get_product_terms`), OpenAI embeddings, `banks-data-package/` as the single data source (Raiffeisen, ING, BCR) and `comparatie.csv` as the catalog seed.
+- Added `banks-data-package/` (10,100 chunks, snapshot 2026-10-28). Implementation has not started yet; the scope rule for tools (`resolveScope`) still needs confirmation.
+
 ## Decisions so far
 
 | Date | Decision | Source |
