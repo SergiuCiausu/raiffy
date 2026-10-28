@@ -1,0 +1,1088 @@
+{
+ "description": "Competitor retrieval eval built from banks-data-package/data/comparison/comparatie.csv (hand-checked values). Rows whose value isn't on the page (32, 41, 42, 67), composite assumptions (40, 45, 50), observations (59, 65, 71) and one value not found in the chunks (29) are left out of the hit cases. BCR's PDFs are served from both cdn. and cdn0.erstegroup.com, so their URLs match on the path.",
+ "snapshot": "2026-10-28",
+ "cases": [
+  {
+   "id": "cmp-00-raiffeisen-en",
+   "question": "What is Raiffeisen's standard interest rate for a 3-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "4.70%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_0"
+   ]
+  },
+  {
+   "id": "cmp-00-raiffeisen-ro",
+   "question": "Ce dobândă standard are Raiffeisen la depozitul la termen în lei pe 3 luni?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "4.70%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_0"
+   ]
+  },
+  {
+   "id": "cmp-01-ing-en",
+   "question": "What rate does ING pay on a 3-month term deposit in lei without recurring income into ING Go?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Go fără venit recurent / 3 luni: 3,5%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_1"
+   ]
+  },
+  {
+   "id": "cmp-02-bcr-en",
+   "question": "What is BCR's standard rate for a 3-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "3 luni 4,20 3,40",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_2"
+   ]
+  },
+  {
+   "id": "cmp-02-bcr-ro",
+   "question": "Ce dobândă are BCR la depozitul la termen în lei pe 3 luni?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "3 luni 4,20 3,40",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_2"
+   ]
+  },
+  {
+   "id": "cmp-03-raiffeisen-en",
+   "question": "What does Raiffeisen pay on a standard 6-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "5.00%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_3"
+   ]
+  },
+  {
+   "id": "cmp-04-ing-en",
+   "question": "What rate does ING pay on a 6-month term deposit in lei without recurring income into ING Go?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Go fără venit recurent / 6 luni: 4%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_4"
+   ]
+  },
+  {
+   "id": "cmp-05-bcr-en",
+   "question": "What is BCR's rate for a 6-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "6 luni 4,60 3,80",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_5"
+   ]
+  },
+  {
+   "id": "cmp-06-raiffeisen-en",
+   "question": "What is Raiffeisen's standard rate for a 12-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "5,20%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_6"
+   ]
+  },
+  {
+   "id": "cmp-07-ing-en",
+   "question": "What rate does ING pay on a one-year term deposit in lei without recurring income?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Go fără venit recurent / 1 an: 4,5%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_7"
+   ]
+  },
+  {
+   "id": "cmp-07-ing-ro",
+   "question": "Ce dobândă dă ING la depozitul pe un an în lei fără venit recurent?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Go fără venit recurent / 1 an: 4,5%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_7"
+   ]
+  },
+  {
+   "id": "cmp-08-bcr-en",
+   "question": "What is BCR's rate for a 12-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "12 luni 5,50 4,70",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_8"
+   ]
+  },
+  {
+   "id": "cmp-09-raiffeisen-en",
+   "question": "What bonus rate does Raiffeisen pay on a 3-month term deposit in lei for current-account package holders?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "5.00%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_9"
+   ]
+  },
+  {
+   "id": "cmp-10-ing-en",
+   "question": "What rate does ING pay on a 3-month term deposit in lei with recurring income into ING Go?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Extra / 3 luni: 4%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_10"
+   ]
+  },
+  {
+   "id": "cmp-11-bcr-en",
+   "question": "What is BCR's bonus rate for a 3-month term deposit in lei if my income comes into BCR?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "3 luni 4,20 3,40",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_11"
+   ]
+  },
+  {
+   "id": "cmp-12-raiffeisen-en",
+   "question": "What bonus rate does Raiffeisen pay on a 6-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "5.50%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_12"
+   ]
+  },
+  {
+   "id": "cmp-13-ing-en",
+   "question": "What rate does ING pay on a 6-month term deposit in lei with recurring income?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Extra / 6 luni: 4,5%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_13"
+   ]
+  },
+  {
+   "id": "cmp-14-bcr-en",
+   "question": "What is BCR's bonus rate for a 6-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "6 luni 4,60 3,80",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_14"
+   ]
+  },
+  {
+   "id": "cmp-15-raiffeisen-en",
+   "question": "What bonus rate does Raiffeisen pay on a 12-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozite-la-termen.html",
+   "expectedTextContains": "5.50%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_15"
+   ]
+  },
+  {
+   "id": "cmp-16-ing-en",
+   "question": "What rate does ING pay on a one-year term deposit in lei with recurring income?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "ING Extra / 1 an: 5%",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_16"
+   ]
+  },
+  {
+   "id": "cmp-17-bcr-en",
+   "question": "What is BCR's bonus rate for a 12-month term deposit in lei?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "12 luni 5,50 4,70",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_17"
+   ]
+  },
+  {
+   "id": "cmp-18-raiffeisen-en",
+   "question": "What rate does Raiffeisen's Fresh Money deposit pay?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/economii/depozit-fresh-money.html",
+   "expectedTextContains": "6.20%",
+   "tags": [
+    "raiffeisen",
+    "deposit",
+    "comparatie_row_18"
+   ]
+  },
+  {
+   "id": "cmp-19-ing-en",
+   "question": "What is the highest rate ING's Bonus Deposit pays?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "până la 6% pe an cu Depozit Bonus",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_19"
+   ]
+  },
+  {
+   "id": "cmp-19-ing-ro",
+   "question": "Cât e dobânda maximă la Depozitul Bonus de la ING?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/economii-si-investitii/ing-economii-si-depozite-la-termen",
+   "expectedTextContains": "până la 6% pe an cu Depozit Bonus",
+   "tags": [
+    "ing",
+    "deposit",
+    "comparatie_row_19"
+   ]
+  },
+  {
+   "id": "cmp-20-bcr-en",
+   "question": "What rate does BCR's promotional term deposit pay?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "/content/dam/ro/bcr/www_bcr_ro/Persoane-fizice/Documente-importante/BCR_Dobanzi_pentru_contul_curent_si_produsele_de_economisire_PF.pdf",
+   "expectedTextContains": "6,00%",
+   "tags": [
+    "bcr",
+    "deposit",
+    "comparatie_row_20"
+   ]
+  },
+  {
+   "id": "cmp-21-raiffeisen-en",
+   "question": "What interest range does Raiffeisen's personal loan without a mortgage have?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "17.95%",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_21"
+   ]
+  },
+  {
+   "id": "cmp-22-raiffeisen-en",
+   "question": "How much can I borrow with Raiffeisen's personal loan without a mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "până la 50.000 euro",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_22"
+   ]
+  },
+  {
+   "id": "cmp-23-raiffeisen-en",
+   "question": "For how long can I take Raiffeisen's personal loan without a mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "între 18 luni și 5 ani",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_23"
+   ]
+  },
+  {
+   "id": "cmp-24-raiffeisen-en",
+   "question": "What analysis fee does Raiffeisen charge on the personal loan without a mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "comision analiza 200 Lei",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_24"
+   ]
+  },
+  {
+   "id": "cmp-24-raiffeisen-ro",
+   "question": "Ce comision de analiză are creditul de nevoi personale fără ipotecă la Raiffeisen?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "comision analiza 200 Lei",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_24"
+   ]
+  },
+  {
+   "id": "cmp-25-raiffeisen-en",
+   "question": "What monthly administration fee does Raiffeisen's personal loan without a mortgage have?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "comision de administrare lunar 5 Lei",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_25"
+   ]
+  },
+  {
+   "id": "cmp-26-raiffeisen-en",
+   "question": "What APR does Raiffeisen show in the representative example for its personal loan?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html",
+   "expectedTextContains": "DAE 9.49%",
+   "tags": [
+    "raiffeisen",
+    "personal_loan",
+    "comparatie_row_26"
+   ]
+  },
+  {
+   "id": "cmp-27-ing-en",
+   "question": "What fixed interest range does ING Personal have?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ing-personal",
+   "expectedTextContains": "5,99% - 15,99%",
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_27"
+   ]
+  },
+  {
+   "id": "cmp-27-ing-ro",
+   "question": "Ce dobândă fixă are creditul ING Personal?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ing-personal",
+   "expectedTextContains": "5,99% - 15,99%",
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_27"
+   ]
+  },
+  {
+   "id": "cmp-28-ing-en",
+   "question": "How much can I borrow with ING Personal?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ing-personal",
+   "expectedTextContains": "Până la 200.000 lei",
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_28"
+   ]
+  },
+  {
+   "id": "cmp-30-ing-en",
+   "question": "Does ING charge an analysis fee on ING Personal?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ing-personal",
+   "expectedTextContains": "0 lei pentru analiza dosarului",
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_30"
+   ]
+  },
+  {
+   "id": "cmp-31-ing-en",
+   "question": "Is there an administration fee on ING Personal?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ing-personal",
+   "expectedTextContains": "0 comision de administrare credit",
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_31"
+   ]
+  },
+  {
+   "id": "cmp-33-bcr-en",
+   "question": "What interest range does BCR's Credit George personal loan have?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "14,99%",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_33"
+   ]
+  },
+  {
+   "id": "cmp-34-bcr-en",
+   "question": "How much can I borrow with BCR's Credit George?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "până la 250.000 lei",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_34"
+   ]
+  },
+  {
+   "id": "cmp-35-bcr-en",
+   "question": "Over how many months can I repay BCR's Credit George?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "în până la 60 de luni",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_35"
+   ]
+  },
+  {
+   "id": "cmp-36-bcr-en",
+   "question": "What analysis fee does BCR charge on Credit George?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "200 lei",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_36"
+   ]
+  },
+  {
+   "id": "cmp-37-bcr-en",
+   "question": "Is there an administration fee on BCR's Credit George?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "ZERO comision de administrare credit",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_37"
+   ]
+  },
+  {
+   "id": "cmp-38-bcr-en",
+   "question": "What APR range does BCR show in its Credit George representative example?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credit-george",
+   "expectedTextContains": "DAE=16,41%",
+   "tags": [
+    "bcr",
+    "personal_loan",
+    "comparatie_row_38"
+   ]
+  },
+  {
+   "id": "cmp-39-raiffeisen-en",
+   "question": "What APR does Raiffeisen's Standard credit card have in its representative example?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/carduri/cardul-de-cumparaturi-standard.html",
+   "expectedTextContains": "32,40%",
+   "tags": [
+    "raiffeisen",
+    "credit_card",
+    "comparatie_row_39"
+   ]
+  },
+  {
+   "id": "cmp-43-raiffeisen-en",
+   "question": "How many interest-free instalments does Raiffeisen's Standard credit card offer?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/carduri/cardul-de-cumparaturi-standard.html",
+   "expectedTextContains": "9 rate fără dobândă",
+   "tags": [
+    "raiffeisen",
+    "credit_card",
+    "comparatie_row_43"
+   ]
+  },
+  {
+   "id": "cmp-44-ing-en",
+   "question": "What APR does ING Credit Card have in its example?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/credit-card",
+   "expectedTextContains": "28,07%",
+   "tags": [
+    "ing",
+    "credit_card",
+    "comparatie_row_44"
+   ]
+  },
+  {
+   "id": "cmp-44-ing-ro",
+   "question": "Ce DAE are cardul de credit ING?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/credit-card",
+   "expectedTextContains": "28,07%",
+   "tags": [
+    "ing",
+    "credit_card",
+    "comparatie_row_44"
+   ]
+  },
+  {
+   "id": "cmp-46-ing-en",
+   "question": "What annual fee does ING charge for the plastic ING Credit Card?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/credit-card",
+   "expectedTextContains": "35 lei/an",
+   "tags": [
+    "ing",
+    "credit_card",
+    "comparatie_row_46"
+   ]
+  },
+  {
+   "id": "cmp-47-ing-en",
+   "question": "How long is the grace period on ING Credit Card?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/credit-card",
+   "expectedTextContains": "până la 45 de zile",
+   "tags": [
+    "ing",
+    "credit_card",
+    "comparatie_row_47"
+   ]
+  },
+  {
+   "id": "cmp-48-ing-en",
+   "question": "How many interest-free instalments does ING Credit Card offer worldwide?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/credit-card",
+   "expectedTextContains": "3 rate fără dobândă oriunde în lume",
+   "tags": [
+    "ing",
+    "credit_card",
+    "comparatie_row_48"
+   ]
+  },
+  {
+   "id": "cmp-49-bcr-en",
+   "question": "What APR does BCR's online credit card have in its example?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online",
+   "expectedTextContains": "12,1%",
+   "tags": [
+    "bcr",
+    "credit_card",
+    "comparatie_row_49"
+   ]
+  },
+  {
+   "id": "cmp-51-bcr-en",
+   "question": "What does BCR charge to issue its online credit card?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online",
+   "expectedTextContains": "Cost emitere card: 20 lei",
+   "tags": [
+    "bcr",
+    "credit_card",
+    "comparatie_row_51"
+   ]
+  },
+  {
+   "id": "cmp-52-bcr-en",
+   "question": "How long is the grace period on BCR's online credit card?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online",
+   "expectedTextContains": "până la 55 de zile",
+   "tags": [
+    "bcr",
+    "credit_card",
+    "comparatie_row_52"
+   ]
+  },
+  {
+   "id": "cmp-52-bcr-ro",
+   "question": "Câte zile de grație are cardul de credit online de la BCR?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online",
+   "expectedTextContains": "până la 55 de zile",
+   "tags": [
+    "bcr",
+    "credit_card",
+    "comparatie_row_52"
+   ]
+  },
+  {
+   "id": "cmp-53-bcr-en",
+   "question": "How many interest-free instalments does BCR's online credit card offer?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online",
+   "expectedTextContains": "până la 12 rate egale fără dobândă",
+   "tags": [
+    "bcr",
+    "credit_card",
+    "comparatie_row_53"
+   ]
+  },
+  {
+   "id": "cmp-54-raiffeisen-en",
+   "question": "What is Raiffeisen's starting fixed rate for 3 years on the Casa Ta mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "de la 5,05%",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_54"
+   ]
+  },
+  {
+   "id": "cmp-55-raiffeisen-en",
+   "question": "What is Raiffeisen's starting fixed rate for 5 years on the Casa Ta mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "de la 5,65%",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_55"
+   ]
+  },
+  {
+   "id": "cmp-56-raiffeisen-en",
+   "question": "What margin applies after the fixed period on Raiffeisen's Casa Ta mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "marjă 2.30% + IRCC",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_56"
+   ]
+  },
+  {
+   "id": "cmp-57-raiffeisen-en",
+   "question": "What minimum down payment does Raiffeisen's Casa Ta mortgage require?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "Avans: 15% din valoarea imobilului",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_57"
+   ]
+  },
+  {
+   "id": "cmp-57-raiffeisen-ro",
+   "question": "Ce avans minim cere creditul ipotecar Casa Ta?",
+   "lang": "ro",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "Avans: 15% din valoarea imobilului",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_57"
+   ]
+  },
+  {
+   "id": "cmp-58-raiffeisen-en",
+   "question": "For how many years can I take Raiffeisen's Casa Ta mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "bank_product_docs",
+   "expectedUrlContains": "https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html",
+   "expectedTextContains": "între 3 și 30 de ani",
+   "tags": [
+    "raiffeisen",
+    "mortgage",
+    "comparatie_row_58"
+   ]
+  },
+  {
+   "id": "cmp-60-ing-en",
+   "question": "What is ING's fixed rate range for 3 years on its mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ipotecar",
+   "expectedTextContains": "4,79% – 6,59%",
+   "tags": [
+    "ing",
+    "mortgage",
+    "comparatie_row_60"
+   ]
+  },
+  {
+   "id": "cmp-61-ing-en",
+   "question": "What is the top of ING's 5-year fixed mortgage rate range?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ipotecar",
+   "expectedTextContains": "7,09%",
+   "tags": [
+    "ing",
+    "mortgage",
+    "comparatie_row_61"
+   ]
+  },
+  {
+   "id": "cmp-62-ing-en",
+   "question": "What margin over IRCC does ING's mortgage use after the fixed period?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ipotecar",
+   "expectedTextContains": "1,89%",
+   "tags": [
+    "ing",
+    "mortgage",
+    "comparatie_row_62"
+   ]
+  },
+  {
+   "id": "cmp-63-ing-en",
+   "question": "What minimum down payment does ING's mortgage require?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ipotecar",
+   "expectedTextContains": "15%",
+   "tags": [
+    "ing",
+    "mortgage",
+    "comparatie_row_63"
+   ]
+  },
+  {
+   "id": "cmp-64-ing-en",
+   "question": "What share of the property value can ING's mortgage finance at most?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://ing.ro/persoane-fizice/credite/ipotecar",
+   "expectedTextContains": "85% din valoarea evaluată",
+   "tags": [
+    "ing",
+    "mortgage",
+    "comparatie_row_64"
+   ]
+  },
+  {
+   "id": "cmp-66-bcr-en",
+   "question": "What is BCR's starting 3-year fixed rate on the Casa Mea mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credite-pentru-casa/casa-mea-bcr",
+   "expectedTextContains": "de la 4,99%",
+   "tags": [
+    "bcr",
+    "mortgage",
+    "comparatie_row_66"
+   ]
+  },
+  {
+   "id": "cmp-68-bcr-en",
+   "question": "What margin applies after the fixed period on BCR's Casa Mea mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credite-pentru-casa/casa-mea-bcr",
+   "expectedTextContains": "IRCC + 2,3%",
+   "tags": [
+    "bcr",
+    "mortgage",
+    "comparatie_row_68"
+   ]
+  },
+  {
+   "id": "cmp-69-bcr-en",
+   "question": "What share of the investment can BCR's Casa Mea mortgage finance?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credite-pentru-casa/casa-mea-bcr",
+   "expectedTextContains": "până la 85% din valoarea investiției",
+   "tags": [
+    "bcr",
+    "mortgage",
+    "comparatie_row_69"
+   ]
+  },
+  {
+   "id": "cmp-70-bcr-en",
+   "question": "What is the maximum term of BCR's Casa Mea mortgage?",
+   "lang": "en",
+   "kind": "hit",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectedUrlContains": "https://www.bcr.ro/ro/persoane-fizice/credite/credite-pentru-casa/casa-mea-bcr",
+   "expectedTextContains": "maximum 30 de ani",
+   "tags": [
+    "bcr",
+    "mortgage",
+    "comparatie_row_70"
+   ]
+  },
+  {
+   "id": "cov-32-ing-loan-apr",
+   "kind": "coverage",
+   "question": "What is the APR in ING's personal loan representative example?",
+   "lang": "en",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectGaps": [
+    "ing_pdfs_not_collected"
+   ],
+   "tags": [
+    "ing",
+    "personal_loan",
+    "comparatie_row_32",
+    "unavailable_on_page"
+   ]
+  },
+  {
+   "id": "cov-ing-atm-fee",
+   "kind": "coverage",
+   "question": "What fee does ING charge for cash withdrawals at other banks' ATMs?",
+   "lang": "en",
+   "track": "personal",
+   "collection": "competitor_docs",
+   "expectGaps": [
+    "ing_pdfs_not_collected"
+   ],
+   "tags": [
+    "ing",
+    "fees"
+   ]
+  }
+ ]
+}

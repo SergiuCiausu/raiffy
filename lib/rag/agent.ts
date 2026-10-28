@@ -6,22 +6,23 @@ import type {
   BetaToolResultBlockParam,
   BetaToolUseBlock,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
-import { assembleCitations, checkNumbers, citedSegments, type RagAnswer } from "./answer";
+import { type SearchKnowledgeInput, searchKnowledgeInputSchema } from "../agent/prompt";
+import { assembleCitations, type Citable, citableFromPassage, checkNumbers, citedSegments, type RagAnswer } from "./answer";
+import type { SearchKnowledgeResult } from "./knowledge";
 import {
   buildSystem,
   buildUserTurn,
+  coverageNote,
   MAX_SEARCHES,
   RAG_PROMPT_VERSION,
   retryNoteForNumbers,
   searchAgainNote,
   SEARCH_TOOL,
   SEARCH_TOOL_NAME,
-  searchToolInputSchema,
-  type SearchToolInput,
   toolErrorResult,
   toToolResult,
 } from "./prompt";
-import type { SearchHit, Track } from "./schemas";
+import type { Track } from "./schemas";
 
 /** Model calls per turn: searches, a search-again nudge, a final answer and one retry, plus a paused turn. */
 const MAX_MODEL_CALLS = MAX_SEARCHES + 5;
@@ -32,7 +33,8 @@ export type ModelRequest = { system: BetaTextBlockParam[]; tools: BetaTool[]; me
 /** Side effects come in from the caller (Convex), so the loop itself stays pure and testable. */
 export type AgentDeps = {
   createMessage: (request: ModelRequest) => Promise<BetaMessage>;
-  search: (input: SearchToolInput) => Promise<SearchHit[]>;
+  /** The search_knowledge handler, already scoped to the session's track by the caller. */
+  search: (input: SearchKnowledgeInput) => Promise<SearchKnowledgeResult>;
 };
 
 export type HistoryTurn = { role: "user" | "assistant"; text: string };
@@ -57,7 +59,7 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
     { role: "user", content: buildUserTurn(question, history.length === 0) },
   ];
   // Every search_result block shown to the model, in request order: citations point into this list.
-  const hits: SearchHit[] = [];
+  const hits: Citable[] = [];
   const searches: RagAnswer["searches"] = [];
   let attempts = 0;
   let nudged = false;
@@ -67,12 +69,7 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
     model,
     promptVersion: RAG_PROMPT_VERSION,
     searches,
-    retrieval: hits.map((hit) => ({
-      chunkId: hit.chunkId,
-      score: hit.score,
-      ...(hit.denseRank ? { denseRank: hit.denseRank } : {}),
-      ...(hit.lexicalRank ? { lexicalRank: hit.lexicalRank } : {}),
-    })),
+    retrieval: hits.map((hit) => ({ chunkId: hit.chunkId, score: hit.score })),
   });
 
   for (let call = 0; call < MAX_MODEL_CALLS; call++) {
@@ -97,10 +94,16 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
       messages.push({ role: "assistant", content: response.content });
       const toolUses = response.content.filter((block): block is BetaToolUseBlock => block.type === "tool_use");
       const toolResults: BetaToolResultBlockParam[] = [];
+      const searchResults: SearchKnowledgeResult[] = [];
       for (const toolUse of toolUses) {
-        toolResults.push(await runTool(toolUse, deps, hits, searches));
+        const { block, result } = await runTool(toolUse, deps, hits, searches);
+        toolResults.push(block);
+        if (result) searchResults.push(result);
       }
       messages.push({ role: "user", content: toolResults });
+      // Harness notes go in their own system message, never inside the citable tool results.
+      const note = coverageNote(searchResults);
+      if (note) messages.push({ role: "system", content: note });
       continue;
     }
 
@@ -117,9 +120,10 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
 
     // Only end_turn is a completed answer candidate.
     const segments = citedSegments(response.content);
-    // A single search that ends in an uncited "not found" gets one more chance to search with other words.
+    // A single search that ran and ends in an uncited "not found" gets one more chance with other words.
+    // An unavailable collection is not a miss: searching elsewhere would stand in for it.
     const cites = segments.some((segment) => segment.hitIndexes.length > 0);
-    if (!cites && searches.length === 1 && !nudged) {
+    if (!cites && searches.length === 1 && searches[0]!.status === "ok" && !nudged) {
       nudged = true;
       messages.push({ role: "assistant", content: response.content });
       messages.push({ role: "user", content: searchAgainNote() });
@@ -154,21 +158,21 @@ export async function runAgent({ question, track, history = [], model }: AgentIn
 async function runTool(
   toolUse: BetaToolUseBlock,
   deps: AgentDeps,
-  hits: SearchHit[],
+  hits: Citable[],
   searches: RagAnswer["searches"],
-): Promise<BetaToolResultBlockParam> {
+): Promise<{ block: BetaToolResultBlockParam; result?: SearchKnowledgeResult }> {
   if (toolUse.name.toLowerCase() !== SEARCH_TOOL_NAME) {
-    return toolErrorResult(toolUse.id, `Unknown tool "${toolUse.name}". The only tool is ${SEARCH_TOOL_NAME}.`);
+    return { block: toolErrorResult(toolUse.id, `Unknown tool "${toolUse.name}". The only tool is ${SEARCH_TOOL_NAME}.`) };
   }
-  const input = searchToolInputSchema.safeParse(toolUse.input);
+  const input = searchKnowledgeInputSchema.safeParse(toolUse.input);
   if (!input.success) {
-    return toolErrorResult(toolUse.id, `Invalid input: ${input.error.issues.map((i) => i.message).join("; ")}`);
+    return { block: toolErrorResult(toolUse.id, `Invalid input: ${input.error.issues.map((i) => i.message).join("; ")}`) };
   }
   if (searches.length >= MAX_SEARCHES) {
-    return toolErrorResult(toolUse.id, `Search limit of ${MAX_SEARCHES} reached. Answer with the results you already have.`);
+    return { block: toolErrorResult(toolUse.id, `Search limit of ${MAX_SEARCHES} reached. Answer with the results you already have.`) };
   }
-  const found = await deps.search(input.data);
-  searches.push({ query: input.data.query, focus: input.data.focus, results: found.length });
-  hits.push(...found);
-  return toToolResult(toolUse.id, found);
+  const result = await deps.search(input.data);
+  searches.push({ query: input.data.query, collection: result.collection, status: result.status, results: result.passages.length });
+  hits.push(...result.passages.map(citableFromPassage));
+  return { block: toToolResult(toolUse.id, result), result };
 }

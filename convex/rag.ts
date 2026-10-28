@@ -42,8 +42,13 @@ export const getChunks = internalQuery({
 
 /** Hybrid search: OpenAI vector leg plus keyword leg, both scoped to one track and collection, fused in code. */
 export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
+  await requireAgentScope(ctx, input.track);
+  return hybridSearch(ctx, input);
+}
+
+/** The same search without the identity check. Internal callers only (the retrieval eval). */
+export async function hybridSearch(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
   const { question, track, collection, k, focus } = searchArgsSchema.parse(input);
-  await requireAgentScope(ctx, track);
   const plan = withFocus(planQuery(question), focus);
   const field = scopeField(track, collection);
 
