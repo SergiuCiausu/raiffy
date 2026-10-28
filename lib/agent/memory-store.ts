@@ -11,6 +11,8 @@ const DAY = 86_400_000;
 export const memoryEnvironmentSchema = z.object({
   cloudUrl: z.string().optional(), siteUrl: z.string().optional(), demoDeploymentUrl: z.string().optional(),
   demoIdentityEnabled: z.boolean(), demoPersistenceEnabled: z.boolean(),
+  /** Signed-in customers' writes: the owner's switch plus the URL of the one deployment it is meant for. */
+  customerWritesEnabled: z.boolean().optional(), customerWritesDeploymentUrl: z.string().optional(),
 }).strict();
 export type MemoryEnvironment = z.infer<typeof memoryEnvironmentSchema>;
 export const memoryIdentitySchema = z.object({ tokenIdentifier: z.string().min(1), organizationKey: z.string().min(1).nullable() }).strict();
@@ -44,10 +46,23 @@ export function resolveMemoryScope(input: { identity: MemoryIdentity | null; tra
   return memoryScopeSchema.parse({ ownerKey: DEMO_MEMORY_OWNER, track, organizationKey: null });
 }
 
+/**
+ * Signed-in customers' memories are written only where the owner turned writes on and pinned this deployment,
+ * so a copied flag can't enable another one. Consent, screening and deletion stay in force everywhere.
+ */
+export function customerMemoryWritesEnabled(environment: MemoryEnvironment): boolean {
+  const env = memoryEnvironmentSchema.parse(environment);
+  return env.customerWritesEnabled === true && Boolean(env.cloudUrl) && env.customerWritesDeploymentUrl === env.cloudUrl;
+}
+
 /** Production/private persistence stays off until the real auth and privacy pipeline is accepted. */
 export function requireMemoryPersistence(scope: MemoryScope, environment: MemoryEnvironment): void {
   const parsed = memoryScopeSchema.parse(scope);
   const env = memoryEnvironmentSchema.parse(environment);
+  if (parsed.ownerKey !== DEMO_MEMORY_OWNER) {
+    if (customerMemoryWritesEnabled(env)) return;
+    throw new Error("memory_persistence_disabled");
+  }
   const persistenceEnabled = MEMORY_POLICY.persistenceEnabled || (env.demoPersistenceEnabled && isDemoMemoryEnvironment(env));
   if (!persistenceEnabled || parsed.ownerKey !== DEMO_MEMORY_OWNER || parsed.track !== "personal" || !env.demoIdentityEnabled
     || !isDemoMemoryEnvironment(env)) throw new Error("memory_persistence_disabled");

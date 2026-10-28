@@ -38,6 +38,15 @@ describe("memory identity and deployment guards", () => {
     expect(sameMemoryScope(business, { ...business, organizationKey: "org-b" })).toBe(false);
     expect(sameMemoryScope(scope, { ...scope, ownerKey: "user-b" })).toBe(false);
   });
+  it("lets signed-in customers write only where the owner enabled writes and pinned this deployment", () => {
+    const customer = resolveMemoryScope({ identity: { tokenIdentifier: "issuer|ana", organizationKey: null }, track: "personal", environment });
+    const local = { ...environment, cloudUrl: "http://127.0.0.1:3210", customerWritesEnabled: true, customerWritesDeploymentUrl: "http://127.0.0.1:3210" };
+    expect(() => requireMemoryPersistence(customer, local)).not.toThrow();
+    expect(() => requireMemoryPersistence(customer, { ...local, customerWritesEnabled: false })).toThrow("memory_persistence_disabled");
+    expect(() => requireMemoryPersistence(customer, { ...local, cloudUrl: "https://production.convex.cloud" })).toThrow("memory_persistence_disabled");
+    expect(() => requireMemoryPersistence(customer, { ...local, customerWritesDeploymentUrl: undefined })).toThrow("memory_persistence_disabled");
+  });
+
   it("rejects copied production flags, missing pins and spoofed or non-HTTPS deployment URLs", () => {
     expect(isDemoMemoryEnvironment(environment)).toBe(true);
     for (const cloudUrl of ["https://production.eu-west-1.convex.cloud", "http://127.0.0.1:3210", "https://demo-dev.eu-west-1.convex.cloud.attacker.test", "https://demo-dev.eu-west-1.convex.cloud?dev=1"]) {

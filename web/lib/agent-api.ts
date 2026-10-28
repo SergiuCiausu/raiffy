@@ -36,7 +36,23 @@ export type Answer = {
 export type RouteCard = { title: string; recommended: boolean; summary: string; mainRisk?: string; why?: string; sourceIds: string[] };
 /** `start`/`end` locate the route list in the joined segment text; the cards replace it on screen. */
 export type RoutesBlock = { type: "routes"; state: "partial"; start: number; end: number; routes: RouteCard[] };
-export type Block = { type: "callout"; state: "ready" | "unavailable"; text: string; sourceIds: string[] } | RoutesBlock;
+export type MemoryKind = "goal" | "preference" | "constraint" | "stated_financial";
+/** Memories Claude proposed this turn; each waits for the customer's Remember or Not now (convex/memory.ts). */
+export type MemoryBlock = { type: "memory"; proposals: { id: string; kind: MemoryKind; text: string; customerQuote: string }[] };
+export type Block = { type: "callout"; state: "ready" | "unavailable"; text: string; sourceIds: string[] } | RoutesBlock | MemoryBlock;
+
+export type MemoryView = { id: string; kind: MemoryKind; text: string; statedAt: number; updatedAt: number; expiresAt: number };
+export type ProposalView = { id: string; operation: "remember" | "update"; kind: MemoryKind; text: string; customerQuote: string; createdAt: number; expiresAt: number };
+type MemoryChange = { status: "proposed" | "saved" | "rejected" | "forgotten"; id: string };
+
+/** The customer's own memory store. Every call is scoped to the signed-in identity on the server. */
+export const memoryApi = {
+  listMine: makeFunctionReference<"query", { track: Track }, { memories: MemoryView[]; proposals: ProposalView[] }>("memory:listMine"),
+  confirm: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:confirm"),
+  reject: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:reject"),
+  forgetOne: makeFunctionReference<"mutation", { track: Track; memoryId: string }, MemoryChange>("memory:forgetOne"),
+  forgetAll: makeFunctionReference<"mutation", { track: Track }, { memoriesDeleted: number; proposalsDeleted: number }>("memory:forgetAll"),
+};
 
 export type Step = { query: string; focus: string; results?: number };
 

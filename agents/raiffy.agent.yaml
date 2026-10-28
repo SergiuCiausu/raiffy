@@ -149,7 +149,7 @@ tools:
   - {
       "type": "custom",
       "name": "calculate_scenario",
-      "description": "Run a deterministic financial calculator over references to validated inputs and catalog records from this turn. Use for repayment costs, savings plans, budgets and product comparisons; never perform the calculation in prose. The host resolves each reference, checks required inputs and returns sourced figures and explicit assumptions for the composer. Missing inputs or an unimplemented calculator return unavailable instead of an estimate invented by the model.",
+      "description": "Run a deterministic calculator; never perform the calculation in prose. The one calculation connected is loan_affordability: an indicative check of whether a loan fits the debt-service limit on the customer's income, with no product rate. Use it when the customer asks whether they can afford or qualify for a loan and has stated their net monthly income, the amount and the term. Pass only figures the customer wrote in this conversation: the host rejects any number they didn't state and returns the inputs it used, the limit's source and the results. It is never a credit decision. Missing inputs return unavailable instead of an estimate.",
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -157,25 +157,44 @@ tools:
           "calculation": {
             "type": "string",
             "enum": [
-              "loan_cost",
-              "savings_plan",
-              "budget_summary",
-              "product_comparison"
+              "loan_affordability"
             ]
           },
-          "inputRefs": {
-            "minItems": 1,
-            "maxItems": 12,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+          "netMonthlyIncome": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "loanAmount": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "termMonths": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "existingMonthlyInstalments": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "RON",
+              "FX"
+            ]
+          },
+          "age": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
           "calculation",
-          "inputRefs"
+          "netMonthlyIncome",
+          "loanAmount",
+          "termMonths"
         ],
         "additionalProperties": false
       }
@@ -183,19 +202,11 @@ tools:
   - {
       "type": "custom",
       "name": "propose_memory_change",
-      "description": "Propose a memory change when the customer explicitly asks to remember or correct something, or when the route plan offers this tool because the customer stated a lasting goal, preference, constraint or figure about their own finances. Supply the exact redacted quote and source message ID so the backend can verify provenance independently; the customer confirms each proposal before anything is saved. This tool queues a proposal and never writes directly to a shared document corpus; the host owns confirmation, redaction, retention and user-scoped persistence. Treat proposed, saved and unavailable as distinct outcomes and do not claim recall until saved is confirmed.",
+      "description": "Propose remembering something lasting the customer said about themselves: a goal, a preference, a constraint or a figure about their own finances. Use it when the customer asks you to remember something, or when the route offers this tool because they stated one. customerQuote is their exact words from their current message, and text is the part of that quote worth keeping, copied verbatim with no paraphrase or translation; the host attaches the message, checks both and blocks sensitive details. The customer confirms each proposal in the app before anything is saved, so never say it is saved or remembered. Never propose health, religion, politics, other people's details, identifiers or anything you inferred.",
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "operation": {
-            "type": "string",
-            "enum": [
-              "remember",
-              "update",
-              "forget"
-            ]
-          },
           "kind": {
             "type": "string",
             "enum": [
@@ -210,25 +221,15 @@ tools:
             "minLength": 1,
             "maxLength": 500
           },
-          "sourceMessageId": {
-            "type": "string",
-            "minLength": 1
-          },
           "customerQuote": {
             "type": "string",
             "minLength": 1,
             "maxLength": 1000
-          },
-          "replacesMemoryId": {
-            "type": "string",
-            "minLength": 1
           }
         },
         "required": [
-          "operation",
           "kind",
           "text",
-          "sourceMessageId",
           "customerQuote"
         ],
         "additionalProperties": false

@@ -73,3 +73,20 @@
 .pg-chat .kv-stack b { font-size: 13px; line-height: 1.45; font-weight: 400; }
 .pg-chat .opt-src { display: flex; flex-wrap: wrap; gap: 4px; }
 .pg-chat .opt-src .cite { margin-left: 0; }
+
+/* Memory (components/agent/Memory.tsx): Raiffy's proposals under an answer, and the saved list in Context. */
+.pg-chat .mem-list, .pg-chat .mem-saved { list-style: none; margin: 0; padding: 0; display: grid; }
+.pg-chat .mem-item { display: grid; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.pg-chat .mem-item:first-child { border-top: 0; }
+.pg-chat .mem-body { display: grid; gap: 3px; min-width: 0; }
+.pg-chat .mem-kind { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.pg-chat .mem-body b { font-size: 14px; font-weight: 500; color: var(--text-1); overflow-wrap: anywhere; }
+.pg-chat .mem-body p { margin: 0; font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
+.pg-chat .mem-body small { font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.pg-chat .mem-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 320px; }
+.pg-chat .mem-status { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.pg-chat .mem-status svg { width: 14px; height: 14px; color: var(--color-check); stroke-width: 2.4; }
+.pg-chat .mem-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
+.pg-chat .mem-row:first-child { border-top: 0; }
+.pg-chat .mem-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.pg-chat .mem-forget-all { margin-top: 10px; width: 100%; }

@@ -58,8 +58,11 @@ const RESOURCES: Record<Inquiry, { collections: Collection[]; tools: Tool[] }> =
   professional_advice: { collections: [], tools: ["request_human_handoff"] },
   other: { collections: [], tools: [] },
 };
-/** What an uncertain or unmatched inquiry may search: public documents only, no customer data or calculators. */
-const PUBLIC_DOCUMENTS: { collections: Collection[]; tools: Tool[] } = { collections: ["bank_product_docs", "banking_help"], tools: [] };
+/**
+ * What an uncertain or unmatched inquiry may use: public documents and the calculator, which runs only on figures
+ * the customer stated. No account data, memory or offers.
+ */
+const PUBLIC_DOCUMENTS: { collections: Collection[]; tools: Tool[] } = { collections: ["bank_product_docs", "banking_help"], tools: ["calculate_scenario"] };
 
 /** A retrieval plan is a cost and workflow hint. The tool adapter must independently authorize every call. */
 export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, rawPolicy: AgentPolicy = AGENT_POLICY): RoutePlan {
@@ -97,6 +100,8 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
     // Without the handler the customer hears that memory is off; with it, an uncertain request is confirmed before any change.
     if (!context.availableTools.includes(tool)) return finish({ handler: "unavailable", reason: "explicit_memory_request", unavailable: [tool] });
     if (a.memory_operation.confidence < floor) return finish({ handler: "clarify", reason: "uncertain_memory_request" });
+    // "Remember that…" goes to Claude with only the proposal tool; the customer still confirms in the app.
+    if (tool === "propose_memory_change") return finish({ handler: "answer", reason: "explicit_memory_request", model: policy.standardModel, tools: [tool] });
     return finish({ handler: "memory", reason: "explicit_memory_request", tools: [tool] });
   }
   // An uncertain or unmatched inquiry still reaches Claude, limited to public documents, so it can answer or ask its own question.
@@ -116,9 +121,12 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const requestedTools = [...new Set<Tool>([...resources.tools, ...(resources.collections.some((id) => context.availableCollections.includes(id)) ? ["search_knowledge" as const] : [])])];
   const tools = requestedTools.filter((id) => context.availableTools.includes(id));
   const unavailable = [...resources.collections.filter((id) => !collections.includes(id)), ...requestedTools.filter((id) => !tools.includes(id))];
-  // A stated goal, preference, constraint or figure adds a proposal tool to the answer; it never changes the handler.
+  // Where proposals are possible, every answer may propose a memory, and the customer confirms each one. Jev's
+  // single-choice candidate splits its probability when a message states several things (a goal, a figure and a
+  // preference), so its score ranks proposals but doesn't gate them. Special-category messages never get the tool.
   const memoryCandidate = tools.length ? scoreMemoryCandidate(a, policy) : null;
-  const canPropose = memoryCandidate !== null && context.availableTools.includes("propose_memory_change");
+  const canPropose = tools.length > 0 && a.special_category.noul < policy.thresholds.specialCategoryProbability
+    && context.availableTools.includes("propose_memory_change");
   return finish({
     handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable",
     reason: !known ? (inquiry === "other" ? "unknown_inquiry" : "low_route_confidence") : multiGoal ? "multiple_goals" : uncertainGoals ? "uncertain_goal_count" : "classified",

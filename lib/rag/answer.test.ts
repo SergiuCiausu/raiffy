@@ -82,20 +82,26 @@ describe("answer assembly", () => {
   });
 
   it("passes grounded numbers and flags invented ones", () => {
-    expect(checkNumbers(citedSegments(response), hits, "q")).toEqual({ ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0 });
+    expect(checkNumbers(citedSegments(response), hits)).toEqual({ ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0 });
     const invented = [{ type: "text", text: "It pays 7.10% if you wait 9 months.", citations: null }] as unknown as BetaContentBlock[];
-    const checks = checkNumbers(citedSegments(invented), hits, "q");
+    const checks = checkNumbers(citedSegments(invented), hits);
     expect(checks.ungroundedNumbers).toEqual(["7.10", "9"]);
     expect(checks.uncitedSegmentsWithNumbers).toBe(1);
   });
 
   it("rejects a value found only in an unrelated retrieved fragment", () => {
-    expect(checkNumbers([{ text: "The deposit pays 6.20%.", hitIndexes: [0] }], hits, "q").ungroundedNumbers).toEqual(["6.20"]);
+    expect(checkNumbers([{ text: "The deposit pays 6.20%.", hitIndexes: [0] }], hits).ungroundedNumbers).toEqual(["6.20"]);
+  });
+
+  it("accepts calculator results in any segment, cited or not", () => {
+    const calculator = '{"inputs":{"netMonthlyIncome":4500},"maxNewInstalment":1800}';
+    expect(checkNumbers([{ text: "Up to 1,800 lei of your 4,500 lei can go to instalments.", hitIndexes: [] }], hits, [calculator]))
+      .toEqual({ ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0 });
   });
 
   it("does not let the customer's question establish a financial number", () => {
-    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [0] }], hits, "Can I get 7.10%?").ungroundedNumbers).toEqual(["7.10"]);
-    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [] }], hits, "Can I get 7.10%?")).toMatchObject({
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [0] }], hits).ungroundedNumbers).toEqual(["7.10"]);
+    expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [] }], hits)).toMatchObject({
       ungroundedNumbers: ["7.10"], uncitedSegmentsWithNumbers: 1,
     });
   });
@@ -104,28 +110,28 @@ describe("answer assembly", () => {
     expect(checkNumbers([
       { text: "It pays 4.70%.", hitIndexes: [0] },
       { text: "Another deposit pays 4.70%.", hitIndexes: [2] },
-    ], hits, "q").ungroundedNumbers).toEqual(["4.70"]);
+    ], hits).ungroundedNumbers).toEqual(["4.70"]);
   });
 
   it.each([-1, 0.5, 99, Number.NaN, Number.POSITIVE_INFINITY])("rejects invalid citation index %s even without numbers", (index) => {
-    expect(checkNumbers([{ text: "A banking fact.", hitIndexes: [index] }], hits, "q")).toMatchObject({ invalidCitationIndexes: 1 });
+    expect(checkNumbers([{ text: "A banking fact.", hitIndexes: [index] }], hits)).toMatchObject({ invalidCitationIndexes: 1 });
   });
 
   it("does not let an invalid citation stand in for valid evidence", () => {
-    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [99] }], hits, "q")).toEqual({
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [99] }], hits)).toEqual({
       ungroundedNumbers: ["4.70"], uncitedSegmentsWithNumbers: 1, invalidCitationIndexes: 1,
     });
-    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [0, 99] }], hits, "q")).toEqual({
+    expect(checkNumbers([{ text: "It pays 4.70%.", hitIndexes: [0, 99] }], hits)).toEqual({
       ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, invalidCitationIndexes: 1,
     });
   });
 
   it("accepts a cited collection date without allowing an unrelated snapshot's date", () => {
-    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], hits, "q")).toEqual({
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], hits)).toEqual({
       ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0,
     });
     const distinctDate = { ...hits[0]!, collectedAt: "2025-09-17T00:00:00Z" };
-    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], [distinctDate, hits[1]!], "q").ungroundedNumbers).toEqual(["2026", "10", "28"]);
+    expect(checkNumbers([{ text: "Collected on 2026-10-28.", hitIndexes: [0] }], [distinctDate, hits[1]!]).ungroundedNumbers).toEqual(["2026", "10", "28"]);
   });
 
   it("produces an answer the schema accepts", () => {

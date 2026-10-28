@@ -48,7 +48,7 @@ export const MEMORY_CANDIDATES = {
 } as const;
 export const MEMORY_QUESTIONS = {
   memory_durable: "Will what the customer states about themselves likely still be true in a few weeks, rather than matter only for this question?",
-  special_category: "Does the message mention health, addiction, religion, ethnicity, sexuality, criminal matters or details about another identifiable person?",
+  special_category: "Does the message reveal a health condition or treatment, addiction, religion, ethnicity, sexuality or criminal matters, or details about another identifiable person? A job, an employer or an income alone is none of these.",
 } as const;
 export const RISK_QUESTIONS = {
   crisis: "Does the customer express imminent personal danger or self-harm connected to their situation?",

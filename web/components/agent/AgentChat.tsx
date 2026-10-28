@@ -9,7 +9,8 @@ import {
   MessageCircleIcon, PanelRightIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserIcon, XIcon,
 } from "lucide-react";
-import { agentApi, type Answer, type Message, type RoutesBlock, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
+import { agentApi, memoryApi, type Answer, type MemoryBlock, type Message, type RoutesBlock, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
+import { MemoryPanel, MemoryProposals } from "./Memory";
 import { answerView, type Piece } from "@/lib/answer-view";
 import { RouteCards } from "./RouteCards";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
@@ -95,6 +96,11 @@ export function AgentChat() {
 
   const thread = threads?.find((t) => t._id === threadId);
   const activeTrack = thread?.track ?? track;
+  // Memory is personal for now: business memories need an organization scope the chat doesn't carry yet.
+  const memoryState = useQuery(memoryApi.listMine, activeTrack === "personal" ? { track: activeTrack } : "skip");
+  const memoryView = memoryState && {
+    pendingIds: new Set(memoryState.proposals.map((p) => p.id)), savedTexts: new Set(memoryState.memories.map((m) => m.text)),
+  };
   const list = messages ?? [];
   const showPending = pending !== null && list.length <= pending.base;
   const streaming = list.findLast((m) => m.role === "assistant" && m.status === "streaming");
@@ -303,7 +309,7 @@ export function AgentChat() {
             <div className="thread" id="thread" role="log" aria-label="Conversation with Raiffy" hidden={empty}>
               {list.map((m, i) => (m.role === "user"
                 ? <UserBubble key={m._id} text={m.text} />
-                : <AssistantMessage key={m._id} m={m} onGrow={follow} vote={votes[m._id]}
+                : <AssistantMessage key={m._id} m={m} onGrow={follow} vote={votes[m._id]} track={activeTrack} memory={memoryView}
                     onFollowUp={(prompt) => void send(prompt)}
                     onVote={(v) => {
                       setVotes((x) => ({ ...x, [m._id]: v }));
@@ -403,6 +409,7 @@ export function AgentChat() {
               </ul>
               <p className="empty-note" hidden={sources.length > 0}>Every number Raiffy gives you will show its source here.</p>
             </section>
+            {activeTrack === "personal" && <MemoryPanel track={activeTrack} memories={memoryState?.memories} />}
             <section className="ctx-sec">
               <div className="promise"><ShieldCheckIcon /><span>Raiffy uses dated public sources from Raiffeisen, ING and BCR. It cannot access your accounts, move money or approve credit.</span></div>
             </section>
@@ -429,9 +436,11 @@ function UserBubble({ text, enter }: { text: string; enter?: boolean }) {
 type AssistantProps = {
   m: Message; onGrow: () => void; vote?: "up" | "down"; onVote: (v: "up" | "down") => void; onCopy: () => void;
   onRetry: () => void; retryDisabled: boolean; onFollowUp: (prompt: string) => void;
+  track: Track; memory?: { pendingIds: ReadonlySet<string>; savedTexts: ReadonlySet<string> };
 };
 
-function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisabled, onFollowUp }: AssistantProps) {
+function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisabled, onFollowUp, track, memory }: AssistantProps) {
+  const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
   const steps = m.answer?.searches ?? m.steps ?? [];
   const streaming = m.status === "streaming";
   // Sources and actions rise in only for a reply this tab watched arrive, not for history being reopened
@@ -447,6 +456,7 @@ function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisab
 
         <div className="raiffy-text">
           {!streaming && (m.answer ? <AnswerText answer={m.answer} animate={arrivedLive} onGrow={onGrow} /> : m.text && <p className="answer">{m.text}</p>)}
+          {!streaming && memoryBlock && <MemoryProposals block={memoryBlock} track={track} pendingIds={memory?.pendingIds} savedTexts={memory?.savedTexts} />}
           {streaming && <p className="sr-only">Raiffy is answering…</p>}
           {m.status === "stopped" && <p className="stopped">You stopped this reply.</p>}
           {m.status === "failed" && (

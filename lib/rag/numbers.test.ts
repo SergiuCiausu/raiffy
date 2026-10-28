@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { containsFinancialFigure, findUngroundedNumbers, numberTokens, numericValues } from "./numbers";
+import { containsFinancialFigure, findUngroundedNumbers, numberTokens, numericValues, unsupportedFinancialFigures } from "./numbers";
 
 describe("numberTokens", () => {
   it("finds amounts, decimals and percentages", () => {
@@ -48,6 +48,13 @@ describe("containsFinancialFigure", () => {
     expect(containsFinancialFigure("Your salary of 4,500 lei is above the minimum.")).toBe(true);
     expect(containsFinancialFigure("The DAE starts from 9")).toBe(true);
     expect(containsFinancialFigure("It costs ten euros a month.")).toBe(true);
+  });
+
+  it("lets calculator results through but still reports document prices", () => {
+    const calculator = '{"inputs":{"netMonthlyIncome":4500,"loanAmount":50000},"maxNewInstalment":1800,"maxFittingAnnualRatePercent":35.8}';
+    const text = "With 4,500 lei, up to 1,800 lei fits; 50,000 lei fits at any interest rate up to 35.8%.";
+    expect(unsupportedFinancialFigures(text, [calculator])).toEqual([]);
+    expect(unsupportedFinancialFigures(`${text} The DAE is 12.4%.`, [calculator])).toEqual(["12.4%", "DAE is 12.4"]);
   });
 
   it("leaves terms, ages and counts alone", () => {

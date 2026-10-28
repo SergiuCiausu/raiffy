@@ -46,10 +46,26 @@ export function findUngroundedNumbers(answer: string, allowedTexts: readonly str
   return numberTokens(answer).filter((token) => !numericValues(token).some((v) => allowed.has(v)));
 }
 
-/** Exact financial figures require the reviewed catalog, even when a number occurs in a RAG passage. */
-export function containsFinancialFigure(text: string): boolean {
+const PRICE_FIGURES = [
+  /\d[\d.,\s]*(?:%|RON\b|EUR\b|lei\b|leu\b|euros?\b|basis points?\b)/gi,
+  /\b(?:APR|DAE|interest rate|fee|commission|comision|dobanda)\b[^.!?\n]{0,40}\d[\d.,]*/gi,
+];
+const WORDED_PRICE = /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\s+(?:percent|lei|euros?)\b/i;
+
+/**
+ * Financial figures (rates, fees, amounts) that no trusted text backs. Exact prices require the reviewed catalog,
+ * even when a number occurs in a RAG passage; the trusted texts are calculator results, which echo the customer's
+ * validated inputs and the computed figures. Worded amounts can't be checked, so they are always reported.
+ */
+export function unsupportedFinancialFigures(text: string, trustedTexts: readonly string[] = []): string[] {
   const normalized = text.normalize("NFKC");
-  return /\d[\d.,\s]*(?:%|RON\b|EUR\b|lei\b|leu\b|euros?\b|basis points?\b)/i.test(normalized)
-    || /\b(?:APR|DAE|interest rate|fee|commission|comision|dobanda)\b[^.!?\n]{0,40}\d/i.test(normalized)
-    || /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand)\s+(?:percent|lei|euros?)\b/i.test(normalized);
+  const allowed = allowedValues(trustedTexts);
+  const figures = PRICE_FIGURES.flatMap((pattern) => normalized.match(pattern) ?? [])
+    .filter((figure) => numberTokens(figure).some((token) => !numericValues(token).some((v) => allowed.has(v))));
+  const worded = normalized.match(WORDED_PRICE);
+  return worded ? [...figures, worded[0]] : figures;
+}
+
+export function containsFinancialFigure(text: string, trustedTexts: readonly string[] = []): boolean {
+  return unsupportedFinancialFigures(text, trustedTexts).length > 0;
 }

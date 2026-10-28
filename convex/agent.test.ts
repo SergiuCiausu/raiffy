@@ -10,12 +10,12 @@ vi.mock("./openai", () => ({ embedTexts: embedMock }));
 vi.mock("./jevTransport", () => ({ requestJev: jevMock }));
 vi.mock("./knowledge", () => ({ searchKnowledge: searchMock }));
 
+const choice = (labels: Record<string, string>, selected: string) => {
+  const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
+  return { type: "choice", choice: selected, confidence: 0.95,
+    probabilities: Object.fromEntries(keys.map(k => [k, k === selected ? top : (1-top)/(keys.length-1)])) };
+};
 function classification(inquiry = "product_explanation", scope = "detail") {
-  const choice = (labels: Record<string, string>, selected: string) => {
-    const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
-    return { type: "choice", choice: selected, confidence: 0.95,
-      probabilities: Object.fromEntries(keys.map(k => [k, k === selected ? top : (1-top)/(keys.length-1)])) };
-  };
   return { model: "jev-1.14.0", answers: {
     inquiry: choice(INQUIRIES, inquiry), scope: choice(SCOPES, scope), complexity: choice(COMPLEXITIES, "simple"),
     audience: choice(AUDIENCES, "unclear"), memory_operation: choice(MEMORY_OPERATIONS, "none"), memory_candidate: choice(MEMORY_CANDIDATES, "none"),
@@ -27,6 +27,9 @@ const modules = {
   "./_generated/server.js": () => import("./_generated/server"),
   "./agent.ts": () => import("./agent"),
   "./rag.ts": () => import("./rag"),
+  "./regulatoryLimits.ts": () => import("./regulatoryLimits"),
+  "./memory.ts": () => import("./memory"),
+  "./conversations.ts": () => import("./conversations"),
 };
 const fresh = () => convexTest(schema, modules);
 const identity = (subject = "alice", org_id?: string) => ({ subject, issuer: "https://clerk.test", tokenIdentifier: `https://clerk.test|${subject}`, ...(org_id ? { org_id } : {}) });
@@ -175,6 +178,65 @@ describe("UI to Jev to RAG pipeline", () => {
     });
     await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(searchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("runs the calculator on the customer's figures and the stored limits, and keeps its figures in the answer", async () => {
+    jevMock.mockResolvedValue({ status: "classified", classification: classification("affordability") });
+    const t = fresh();
+    await t.run(async (ctx) => {
+      for (const [key, value] of [["dti_max_share_ron", 0.4], ["dti_max_share_fx", 0.2], ["consumer_loan_max_months", 60]] as const) {
+        await ctx.db.insert("regulatoryLimits", { key, value, sourceLabel: "Test limits", sourceUrl: "https://example.test", validFrom: "2026-01-01", status: "pending_review" });
+      }
+    });
+    runAgentMock.mockImplementation(async (_input, deps) => {
+      const ok = await deps.calculate({ calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 });
+      expect(JSON.parse(ok.content).results.maxNewMonthlyInstalment).toBe(1800);
+      expect((await deps.calculate({ calculation: "loan_affordability", netMonthlyIncome: 9000, loanAmount: 50000, termMonths: 60 })).status).toBe("unavailable");
+      return { ...answer, status: "answered", text: "Up to 1,800 lei a month can go to instalments." };
+    });
+    const result = await t.withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "My salary is 4500 lei. Can I borrow 50000 lei over 60 months?" });
+    expect(result.answer.verification.financialTermsSupported).toBe(true);
+    expect(result.answer.text).toContain("1,800 lei");
+  });
+
+  it("records the message, queues Claude's memory proposal for consent and brings saved memories into later chats", async () => {
+    vi.stubEnv("CONVEX_CLOUD_URL", "http://127.0.0.1:3210");
+    vi.stubEnv("RAIFFY_MEMORY_WRITES_ENABLED", "true");
+    vi.stubEnv("RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL", "http://127.0.0.1:3210");
+    const stated = classification("purchase_goal", "solution");
+    Object.assign(stated.answers, { memory_candidate: choice(MEMORY_CANDIDATES, "goal"), memory_durable: { type: "noul", noul: 0.9 } });
+    jevMock.mockResolvedValue({ status: "classified", classification: stated });
+    const alice = fresh().withIdentity(identity());
+    const question = "I want to buy a used car next year.";
+    runAgentMock.mockImplementation(async (input, deps) => {
+      expect(input.customerContext).toBeUndefined();
+      expect(await deps.proposeMemory({ kind: "goal", text: "buy a used car next year", customerQuote: question })).toMatchObject({ status: "proposed" });
+      expect((await deps.proposeMemory({ kind: "goal", text: "buy a boat", customerQuote: "I want to buy a boat." })).status).toBe("unavailable");
+      return answer;
+    });
+    const first = await alice.action(anyApi.agent.ask, { ...args, question });
+    const block = first.answer.ui.blocks.find((b: { type: string }) => b.type === "memory");
+    expect(block.proposals).toEqual([{ id: expect.any(String), kind: "goal", text: "buy a used car next year", customerQuote: question }]);
+    await alice.mutation(anyApi.memory.confirm, { track: "personal", proposalId: block.proposals[0].id });
+
+    runAgentMock.mockImplementation(async (input) => { expect(input.customerContext).toContain("buy a used car next year"); return answer; });
+    await alice.action(anyApi.agent.ask, { ...args, question: "Which loan would suit me?" });
+    expect(runAgentMock).toHaveBeenCalledTimes(2);
+
+    const inspect = classification(); inspect.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect");
+    jevMock.mockResolvedValue({ status: "classified", classification: inspect });
+    const listed = await alice.action(anyApi.agent.ask, { ...args, question: "What do you remember about me?" });
+    expect(listed.answer.text).toContain("buy a used car next year");
+    expect(runAgentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps memory proposals off where writes aren't enabled for this deployment", async () => {
+    const stated = classification("purchase_goal", "solution");
+    Object.assign(stated.answers, { memory_candidate: choice(MEMORY_CANDIDATES, "goal"), memory_durable: { type: "noul", noul: 0.9 } });
+    jevMock.mockResolvedValue({ status: "classified", classification: stated });
+    runAgentMock.mockImplementation(async (_input, deps) => { expect(deps.proposeMemory).toBeUndefined(); return answer; });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "I want to buy a used car next year." });
+    expect(result.answer.ui.blocks.some((b: { type: string }) => b.type === "memory")).toBe(false);
   });
 
   it("enforces a per-owner request limit before provider spend", async () => {

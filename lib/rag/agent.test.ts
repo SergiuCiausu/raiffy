@@ -103,6 +103,36 @@ describe("runAgent", () => {
     expect(note).toMatch(/don't mention the check/);
   });
 
+  it("offers the calculator only when the caller provides it, and grounds the answer in its result", async () => {
+    const result = '{"inputs":{"netMonthlyIncome":4500,"loanAmount":50000,"termMonths":60},"maxNewInstalment":1800,"maxFittingAnnualRatePercent":35.8}';
+    const calls: unknown[] = [];
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("c1", { calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }, "calculate_scenario")]),
+      message("end_turn", [{ type: "text", text: "Up to 1,800 lei of your 4,500 lei can go to instalments, so 50,000 lei fits at any rate up to 35.8%." }]),
+    ]);
+    const answer = await runAgent({ ...input, withholdFinancialFigures: true },
+      { ...deps, calculate: async (data) => { calls.push(data); return { status: "ok", content: result }; } });
+    expect(requests[0]!.tools.map((t) => t.name)).toEqual([SEARCH_TOOL_NAME, "calculate_scenario"]);
+    expect(calls).toEqual([{ calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }]);
+    expect(answer).toMatchObject({ status: "answered", checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 } });
+    expect(fakeDeps([]).deps.calculate).toBeUndefined();
+  });
+
+  it("adds the customer's memories as a system note and offers the proposal tool only when the caller provides it", async () => {
+    const proposed: unknown[] = [];
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("p1", { kind: "goal", text: "buy a used car", customerQuote: "I want to buy a used car." }, "propose_memory_change")]),
+      message("end_turn", [{ type: "text", text: "Noted, here are your routes." }]),
+    ]);
+    const answer = await runAgent({ ...input, allowedCollections: [], customerContext: "What this customer asked Raiffy to remember: …" },
+      { ...deps, proposeMemory: async (data) => { proposed.push(data); return { status: "proposed", id: "proposal-1" }; } });
+    expect(requests[0]!.tools.map((t) => t.name)).toEqual(["propose_memory_change"]);
+    expect(requests[0]!.system.at(-1)).toEqual({ type: "text", text: "What this customer asked Raiffy to remember: …" });
+    expect(proposed).toEqual([{ kind: "goal", text: "buy a used car", customerQuote: "I want to buy a used car." }]);
+    expect(String(JSON.stringify(requests[1]!.messages.at(-1)))).toMatch(/not saved yet/);
+    expect(answer.text).toBe("Noted, here are your routes.");
+  });
+
   it("asks once for a rewrite without prices when financial figures are withheld", async () => {
     const script = () => [
       message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),

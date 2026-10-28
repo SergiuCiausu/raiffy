@@ -9,7 +9,7 @@ import type { KnowledgeGap, Passage, SearchKnowledgeResult } from "./knowledge";
 import type { Track } from "./schemas";
 
 /** Bump when the instructions or the tool change, so logs and cached answers can be told apart. */
-export const RAG_PROMPT_VERSION = "rag-agent@8";
+export const RAG_PROMPT_VERSION = "rag-agent@10";
 
 /** Searches the agent may run for one question before it must answer. */
 export const MAX_SEARCHES = 3;
@@ -52,6 +52,18 @@ export function buildSystem(track: Track): BetaTextBlockParam[] {
 const contract = AGENT_TOOLS.find((tool) => tool.name === SEARCH_TOOL_NAME);
 if (!contract) throw new Error(`${SEARCH_TOOL_NAME} is missing from the agent tool contracts`);
 const { $schema: _schema, ...contractSchema } = contract.input_schema as Record<string, unknown>;
+
+/** A contract from lib/agent/prompt.ts as a Messages API tool, offered only when the route allows it. */
+function contractTool(name: string): BetaTool {
+  const tool = AGENT_TOOLS.find((t) => t.name === name);
+  if (!tool) throw new Error(`${name} is missing from the agent tool contracts`);
+  const { $schema: _schema, ...input } = tool.input_schema as Record<string, unknown>;
+  return { name: tool.name, description: tool.description, input_schema: input as BetaTool["input_schema"] };
+}
+export const CALCULATE_TOOL_NAME = "calculate_scenario";
+export const CALCULATE_TOOL = contractTool(CALCULATE_TOOL_NAME);
+export const PROPOSE_MEMORY_TOOL_NAME = "propose_memory_change";
+export const PROPOSE_MEMORY_TOOL = contractTool(PROPOSE_MEMORY_TOOL_NAME);
 
 /**
  * Denis's search_knowledge contract (lib/agent/prompt.ts), as a Messages API tool: no `type: "custom"`, no `$schema`.

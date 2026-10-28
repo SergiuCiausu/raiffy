@@ -100,4 +100,13 @@ export default defineSchema({
   }).index("by_thread", ["threadId"]),
   agentRateLimits: defineTable({ ownerKey: v.string(), windowStart: v.number(), requests: v.number() })
     .index("by_owner", ["ownerKey"]),
+  /** Regulatory parameters for indicative checks, each with its source; imported from catalog/regulatory-limits.jsonl. */
+  regulatoryLimits: defineTable({
+    key: v.string(),
+    value: v.number(),
+    sourceLabel: v.string(),
+    sourceUrl: v.string(),
+    validFrom: v.string(),
+    status: v.union(v.literal("pending_review"), v.literal("approved")),
+  }).index("by_key", ["key"]),
 });

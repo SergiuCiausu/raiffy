@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_POLICY } from "./config";
 import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema, MEMORY_CANDIDATES, MEMORY_OPERATIONS, SCOPES } from "./jev";
-import { memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
+import { memoryContextNote, memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
-import { composeAnswer } from "./composer";
+import { composeAnswer, memoryResponse } from "./composer";
 import { ragAnswerSchema } from "../rag/answer";
 
 function choice<T extends Record<string, string>>(criteria: T, selected: keyof T & string, confidence = 0.95) {
@@ -88,12 +88,13 @@ describe("backend route policy", () => {
     expect(plan.tools).toEqual([]);
   });
 
-  it("sends an uncertain or unmatched inquiry to Claude with public documents only", () => {
+  it("sends an uncertain or unmatched inquiry to Claude with public documents and the calculator only", () => {
     const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "negotiation", 0.5);
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", reason: "low_route_confidence", inquiry: null,
-      collections: ["bank_product_docs", "banking_help"], tools: ["search_knowledge"] });
+      collections: ["bank_product_docs", "banking_help"], tools: ["calculate_scenario", "search_knowledge", "propose_memory_change"] });
     raw.answers.inquiry = choice(INQUIRIES, "other", 1);
-    expect(planAgentRoute(raw, full)).toMatchObject({ reason: "unknown_inquiry", inquiry: null, tools: ["search_knowledge"] });
+    expect(planAgentRoute(raw, full)).toMatchObject({ reason: "unknown_inquiry", inquiry: null, tools: ["calculate_scenario", "search_knowledge", "propose_memory_change"] });
+    expect(planAgentRoute(raw, { ...full, availableTools: ["search_knowledge"] }).tools).toEqual(["search_knowledge"]);
     raw.answers.inquiry = choice(INQUIRIES, "professional_advice", 0.5);
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", collections: ["bank_product_docs", "banking_help"] });
   });
@@ -141,9 +142,12 @@ describe("backend route policy", () => {
     expect(planAgentRoute(raw, full)).toMatchObject({ handler: "unavailable", reason: "unexpected_classifier_version", model: null });
   });
 
-  it("keeps memory operations out of generation and disables them when handlers are absent", () => {
+  it("lets Claude only propose an explicit memory, keeps inspect and forget out of generation, and disables absent handlers", () => {
     const raw = response(); raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "remember");
-    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "memory", tools: ["propose_memory_change"], model: null });
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "answer", tools: ["propose_memory_change"], collections: [], model: AGENT_POLICY.standardModel });
+    raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect");
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "memory", tools: ["manage_memory"], model: null });
+    raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "remember");
     expect(planAgentRoute(raw, { ...full, availableTools: [] })).toMatchObject({ handler: "unavailable", tools: [], unavailable: ["propose_memory_change"] });
   });
 
@@ -185,10 +189,14 @@ describe("memory candidates from Jev", () => {
     expect(plan.tools).toContain("get_approved_offers");
   });
 
-  it("ignores statements that only matter for this question", () => {
+  // Live Jev on "I'm 29, my net salary is 4500 lei, I want a used car next year, I prefer a fixed payment": the
+  // top candidate had confidence 0.30, because the message states three things at once.
+  it("ranks with Jev's candidate but still offers the proposal tool when the candidate is weak or split", () => {
     const plan = planAgentRoute(stated("stated_financial", 0.3), full);
     expect(plan.memoryCandidate).toBeNull();
-    expect(plan.tools).not.toContain("propose_memory_change");
+    expect(plan.tools).toContain("propose_memory_change");
+    const sensitive = stated("goal"); sensitive.answers.special_category.noul = 0.2;
+    expect(planAgentRoute(sensitive, full).tools).not.toContain("propose_memory_change");
   });
 
   it("never proposes from special-category, risky or explicitly handled messages", () => {
@@ -198,7 +206,7 @@ describe("memory candidates from Jev", () => {
     expect(scoreMemoryCandidate(jevResponseSchema.parse(hardship).answers)).toBeNull();
     expect(planAgentRoute(hardship, full)).toMatchObject({ handler: "hardship", memoryCandidate: null, tools: [] });
     const explicit = stated("goal"); explicit.answers.memory_operation = choice(MEMORY_OPERATIONS, "remember");
-    expect(planAgentRoute(explicit, full)).toMatchObject({ handler: "memory", memoryCandidate: null, tools: ["propose_memory_change"] });
+    expect(planAgentRoute(explicit, full)).toMatchObject({ handler: "answer", memoryCandidate: null, tools: ["propose_memory_change"] });
   });
 
   it("records the proposal tool as unavailable instead of dropping the candidate silently", () => {
@@ -266,5 +274,33 @@ describe("answer envelope", () => {
       routes: [{ title: "Save first", recommended: true, why: "you have time." }, { title: "Personal loan", recommended: false }] });
     raw.answers.scope = choice(SCOPES, "detail");
     expect(composeAnswer("m1", planAgentRoute(raw, full), rag(list)).blocks).toEqual([]);
+  });
+});
+
+describe("memory in answers", () => {
+  const saved = [{ kind: "goal" as const, text: "buy a used car next year", statedAt: Date.parse("2026-10-28T10:00:00Z") },
+    { kind: "stated_financial" as const, text: "salariu de 4500 de lei", statedAt: Date.parse("2026-10-28T10:00:00Z") }];
+
+  it("tells Claude what the customer confirmed, dated, and keeps stated figures as calculator inputs", () => {
+    const note = memoryContextNote(saved)!;
+    expect(note).toContain("- goal, stated 2026-10-28: buy a used car next year");
+    expect(note).toMatch(/only a calculator input/);
+    expect(note).toMatch(/never use them to judge creditworthiness/);
+    expect(memoryContextNote([])).toBeUndefined();
+  });
+
+  it("answers inspect and forget from the store, and says plainly when memory is off", () => {
+    expect(memoryResponse("inspect", saved, true).text).toContain("• buy a used car next year (you told me on 28 Oct 2026)");
+    expect(memoryResponse("inspect", [], true).text).toMatch(/haven't saved anything/);
+    expect(memoryResponse("forget", saved, true).text).toMatch(/Forget everything/);
+    expect(memoryResponse("ineligible", saved, true).text).toMatch(/details I don't keep/);
+    expect(memoryResponse("inspect", [], false).text).toMatch(/not enabled/);
+  });
+
+  it("adds the customer's pending proposals to the envelope, even in a degraded answer", () => {
+    const rag = ragAnswerSchema.parse({ status: "no_results", text: "Noted.", segments: [{ text: "Noted.", sourceIds: [] }], sources: [],
+      checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 }, model: "m", promptVersion: "p", searches: [], retrieval: [] });
+    const proposals = [{ id: "p1", kind: "goal" as const, text: "buy a used car next year", customerQuote: "I want to buy a used car next year." }];
+    expect(composeAnswer("m1", planAgentRoute(response(), full), rag, proposals).blocks).toEqual([{ type: "memory", proposals }]);
   });
 });

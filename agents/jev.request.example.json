@@ -79,7 +79,7 @@
     },
     "special_category": {
       "type": "noul",
-      "instructions": "Does the message mention health, addiction, religion, ethnicity, sexuality, criminal matters or details about another identifiable person?"
+      "instructions": "Does the message reveal a health condition or treatment, addiction, religion, ethnicity, sexuality or criminal matters, or details about another identifiable person? A job, an employer or an income alone is none of these."
     },
     "multi_goal": {
       "type": "noul",
