@@ -2,7 +2,17 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 13:40 (Bucharest). Branch: `backend/rag-foundation`.
+Last updated: 2026-10-28 (agent foundation draft). Branch: `backend/rag-foundation`.
+
+## Agent foundation update 2026-10-28
+
+- Refreshed backend through `e480df3`. Added pure TypeScript Jev request/response contracts, deterministic routing, model policy and memory retrieval boundaries in `lib/agent/`.
+- The current owner request adds **TypeSafe Jev for inquiry classification**, while Claude remains the generator. This is separate from the previously rejected Jev Router gateway below.
+- Generated console-style setup is in `agents/raiffy.agent.yaml`; request and policy examples sit alongside it. Regenerate with `pnpm agent:build-setup`; check with `pnpm agent:check-setup`.
+- Setup guide: `raiffy-spec/docs/plans/agent-foundation.md`. Initial assumptions are the existing Convex/Messages API runtime and memory only on explicit user request. Sonnet remains the default; optional Opus escalation is disabled.
+- Tool declarations are contracts, not implemented handlers. No new provider transport, full agent loop, auth/PII adapter, expense connection, competitor collection or private memory persistence is enabled. The existing public-product RAG action remains separate.
+- Added labeled EN/RO routing examples under `evals/agent-routing.json`. These are not measured Jev results. Confidence thresholds are provisional and need calibration.
+- Validation: generated setup matches its sources; TypeScript checks pass. Unit tests cover routing, risk overrides, capability checks and memory isolation. No live provider or in-app acceptance run yet.
 
 ## Decisions so far
 
