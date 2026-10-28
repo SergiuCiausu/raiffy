@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swipe Cards</title>
+<style>
+  :root { --like: #22c55e; --nope: #ef4444; --bg: #f4f4f5; --card: #fff; --text: #18181b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg);
+         font-family: system-ui, sans-serif; color: var(--text); overflow: hidden; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 16px; }
+  .deck { position: relative; width: min(340px, calc(100vw - 32px)); aspect-ratio: 3 / 4; outline: none; }
+  .deck:focus-visible { outline: 3px solid #6366f1; outline-offset: 8px; border-radius: 20px; }
+  .card { position: absolute; inset: 0; border-radius: 20px; background: var(--card); overflow: hidden;
+          box-shadow: 0 10px 30px rgba(0,0,0,.15); touch-action: none; user-select: none;
+          -webkit-user-select: none; transform-origin: center; cursor: grab; }
+  .card.dragging { cursor: grabbing; }
+  .card img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
+  .card .info { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px; color: #fff;
+                background: linear-gradient(transparent, rgba(0,0,0,.75)); }
+  .card .info h2 { margin: 0 0 4px; font-size: 26px; }
+  .card .info p { margin: 0; opacity: .9; }
+  .stamp { position: absolute; top: 28px; padding: 4px 12px; border: 4px solid; border-radius: 8px;
+           font-size: 34px; font-weight: 800; letter-spacing: 2px; opacity: 0; pointer-events: none; }
+  .stamp.like { left: 22px; color: var(--like); border-color: var(--like); transform: rotate(-15deg); }
+  .stamp.nope { right: 22px; color: var(--nope); border-color: var(--nope); transform: rotate(15deg); }
+  .controls { display: flex; gap: 28px; }
+  .controls button { width: 64px; height: 64px; border-radius: 50%; border: 0; background: #fff;
+                     box-shadow: 0 4px 14px rgba(0,0,0,.15); font-size: 28px; cursor: pointer; }
+  .controls button:active { transform: scale(.92); }
+  .controls .nope-btn { color: var(--nope); }
+  .controls .like-btn { color: var(--like); }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: #71717a; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="deck" id="deck" tabindex="0" role="group" aria-label="Cards. Use left and right arrow keys to skip or save."></div>
+  <div class="controls">
+    <button class="nope-btn" id="nopeBtn" aria-label="Skip">✕</button>
+    <button class="like-btn" id="likeBtn" aria-label="Save">♥</button>
+  </div>
+  <div class="sr-only" aria-live="polite" id="live"></div>
+</div>
+
+<script>
+class SwipeDeck {
+  static SWIPE_THRESHOLD = 0.3;     // fraction of card width
+  static VELOCITY_THRESHOLD = 0.5;  // px per ms
+  static MAX_ROTATION = 30;         // deg at one card-width of drag: right = +30 (tilts right), left = -30
+  static FLY_OUT_ROTATION = 30;     // deg, same direction as the swipe
+  static FLY_OUT_MS = 300;
+  static SNAP_BACK_MS = 400;
+  static NEXT_CARD_SCALE = 0.95;
+  static VISIBLE = 3;
+
+  constructor(root, items, { render, onSwipe = () => {}, onEmpty = () => {} }) {
+    this.root = root;
+    this.queue = [...items];
+    this.render = render;
+    this.onSwipe = onSwipe;
+    this.onEmpty = onEmpty;
+    this.busy = false;
+    this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    root.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); this.swipe('right'); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); this.swipe('left'); }
+    });
+    this.fill();
+  }
+
+  get cards() { return [...this.root.querySelectorAll('.card')]; }
+  get top() { return this.cards.at(-1) || null; } // last in DOM = visually on top
+
+  fill() {
+    // keep VISIBLE cards rendered; new ones are inserted at the bottom of the stack
+    while (this.cards.length < SwipeDeck.VISIBLE && this.queue.length) {
+      const item = this.queue.shift();
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = this.render(item) +
+        '<div class="stamp like">LIKE</div><div class="stamp nope">NOPE</div>';
+      el.querySelectorAll('img').forEach(img => img.draggable = false);
+      el._item = item;
+      this.root.prepend(el);
+      this.attach(el);
+    }
+    this.layoutStack(0);
+    if (!this.cards.length) this.onEmpty();
+  }
+
+  // scale cards below the top; progress 0..1 lifts the next card toward full size
+  layoutStack(progress) {
+    const cards = this.cards;
+    cards.forEach((c, i) => {
+      const depth = cards.length - 1 - i;
+      if (depth === 0) return;
+      const base = 1 - (1 - SwipeDeck.NEXT_CARD_SCALE) * depth;
+      const scale = depth === 1 ? base + (1 - base) * progress : base;
+      c.style.transform = `scale(${scale})`;
+    });
+  }
+
+  attach(card) {
+    const s = { dragging: false, x0: 0, y0: 0, dx: 0, dy: 0, vx: 0, vy: 0, lx: 0, ly: 0, lt: 0 };
+    const like = card.querySelector('.stamp.like');
+    const nope = card.querySelector('.stamp.nope');
+
+    const paint = () => {
+      const w = card.offsetWidth;
+      const progress = s.dx / w;
+      const rot = this.reducedMotion ? 0 :
+        Math.max(-SwipeDeck.MAX_ROTATION, Math.min(SwipeDeck.MAX_ROTATION, progress * SwipeDeck.MAX_ROTATION));
+      card.style.transform = `translate(${s.dx}px, ${s.dy}px) rotate(${rot}deg)`;
+      const t = w * SwipeDeck.SWIPE_THRESHOLD;
+      like.style.opacity = Math.max(0, Math.min(1, s.dx / t));
+      nope.style.opacity = Math.max(0, Math.min(1, -s.dx / t));
+      this.layoutStack(Math.min(1, Math.abs(s.dx) / t));
+    };
+
+    card.addEventListener('pointerdown', e => {
+      if (card !== this.top || this.busy) return;
+      s.dragging = true;
+      card.setPointerCapture(e.pointerId);
+      card.classList.add('dragging');
+      s.x0 = s.lx = e.clientX; s.y0 = s.ly = e.clientY; s.lt = e.timeStamp;
+      s.dx = s.dy = s.vx = s.vy = 0;
+      card.style.transition = 'none';
+      this.cards.forEach(c => c !== card && (c.style.transition = 'none'));
+    });
+
+    card.addEventListener('pointermove', e => {
+      if (!s.dragging) return;
+      const dt = Math.max(1, e.timeStamp - s.lt);
+      s.vx = 0.8 * s.vx + 0.2 * ((e.clientX - s.lx) / dt);
+      s.vy = 0.8 * s.vy + 0.2 * ((e.clientY - s.ly) / dt);
+      s.lx = e.clientX; s.ly = e.clientY; s.lt = e.timeStamp;
+      s.dx = e.clientX - s.x0; s.dy = e.clientY - s.y0;
+      paint();
+    });
+
+    const end = (cancelled) => {
+      if (!s.dragging) return;
+      s.dragging = false;
+      card.classList.remove('dragging');
+      const w = card.offsetWidth;
+      const far = Math.abs(s.dx) > w * SwipeDeck.SWIPE_THRESHOLD;
+      const flick = Math.abs(s.vx) > SwipeDeck.VELOCITY_THRESHOLD && Math.sign(s.vx) === Math.sign(s.dx);
+      if (!cancelled && (far || flick)) {
+        this.flyOut(card, s.dx > 0 ? 'right' : 'left', s);
+      } else {
+        this.snapBack(card, like, nope);
+      }
+    };
+    card.addEventListener('pointerup', () => end(false));
+    card.addEventListener('pointercancel', () => end(true));
+  }
+
+  snapBack(card, like, nope) {
+    const ms = SwipeDeck.SNAP_BACK_MS;
+    const ease = 'cubic-bezier(.175,.885,.32,1.275)';
+    card.style.transition = `transform ${ms}ms ${ease}`;
+    [like, nope].forEach(st => { st.style.transition = `opacity ${ms}ms`; st.style.opacity = 0; });
+    this.cards.forEach(c => c !== card && (c.style.transition = `transform ${ms}ms ${ease}`));
+    card.style.transform = 'translate(0px, 0px) rotate(0deg)';
+    this.layoutStack(0);
+  }
+
+  // shared by gestures, buttons and keys
+  flyOut(card, dir, s = { dx: 0, dy: 0, vy: 0 }) {
+    if (this.busy) return;
+    this.busy = true;
+    const sign = dir === 'right' ? 1 : -1;
+    const w = card.offsetWidth;
+    const ms = SwipeDeck.FLY_OUT_MS;
+    const stamp = card.querySelector(dir === 'right' ? '.stamp.like' : '.stamp.nope');
+    stamp.style.opacity = 1;
+    this.cards.forEach(c => c !== card && (c.style.transition = `transform ${ms}ms ease-out`));
+    this.layoutStack(1);
+
+    if (this.reducedMotion) {
+      card.style.transition = `opacity ${ms}ms`;
+      card.style.opacity = 0;
+    } else {
+      card.style.transition = `transform ${ms}ms ease-out`;
+      const x = sign * (window.innerWidth + w);
+      const y = s.dy + s.vy * ms;
+      const rot = sign * SwipeDeck.FLY_OUT_ROTATION;
+      card.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+    }
+
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      card.remove();
+      this.busy = false;
+      this.onSwipe(card._item, dir);
+      this.cards.forEach(c => c.style.transition = 'none');
+      this.fill();
+    };
+    card.addEventListener('transitionend', finish, { once: true });
+    setTimeout(finish, ms + 50); // fallback if transitionend never fires
+  }
+
+  swipe(dir) {
+    const card = this.top;
+    if (card) this.flyOut(card, dir);
+  }
+}
+
+// ---- demo wiring ----
+const people = [
+  { name: 'Alex', age: 27, bio: 'Hiking, coffee, bad puns', img: 'https://picsum.photos/seed/a1/600/800' },
+  { name: 'Sam', age: 31, bio: 'Climber and pasta purist', img: 'https://picsum.photos/seed/b2/600/800' },
+  { name: 'Jordan', age: 25, bio: 'Vinyl collector', img: 'https://picsum.photos/seed/c3/600/800' },
+  { name: 'Riley', age: 29, bio: 'Will out-cook you', img: 'https://picsum.photos/seed/d4/600/800' },
+  { name: 'Casey', age: 33, bio: 'Dog first, human second', img: 'https://picsum.photos/seed/e5/600/800' },
+];
+const saved = [];
+const live = document.getElementById('live');
+const deckEl = document.getElementById('deck');
+
+const deck = new SwipeDeck(deckEl, people, {
+  render: p => `<img src="${p.img}" alt="${p.name}"><div class="info"><h2>${p.name}, ${p.age}</h2><p>${p.bio}</p></div>`,
+  onSwipe: (p, dir) => {
+    if (dir === 'right') saved.push(p);
+    live.textContent = `${dir === 'right' ? 'Saved' : 'Skipped'} ${p.name}`;
+  },
+  onEmpty: () => {
+    deckEl.innerHTML = `<div class="empty"><div><h2>That's everyone</h2><p>Saved: ${saved.map(p => p.name).join(', ') || 'none'}</p></div></div>`;
+  },
+});
+document.getElementById('likeBtn').onclick = () => deck.swipe('right');
+document.getElementById('nopeBtn').onclick = () => deck.swipe('left');
+</script>
+</body>
+</html>

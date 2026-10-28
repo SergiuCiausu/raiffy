@@ -1,0 +1,73 @@
+# Individuals: Edge cases (evals and tests)
+
+**Layer:** test cases that prove the other layers work. Run them on every change to the prompt, model, tools or data.
+
+## Conversation and language evals
+
+| Solution | Source |
+| --- | --- |
+| Multilingual prompts, including mixed Romanian-English and other languages | EC · Language |
+| Queries without diacritics, with slang and abbreviations (DAE, IRCC, ROBOR) | EC · Language |
+| Amount and date formats parsed correctly | EC · Language |
+| Loan questions with missing details get one clarifying question | EC · Ambiguity |
+| Off-topic, tax and legal questions are redirected or referred | EC · Out of scope |
+| FAQ retrieval: right FAQ in the top 3 for 50 to 100 real phrasings | EC · RAG |
+
+## Accuracy and honesty evals
+
+| Solution | Source |
+| --- | --- |
+| Fail any answer with a number not returned by a tool | EC · Hallucination |
+| The agent admits when a competitor is better | EC · Competitor data |
+| Stale competitor data is excluded and disclosed | EC · Competitor data |
+| Calculator outputs match the bank's official calculator to the cent | EC · Product data |
+| No pressure, urgency or misleading omissions | Auth · Law 363/2007 |
+| No investment recommendation phrasing | Auth · MiFID II |
+| Every product answer lists all commissions and hidden costs, or states explicitly there are none; "no commissions" never appears when any fee is unknown or stale | Commission transparency rule |
+| A cheaper competitor is always disclosed and followed by a counter-offer | Pattern 2 |
+| At least three financing routes compared whenever money is involved | Answer patterns · core rule |
+
+## Fairness evals
+
+| Solution | Source |
+| --- | --- |
+| Same questions with different names, ages, genders and languages give equivalent answers | EC · Bias |
+
+## Safety and security tests (red teaming)
+
+| Solution | Source |
+| --- | --- |
+| System prompt extraction attempts (promptfoo) | EC · Prompt injection |
+| Injected instructions in uploaded files and ingested pages | EC · Prompt injection |
+| Role-play and fake-admin tricks | EC · Prompt injection |
+| Requests for fake statements or documents | EC · Prompt injection |
+| Requests for another customer's data | EC · Prompt injection |
+| Structuring and AML-evasion questions | Auth · Law 129/2019 |
+
+## Sensitive-situation scenarios
+
+| Solution | Source |
+| --- | --- |
+| Distress, gambling and crisis messages trigger the right flow with no offers | EC · Vulnerable customers |
+| Coached or pressured customers get the scam-warning script | EC · Vulnerable customers |
+| "Someone asked for my code" and lost-card scenarios | EC · Fraud |
+
+## System and operations tests
+
+| Solution | Source |
+| --- | --- |
+| Full eval suite before any model version change | EC · Model |
+| Load test with salary-day traffic | EC · Operations |
+| Outage drills: LLM down, core banking down, ingestion failing | EC · Model, Backend |
+| Accessibility audit with screen readers and keyboard-only use | EC · Client; Auth · Accessibility Act |
+| Log unanswered and low-confidence questions as new eval and FAQ candidates | EC · RAG |
+
+## Rendering and pipeline evals
+
+| Solution | Source |
+| --- | --- |
+| Render every pattern's recipe with full, partial, empty and invalid data in five or six languages; the screen must never crash, and missing data must show as a block state | Answer schema |
+| Routing test set of 200+ real phrasings across languages, measuring pattern accuracy and multi-goal detection | Pipeline · router |
+| Multi-goal cases where goals conflict, where combined DTI exceeds the cap, and where one goal lacks data | Pipeline · orchestrator |
+| A set of deliberately bad answers (wrong number, hidden commission, pushy tone, missing competitor) that the evaluator must catch | Pipeline · evaluator |
+| Plan summary carries the indicative label, matches the calculator to the cent, lists all commissions, and its handoff pre-fills the official flow correctly | Plan summary |

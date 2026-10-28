@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghid · AI Assistant</title>
+<meta name="description" content="Concept landing page: Ghid, an AI financial assistant for Raiffeisen Bank Romania customers.">
+<!--
+  Ghid: concept landing page for an AI financial guide inside Raiffeisen Bank Romania's app and website.
+  Mode: Mixed. Nocturne hero (isometric comparison stack, iso-tilt orbit) → Daylight sections. One switch only.
+  Accent: a warm yellow/amber pair (#FFD23F / #FF9A3D), close to the bank's yellow. Used as light, never as text on Daylight.
+  Sections: Nav → Hero → Channels → What Ghid helps with (zigzag bento) → Simulator + safeguards (deep-dive)
+            → For the bank (3 cards) → Final CTA → Footer
+  All rates, fees and figures are illustrative. Concept work, not an official product.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ───────────── Tokens (refined-ui) ───────────── */
+:root {
+  --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --text-h1: 36px;   --lh-h1: 1.1;   --tr-h1: -0.035em;
+  --text-h2: 28px;   --lh-h2: 1.15;  --tr-h2: -0.03em;
+  --text-h3: 20px;   --lh-h3: 1.3;   --tr-h3: -0.02em;
+  --text-h4: 16px;   --lh-h4: 1.4;   --tr-h4: -0.01em;
+  --text-lead: 17px; --lh-lead: 1.55;
+  --text-body: 15px; --lh-body: 1.6;
+  --text-sm: 14px;   --lh-sm: 1.55;
+  --text-xs: 13px;   --lh-xs: 1.45;
+
+  --container: 1200px; --gutter: 24px;
+  --space-section: 96px; --space-header: 48px; --grid-gap: 16px;
+  --radius-card: 20px; --radius-inner: 12px; --radius-btn: 10px;
+
+  --accent-a: #FFD23F;   /* yellow */
+  --accent-b: #FF9A3D;   /* amber */
+  --ink: #1A1A1A;
+
+  /* Motion (emil-design-eng): strong custom curves, short UI durations */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+[data-mode="daylight"] {
+  --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0;
+  --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12);
+  --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.04); --shadow-float: 0 8px 30px rgba(20,20,40,.08);
+  --bloom-opacity: .5;
+  background: var(--bg); color: var(--text-1);
+}
+[data-mode="nocturne"] {
+  --bg: #08080B; --surface: #0E0E13; --surface-2: #15151C;
+  --border: rgba(255,255,255,.06); --border-strong: rgba(255,255,255,.12);
+  --text-1: #F4F4F6; --text-2: rgba(244,244,246,.66); --text-3: rgba(244,244,246,.42);
+  background: var(--bg); color: var(--text-1);
+}
+@media (max-width: 640px) {
+  :root { --text-h1: 30px; --text-h2: 24px; --text-h3: 18px; --space-section: 64px; --space-header: 32px; --gutter: 16px; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; color: var(--text-1); text-wrap: balance; }
+h1 { font-size: var(--text-h1); line-height: var(--lh-h1); letter-spacing: var(--tr-h1); }
+h2 { font-size: var(--text-h2); line-height: var(--lh-h2); letter-spacing: var(--tr-h2); }
+h3 { font-size: var(--text-h3); line-height: var(--lh-h3); letter-spacing: var(--tr-h3); }
+h4 { font-size: var(--text-h4); line-height: var(--lh-h4); letter-spacing: var(--tr-h4); }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; }
+.lead { font-size: var(--text-lead); line-height: var(--lh-lead); color: var(--text-2); max-width: 46ch; }
+.text-sm { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--text-2); }
+.eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.container { max-width: var(--container); margin: 0 auto; padding: 0 var(--gutter); }
+.section { padding: var(--space-section) 0; }
+.section-header { display: grid; gap: 16px; margin-bottom: var(--space-header); max-width: 620px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.card { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
+.card-visual { position: relative; height: 300px; overflow: hidden; }
+.card-body { padding: 24px; display: grid; gap: 8px; }
+.card-body p { max-width: 54ch; }
+.bento { display: grid; gap: var(--grid-gap); grid-template-columns: repeat(12, 1fr); }
+.span-4 { grid-column: span 4; } .span-5 { grid-column: span 5; } .span-7 { grid-column: span 7; } .span-12 { grid-column: span 12; }
+@media (max-width: 860px) { .bento > * { grid-column: span 12; } }
+
+.fade-b { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+.fade-r { -webkit-mask-image: linear-gradient(to right, #000 62%, transparent); mask-image: linear-gradient(to right, #000 62%, transparent); }
+.fade-br { -webkit-mask-image: radial-gradient(130% 120% at 0 0, #000 58%, transparent 92%); mask-image: radial-gradient(130% 120% at 0 0, #000 58%, transparent 92%); }
+.dim { opacity: .35; }
+
+/* ───────────── Buttons (press feedback, gated hover) ───────────── */
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--radius-btn);
+  font: 500 var(--text-xs)/1 var(--font-sans); text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease; }
+.btn svg { width: 15px; height: 15px; }
+.btn:active { transform: scale(.97); }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-1); border-color: var(--border-strong); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-dark:hover { background: #2A2A2A; }
+  .btn-ghost:hover { border-color: rgba(20,20,20,.22); }
+}
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+[data-mode="nocturne"] :focus-visible { outline-color: var(--accent-a); }
+
+.btn-glow { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 24px; border-radius: 999px;
+  font: 600 12px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: #2E2205; text-decoration: none;
+  background: linear-gradient(90deg, #F1EEE6, #FFF6D6 65%, #FFE59A);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.45) inset, 0 0 20px rgba(255,190,50,.42), 0 0 60px rgba(255,150,50,.22);
+  position: relative; transition: transform 160ms var(--ease-out); }
+/* Hover glow lives on a pseudo-element and fades with opacity: transitioning a 72px box-shadow repaints every frame */
+.btn-glow::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  box-shadow: 0 0 24px rgba(255,190,50,.2), 0 0 72px rgba(255,150,50,.12); transition: opacity 200ms ease; }
+.btn-glow svg { width: 14px; height: 14px; }
+.btn-glow:active { transform: scale(.97); }
+.btn-line { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px;
+  font: 500 13px/1 var(--font-sans); color: var(--text-1); text-decoration: none;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.03);
+  transition: transform 160ms var(--ease-out), border-color 150ms ease; }
+.btn-line svg { width: 15px; height: 15px; }
+.btn-line:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-glow:hover::after { opacity: 1; }
+  .btn-line:hover { border-color: rgba(255,255,255,.26); }
+}
+
+/* ───────────── Nav ───────────── */
+.nav { position: fixed; inset: 0 0 auto; z-index: 50; height: 60px; display: flex; align-items: center; color: #F4F4F6;
+  border-bottom: 1px solid transparent; transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease; }
+.nav .container { display: flex; align-items: center; gap: 32px; width: 100%; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+.logo-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--accent-a); display: grid; place-items: center;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
+.logo-mark svg { width: 14px; height: 14px; color: #1A1A1A; stroke-width: 2.2; }
+.logo small { font-size: 12px; font-weight: 500; color: rgba(244,244,246,.5); letter-spacing: 0; transition: color 200ms ease; }
+.nav-links { display: flex; gap: 24px; }
+.nav-links a { font-size: 13.5px; text-decoration: none; color: rgba(244,244,246,.66); transition: color 150ms ease; }
+.nav-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.nav .btn { height: 34px; padding: 0 14px; }
+.nav .btn-ghost { color: inherit; border-color: rgba(255,255,255,.16); }
+.nav .btn-dark { background: #F4F4F6; color: #111; }
+.lang { font: 500 12px/1 var(--font-mono); color: rgba(244,244,246,.5); padding: 0 6px; }
+@media (hover: hover) and (pointer: fine) { .nav-links a:hover { color: #F4F4F6; } }
+.nav.is-light { background: rgba(250,249,247,.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(20,20,20,.07); color: #1A1A1A; }
+.nav.is-light .logo small, .nav.is-light .lang { color: #8E8E93; }
+.nav.is-light .nav-links a { color: #5C5C5F; }
+.nav.is-light .btn-ghost { border-color: rgba(20,20,20,.12); }
+.nav.is-light .btn-dark { background: #1A1A1A; color: #fff; }
+@media (hover: hover) and (pointer: fine) { .nav.is-light .nav-links a:hover { color: #1A1A1A; } }
+.nav.is-dark { background: rgba(8,8,11,.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom-color: rgba(255,255,255,.06); }
+@media (max-width: 860px) { .nav-links, .lang, .nav .btn-ghost { display: none; } }
+
+/* ───────────── Hero (Nocturne, isometric art) ───────────── */
+.hero { --focus-x: 72%; --focus-y: 50%; position: relative; isolation: isolate; overflow: hidden; min-height: 720px; padding: 164px 0 120px; }
+.hero-copy { position: relative; z-index: 10; max-width: 500px; }
+.hero-copy .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; color: var(--text-2); }
+.hero-copy .eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-a); box-shadow: 0 0 10px var(--accent-a); }
+.hero-copy .lead { margin-top: 16px; }
+.hero-copy .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+.hero-proof { margin-top: 36px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12.5px; color: var(--text-3); }
+.hero-proof span { display: inline-flex; align-items: center; gap: 6px; }
+.hero-proof svg { width: 14px; height: 14px; color: var(--accent-a); opacity: .85; }
+
+.hl-bg { position: absolute; inset: 0; z-index: 0; isolation: isolate; pointer-events: none; contain: strict; will-change: transform; }
+.hl { position: absolute; inset: 0; pointer-events: none; }
+.hl-base { z-index: 1; background: #07070A; }
+/* No blur filter: the radial gradients already fade to transparent */
+.hl-haze { z-index: 2;
+  background:
+    radial-gradient(34% 44% at var(--focus-x) var(--focus-y), rgba(190,140,30,.34), transparent 70%),
+    radial-gradient(26% 30% at calc(var(--focus-x) + 18%) 80%, rgba(220,120,40,.24), transparent 70%),
+    radial-gradient(30% 22% at calc(var(--focus-x) - 12%) 100%, rgba(255,200,60,.18), transparent 70%); }
+.hl-smoke { z-index: 3; opacity: .5; mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(55% 65% at var(--focus-x) var(--focus-y), #000 10%, transparent 75%);
+          mask-image: radial-gradient(55% 65% at var(--focus-x) var(--focus-y), #000 10%, transparent 75%); }
+.hl-smoke svg { width: 100%; height: 100%; display: block; }
+.hl-grid { z-index: 4;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 192px 192px, 192px 192px, 32px 32px, 32px 32px;
+  background-position: calc(50% + 16px) 40px;
+  -webkit-mask-image: radial-gradient(48% 62% at var(--focus-x) var(--focus-y), #000 25%, transparent 80%);
+          mask-image: radial-gradient(48% 62% at var(--focus-x) var(--focus-y), #000 25%, transparent 80%); }
+.hl-ghost { z-index: 5;
+  -webkit-mask-image: radial-gradient(42% 58% at var(--focus-x) var(--focus-y), #000 30%, transparent 85%);
+          mask-image: radial-gradient(42% 58% at var(--focus-x) var(--focus-y), #000 30%, transparent 85%); }
+.hl-ghost .container { position: relative; height: 100%; }
+.ghost { position: absolute; color: rgba(255,240,215,.44); font-size: 11.5px; opacity: .5; }
+.ghost-panel { border: 1px solid rgba(255,225,175,.16); border-radius: 8px; background: rgba(255,200,90,.025); }
+.g-card { width: 196px; padding: 12px; display: grid; gap: 10px; }
+.g-card .t { font-size: 12px; line-height: 1.35; color: rgba(255,240,215,.52); }
+.g-tags { display: flex; gap: 6px; }
+.g-tags span { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,225,175,.2); font-size: 10px; }
+.g-foot { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(255,225,175,.1); }
+.g-foot .n { margin-left: auto; }
+.g-list { width: 196px; display: grid; gap: 6px; }
+.g-row { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; }
+.g-row i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,225,175,.35); display: grid; place-items: center; }
+.g-row i.on { background: rgba(255,225,175,.22); }
+.g-row i.on::after { content: ""; width: 6px; height: 3px; border: 1.5px solid rgba(255,255,255,.7); border-top: 0; border-right: 0; rotate: -45deg; translate: 0 -1px; }
+.g-dock { display: flex; gap: 6px; }
+.g-dock span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; }
+.g-dock svg { width: 14px; height: 14px; stroke: rgba(255,240,215,.55); fill: none; stroke-width: 1.5; }
+.g-line { width: 160px; height: 48px; }
+.g-stat { padding: 10px 12px; display: grid; gap: 4px; width: 128px; }
+.g-stat b { font-size: 16px; font-weight: 600; color: rgba(255,240,215,.58); }
+.hl-grain { z-index: 7; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.hero::after { content: ""; position: absolute; inset: auto 0 0; height: 140px; z-index: 8; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, #07070A); }
+
+/* Isometric stack: comparison → simulation → "You decide" */
+.iso { position: absolute; z-index: 6; right: max(24px, calc((100% - 1200px) / 2 + 8px)); top: 50%; width: 540px; height: 540px; translate: 0 -44%; }
+.iso-floor-glow { position: absolute; left: 50%; top: 62%; width: 460px; height: 220px; translate: calc(-50% + var(--iso-x, 0) * -28px) calc(-50% + var(--iso-y, 0) * -14px);
+  border-radius: 50%; background: radial-gradient(closest-side, rgba(255,190,50,.5), rgba(255,140,50,.16) 60%, transparent); will-change: translate; }
+/* Registered as non-inherited and written straight onto the elements that read them (see iso-tilt `targets`):
+   changing them per mouse frame then restyles 8 elements, not the whole stack's subtree. */
+@property --iso-x { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --iso-y { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --iso-yaw { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@property --iso-pitch { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.iso-tilt { position: absolute; inset: 0; transform-style: preserve-3d; }
+.iso-stage { position: absolute; left: 50%; top: 56%; width: 280px; height: 280px; margin: -140px 0 0 -140px;
+  transform-style: preserve-3d; transform: rotateX(58deg) rotateZ(-45deg); }
+[data-iso-mode="orbit"] .iso-stage { transform: rotateX(calc(58deg + var(--iso-pitch, 0deg))) rotateZ(calc(-45deg + var(--iso-yaw, 0deg))); }
+
+.slab { --t: 8px; position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--i) * 62px));
+  translate: calc(var(--iso-x, 0) * var(--i) * -4px) calc(var(--iso-y, 0) * var(--i) * -4px);
+  border-radius: 14px; background: #121009; border: 1px solid rgba(255,232,190,.14); color: rgba(255,244,225,.82); }
+.slab::before, .slab::after { content: ""; position: absolute; background: #0B0A07; border: 1px solid rgba(255,232,190,.1); }
+.slab::before { left: 10px; right: 10px; top: 100%; height: var(--t); transform-origin: top; transform: rotateX(-90deg); }
+.slab::after { top: 10px; bottom: 10px; left: 100%; width: var(--t); transform-origin: left; transform: rotateY(90deg); }
+.slab-0 { background:
+    linear-gradient(to right, rgba(255,232,190,.07) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(to bottom, rgba(255,232,190,.07) 1px, transparent 1px) 0 0 / 28px 28px, #0D0C09;
+  box-shadow: 0 0 60px rgba(255,180,50,.18); }
+/* Layer 1: loan vs overdraft table */
+.slab-1 { padding: 14px; display: grid; align-content: end; background: rgba(20,18,12,.94); }
+.cmp { display: grid; grid-template-columns: 1.1fr 1fr 1fr; font-size: 8.5px; line-height: 1.2; }
+.cmp > * { padding: 6px 4px; border-top: 1px solid rgba(255,232,190,.08); }
+.cmp .h { font-weight: 600; letter-spacing: .05em; color: rgba(255,244,225,.62); border-top: 0; }
+.cmp .k { color: rgba(255,244,225,.45); }
+.cmp .hl-row { color: #FFE9A8; background: rgba(255,210,63,.08); }
+/* Layer 2: repayment simulation */
+.slab-2 { inset: 14px 74px 74px 14px; padding: 14px; display: grid; align-content: space-between; background: rgba(22,20,14,.95); }
+.sim-lbl { font-size: 8.5px; color: rgba(255,244,225,.45); letter-spacing: .06em; text-transform: uppercase; }
+.sim-top { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+.sim-top b { font: 600 19px/1 var(--font-sans); letter-spacing: -.02em; color: #FFF7E6; }
+.sim-top span { font-size: 8.5px; color: #FFE08A; background: rgba(255,210,63,.13); padding: 2px 6px; border-radius: 999px; }
+.slab-2 svg { width: 100%; height: 62px; }
+.sim-axis { display: flex; justify-content: space-between; font-size: 7.5px; color: rgba(255,244,225,.35); }
+/* Layer 3: the moment */
+.slab-3 { inset: 56px 124px 124px 56px; --t: 6px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #3A2E0C, #241C08); border-color: rgba(255,214,90,.65);
+  box-shadow: 0 0 40px rgba(255,190,50,.5), inset 0 0 20px rgba(255,200,60,.22); }
+.slab-3::before, .slab-3::after { background: #1A1406; }
+.chip { display: flex; align-items: center; gap: 8px; font: 600 12px/1 var(--font-sans); color: #FFF8E6; }
+.chip i { width: 22px; height: 22px; border-radius: 6px; background: var(--accent-a); display: grid; place-items: center; box-shadow: 0 0 14px rgba(255,210,63,.8); }
+.chip svg { width: 13px; height: 13px; stroke: #2A1F04; fill: none; stroke-width: 2.6; }
+.guide { position: absolute; width: 1px; height: 190px; transform-origin: top; transform: rotateX(90deg);
+  background: linear-gradient(to bottom, rgba(255,214,110,.5), rgba(255,214,110,0)); }
+.guide.a { left: 0; top: 0; } .guide.b { right: 0; top: 0; }
+.iso-note { position: absolute; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; z-index: 4;
+  font-size: 11px; color: var(--text-2); background: rgba(22,20,14,.92); border: 1px solid rgba(255,232,190,.12); will-change: translate;
+  translate: calc(var(--iso-x, 0) * 6px) calc(var(--iso-y, 0) * 6px); }
+.iso-note i { width: 6px; height: 6px; border-radius: 50%; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .slab-2 { animation: float2 6s ease-in-out infinite; }
+  .slab-3 { animation: float3 6s ease-in-out infinite; }
+  @keyframes float2 { 50% { transform: translateZ(132px); } }
+  @keyframes float3 { 50% { transform: translateZ(198px); } }
+}
+/* Don't keep animating the hero once it's scrolled away */
+.hero.is-off .slab, .hero.is-off .iso-note { animation-play-state: paused; }
+
+@media (max-width: 960px) {
+  .hero { --focus-x: 50%; --focus-y: 74%; padding: 120px 0 0; min-height: 0; }
+  .hero-copy { max-width: none; }
+  .iso { position: relative; right: auto; top: auto; translate: none; margin: 16px auto 0; width: 100%; max-width: 420px; height: 400px; }
+  .iso-stage { scale: .78; }
+  .iso-note, .ghost.hide-sm { display: none; }
+}
+
+/* ───────────── Channels strip ───────────── */
+.channels { padding: 40px 0 8px; }
+.channels .container { display: flex; align-items: center; gap: 16px 40px; flex-wrap: wrap; }
+.channels .eyebrow { margin-right: 8px; }
+.ch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text-3); letter-spacing: -.01em; }
+.ch svg { width: 16px; height: 16px; }
+
+/* ───────────── Daylight vignettes ───────────── */
+/* Soft glow drawn with eased gradient stops instead of filter: blur(60px): a large blur re-runs on the GPU
+   every frame while it drifts or its card fades in. The box is 1.6× larger so the falloff never hits its edge. */
+.bloom { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * 1.6); height: calc(var(--size) * 1.6); translate: -50% -50%;
+  pointer-events: none; opacity: var(--bloom-opacity);
+  background:
+    radial-gradient(circle calc(var(--size) * .62) at 40.6% 40.6%, rgb(255 210 63 / .8), rgb(255 210 63 / .66) 20%, rgb(255 210 63 / .42) 45%, rgb(255 210 63 / .18) 70%, rgb(255 210 63 / .05) 88%, transparent),
+    radial-gradient(circle calc(var(--size) * .62) at 62.5% 59.4%, rgb(255 154 61 / .8), rgb(255 154 61 / .66) 20%, rgb(255 154 61 / .42) 45%, rgb(255 154 61 / .18) 70%, rgb(255 154 61 / .05) 88%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .bloom { animation: drift 16s ease-in-out infinite alternate; animation-play-state: paused; }
+  .bloom.is-visible { animation-play-state: running; }   /* only drift while on screen */
+  @keyframes drift { to { translate: -46.25% -53.75%; } }
+}
+.frag { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-float); font-size: 12px; }
+.cursor { position: absolute; width: 16px; height: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); z-index: 3; }
+.micro { font-size: 11px; color: var(--text-3); }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+  color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); }
+.pill svg { width: 11px; height: 11px; }
+.ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
+.ava-ghid { background: var(--ink); color: var(--accent-a); }
+.ava-ghid svg { width: 12px; height: 12px; stroke-width: 2.2; }
+
+/* Compare: chat with a comparison table */
+.chat { left: 32px; top: 28px; right: -48px; padding: 16px; display: grid; gap: 12px; }
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg.me { justify-content: flex-end; }
+.bubble { padding: 9px 12px; border-radius: 12px; line-height: 1.45; max-width: 38ch; }
+.me .bubble { margin-right: 56px; background: var(--surface-2); color: var(--text-1); border-bottom-right-radius: 4px; }
+.ghid-reply { display: grid; gap: 10px; flex: 1; min-width: 0; }
+.ghid-reply p { color: var(--text-2); max-width: 52ch; }
+.mtable { display: grid; grid-template-columns: 1.3fr 1fr 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; max-width: 420px; font-size: 11.5px; }
+.mtable > div { padding: 7px 10px; border-top: 1px solid var(--border); }
+.mtable .th { border-top: 0; font-weight: 600; font-size: 11px; color: var(--text-2); background: #FBFAF8; }
+.mtable .rk { color: var(--text-3); }
+.mtable .on { background: #FFF8DC; color: var(--text-1); font-weight: 500; }
+.src { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Simulate */
+.simcard { left: 28px; right: 28px; top: 32px; padding: 16px; display: grid; gap: 14px; }
+.sim-row { display: grid; gap: 8px; }
+.sim-row .top { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-2); }
+.sim-row .top b { color: var(--text-1); font-weight: 600; }
+.track { position: relative; height: 4px; border-radius: 4px; background: var(--surface-2); }
+.track span { position: absolute; inset: 0 auto 0 0; width: 34%; border-radius: inherit; background: var(--ink); }
+.track i { position: absolute; left: 34%; top: 50%; width: 16px; height: 16px; translate: -50% -50%; border-radius: 50%; background: #fff;
+  border: 1px solid var(--border-strong); box-shadow: 0 2px 6px rgba(0,0,0,.12), 0 0 0 5px rgba(255,210,63,.35); }
+.terms { display: flex; gap: 6px; }
+.terms span { flex: 1; text-align: center; padding: 5px 0; border-radius: 8px; border: 1px solid var(--border); font-size: 11px; color: var(--text-2); }
+.terms .on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.sim-out { display: flex; justify-content: space-between; align-items: end; padding-top: 12px; border-top: 1px solid var(--border); }
+.sim-out b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.sim-out small { font-size: 11px; color: var(--text-3); margin-left: 4px; font-weight: 400; }
+.bars { display: flex; gap: 3px; align-items: end; height: 36px; }
+.bars i { width: 6px; border-radius: 2px; background: #E9E6DE; }
+.bars i.p { background: var(--ink); }
+
+/* Savings */
+.saves { left: 28px; right: 28px; top: 30px; display: grid; gap: 8px; }
+.save { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; position: relative; }
+.save .ic { width: 28px; height: 28px; border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; }
+.save .ic svg { width: 15px; height: 15px; color: var(--text-2); }
+.save .nm { font-size: 12.5px; font-weight: 500; }
+.save .ds { font-size: 11px; color: var(--text-3); }
+.save .rt { text-align: right; font-size: 12.5px; font-weight: 600; }
+.liq { display: flex; gap: 2px; justify-content: flex-end; margin-top: 4px; }
+.liq i { width: 8px; height: 3px; border-radius: 2px; background: #E9E6DE; }
+.liq i.f { background: #1A1A1A; }
+.save.on { border-color: rgba(200,150,20,.35); box-shadow: 0 0 0 4px rgba(255,210,63,.18), var(--shadow-float); }
+.save.on .ic { background: #FFF3C4; }
+.save.on .ic svg { color: #7A5A00; }
+.save-tag { position: absolute; right: 14px; top: -9px; }
+
+/* Fees */
+.stmt { left: 28px; top: 28px; width: 330px; padding: 6px; }
+.stmt-h { display: flex; justify-content: space-between; padding: 8px 10px 10px; font-size: 11px; color: var(--text-3); }
+.stmt-h b { color: var(--text-1); font-weight: 600; font-size: 12px; }
+.line { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; font-size: 12px; }
+.line .amt { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
+.line .dsc { display: block; font-size: 10.5px; color: var(--text-3); }
+.line.sel { background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.3); }
+.pop { left: 300px; top: 112px; width: 260px; padding: 14px; display: grid; gap: 8px; border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(20,20,40,.1); }
+.pop-h { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; }
+.pop p { color: var(--text-2); line-height: 1.5; }
+.tip { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 11.5px; color: var(--text-2); }
+.tip svg { width: 13px; height: 13px; flex: none; margin-top: 2px; color: #8A6A00; }
+@media (max-width: 1100px) { .pop { left: auto; right: -40px; } }
+
+/* Documents + advisor handoff */
+.docs-visual { height: 320px; }
+.checklist { left: 32px; top: 36px; width: 340px; padding: 16px; display: grid; gap: 12px; }
+.cl-h { display: flex; justify-content: space-between; align-items: center; }
+.cl-h b { font-size: 13px; font-weight: 600; }
+.prog { height: 4px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.prog span { display: block; width: 66%; height: 100%; background: var(--ink); border-radius: inherit; }
+.ck { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: center; font-size: 12px; }
+.ck .bx { width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; border: 1px solid var(--border-strong); }
+.ck .bx.ok { background: var(--ink); border-color: var(--ink); }
+.ck .bx svg { width: 11px; height: 11px; color: #fff; stroke-width: 3; }
+.ck small { display: block; font-size: 10.5px; color: var(--text-3); }
+.up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 4px 8px; border-radius: 6px; border: 1px dashed var(--border-strong); color: var(--text-2); }
+.up svg { width: 11px; height: 11px; }
+.handoff { left: 410px; top: 64px; width: 330px; padding: 16px; display: grid; gap: 12px; }
+.adv { display: flex; gap: 10px; align-items: center; }
+.adv .ava { width: 32px; height: 32px; background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; font-size: 12px; }
+.adv b { font-size: 13px; font-weight: 600; display: block; }
+.slot { display: flex; gap: 6px; }
+.slot span { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px; color: var(--text-2); font-family: var(--font-mono); }
+.slot .on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.summary { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 11.5px; color: var(--text-2); line-height: 1.5; display: grid; gap: 4px; }
+.summary b { color: var(--text-1); font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.summary b svg { width: 12px; height: 12px; }
+.handoff-dim { left: 770px; top: 96px; width: 280px; height: 200px; }
+.docs-link { position: absolute; left: 372px; top: 150px; width: 38px; height: 1px; background: repeating-linear-gradient(90deg, rgba(20,20,20,.25) 0 4px, transparent 4px 8px); }
+@media (max-width: 860px) {
+  .docs-visual { height: 470px; }
+  .checklist { left: 20px; right: 20px; width: auto; top: 24px; }
+  .handoff { left: 40px; right: -40px; width: auto; top: 252px; }
+  .handoff-dim, .docs-link { display: none; }
+}
+
+/* ───────────── Deep dive: simulator + safeguards ───────────── */
+.dive { display: grid; grid-template-columns: 5fr 7fr; gap: 48px; align-items: start; }
+@media (max-width: 960px) { .dive { grid-template-columns: 1fr; gap: 32px; } }
+.rules { list-style: none; margin: 32px 0 0; padding: 0; display: grid; }
+.rules li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); }
+.rules li:last-child { border-bottom: 1px solid var(--border); }
+.rules .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border); }
+.rules .ic svg { width: 15px; height: 15px; color: var(--text-1); }
+.rules h4 { font-size: 14.5px; }
+.rules p { font-size: 13.5px; color: var(--text-2); margin-top: 2px; max-width: 46ch; }
+
+.simulator { padding: 24px; display: grid; gap: 20px; }
+.simulator .bloom { --x: 85%; --y: 0%; --size: 380px; opacity: .32; }
+.sim-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; position: relative; }
+.sim-head h3 { font-size: 16px; letter-spacing: -.01em; }
+.ctrl { display: grid; gap: 10px; position: relative; }
+.ctrl-top { display: flex; justify-content: space-between; align-items: baseline; }
+.ctrl label { font-size: 13px; color: var(--text-2); }
+.ctrl output { font: 600 15px/1 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.range { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; margin: 0; cursor: pointer; }
+.range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px;
+  background: linear-gradient(to right, var(--ink) 0 var(--p, 30%), #E9E6DE var(--p, 30%)); }
+.range::-moz-range-track { height: 4px; border-radius: 4px; background: #E9E6DE; }
+.range::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--ink); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: #fff;
+  border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); transition: box-shadow 150ms ease, transform 160ms var(--ease-out); }
+.range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+.range:active::-webkit-slider-thumb { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0,0,0,.12), 0 0 0 6px rgba(255,210,63,.4); }
+.range:focus-visible { outline: none; }
+.range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+.range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+.scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; }
+@media (max-width: 480px) { .opts { grid-template-columns: 1fr; } }
+.opt { border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 12px; background: var(--surface); transition: opacity 200ms ease; }
+.opt.na { opacity: .55; }
+.opt-h { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
+.opt-h .micro { font-weight: 400; }
+.opt .big { font: 600 22px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.opt .big small { font-size: 12px; font-weight: 400; color: var(--text-3); letter-spacing: 0; margin-left: 4px; }
+.kv { display: grid; gap: 6px; font-size: 12.5px; }
+.kv div { display: flex; justify-content: space-between; gap: 12px; color: var(--text-2); }
+.kv b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; }
+.costbar { height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+/* No transition: the bars follow a slider the user is dragging, so any easing reads as lag */
+.costbar span { display: block; height: 100%; width: 50%; background: var(--ink); border-radius: inherit; transform-origin: left; }
+.opt-note { font-size: 11.5px; color: var(--text-3); }
+
+.explain { display: grid; grid-template-columns: 26px 1fr; gap: 12px; padding: 14px 16px; border-radius: 14px; background: #FBFAF6;
+  border: 1px solid rgba(200,150,20,.18); position: relative; }
+.explain .ava { width: 26px; height: 26px; }
+.explain p { font-size: 13.5px; color: var(--text-1); line-height: 1.55; transition: opacity 200ms ease, filter 200ms ease; }
+/* Answer swap: blur bridges the old and new text so it reads as one message changing, not two swapping */
+.explain p.swapping { opacity: 0; filter: blur(2px); transition-duration: 120ms; }
+@media (prefers-reduced-motion: reduce) { .explain p.swapping { filter: none; } }
+.explain .q { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.qbtn { display: inline-flex; font: 500 12px/1 var(--font-sans); text-decoration: none; padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text-1); cursor: pointer; transition: transform 160ms var(--ease-out), border-color 150ms ease; }
+.qbtn:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .qbtn:hover { border-color: rgba(20,20,20,.24); } }
+.sim-foot { font-size: 11.5px; color: var(--text-3); }
+
+/* ───────────── For the bank ───────────── */
+.bank .card-visual { height: 260px; }
+.hours { left: 24px; right: 24px; top: 28px; padding: 14px; display: grid; gap: 10px; }
+.hours-h { display: flex; justify-content: space-between; align-items: baseline; }
+.hours-h b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.hchart { position: relative; height: 92px; display: flex; align-items: end; gap: 3px; }
+/* Wipe = a surface-coloured cover shrinking into the right edge (transform runs on the compositor; clip-path repaints every frame) */
+.hchart::after { content: ""; position: absolute; inset: 0; background: var(--surface); transform-origin: right; transform: scaleX(0); pointer-events: none; }
+.hchart i { flex: 1; border-radius: 2px 2px 0 0; background: #1A1A1A; }
+.hchart i.in { background: #D9D5CB; }
+.hband { position: absolute; top: -14px; bottom: 0; left: calc(9 / 24 * 100%); width: calc(8 / 24 * 100%); border-radius: 6px;
+  background: rgba(20,20,20,.035); border: 1px dashed rgba(20,20,20,.14); }
+.hband span { position: absolute; top: 4px; left: 6px; font-size: 10px; color: var(--text-3); white-space: nowrap; }
+.haxis { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+
+.onb { left: 24px; right: 24px; top: 28px; padding: 14px 16px; display: grid; gap: 10px; }
+.step { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; font-size: 12px; position: relative; }
+.step .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); }
+.step .dot svg { width: 10px; height: 10px; color: #fff; stroke-width: 3; }
+.step .dot.now { background: #fff; border: 1.5px solid var(--ink); box-shadow: 0 0 0 4px rgba(255,210,63,.35); }
+.step span:last-child { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.step:not(:last-child)::after { content: ""; position: absolute; left: 8.5px; top: 20px; height: 12px; width: 1px; background: var(--border-strong); }
+.onb-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-3); }
+.onb-total b { font-size: 18px; color: var(--text-1); font-weight: 600; letter-spacing: -.02em; }
+
+.why { left: 24px; right: 24px; top: 28px; padding: 14px; display: grid; gap: 10px; }
+.why-h { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
+.why-row { display: grid; grid-template-columns: 16px 1fr; gap: 8px; font-size: 11.5px; color: var(--text-2); line-height: 1.45; }
+.why-row svg { width: 14px; height: 14px; color: #2E7D4F; margin-top: 1px; }
+.why-foot { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); padding-top: 8px; border-top: 1px solid var(--border); }
+.why-dim { left: 40px; right: 8px; top: 12px; height: 180px; }
+
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
+.kpi { padding: 20px 24px; display: grid; gap: 4px; }
+.kpi + .kpi { border-left: 1px solid var(--border); }
+.kpi b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 13px; color: var(--text-2); }
+@media (max-width: 760px) { .kpis { grid-template-columns: 1fr; } .kpi + .kpi { border-left: 0; border-top: 1px solid var(--border); } }
+.footnote { margin-top: 12px; font-size: 12px; color: var(--text-3); }
+
+/* ───────────── CTA + footer ───────────── */
+.cta-card { padding: 72px 24px; text-align: center; display: grid; justify-items: center; gap: 16px; }
+.cta-card .bloom { --x: 50%; --y: 110%; --size: 520px; opacity: .55; }
+.cta-card > *:not(.bloom) { position: relative; }
+.cta-card .lead { margin: 0 auto; }
+.cta-card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 13px; color: var(--text-3); }
+.foot { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 32px; }
+.foot h5 { margin: 0 0 12px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.foot a { text-decoration: none; transition: color 150ms ease; }
+@media (hover: hover) and (pointer: fine) { .foot a:hover { color: var(--text-1); } }
+.foot .logo { color: var(--text-1); margin-bottom: 12px; }
+.foot .logo small { color: var(--text-3); }
+.foot p { max-width: 38ch; }
+.legal { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; }
+@media (max-width: 760px) { .foot { grid-template-columns: 1fr 1fr; } .foot > :first-child { grid-column: 1 / -1; } }
+
+/* ───────────── Reveal on scroll (marketing: can run longer; stagger 60ms) ───────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .js .reveal { opacity: 0; transform: translateY(12px); transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out); transition-delay: calc(var(--d, 0) * 60ms); }
+  .js .reveal.in { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal { opacity: 0; transition: opacity 300ms ease; }
+  .js .reveal.in { opacity: 1; }
+}
+
+/* ───────────── Motion: one-time entrances (marketing tier, seen once per visit) ─────────────
+   Every keyframe only defines `from` and uses fill-mode `backwards`: the element's resting CSS is
+   the final state, so with JS off, reduced motion, or after the animation, nothing is left hidden. */
+@keyframes rise   { from { opacity: 0; transform: translateY(10px); } }
+@keyframes pop    { from { opacity: 0; transform: scale(.96); } }
+@keyframes fade   { from { opacity: 0; } }
+@keyframes uncover { from { transform: none; } }                     /* .hchart cover shrinks off to the right */
+@keyframes grow-x { from { transform: scaleX(0); } }                 /* progress fill, origin left */
+@keyframes glide  { from { transform: translateX(-72px); } }       /* slider knob + cursor travel */
+@keyframes fill-in { from { transform: scaleX(.42); } }            /* slider fill, origin left: never from 0 */
+@keyframes arrive { from { opacity: 0; transform: translate(36px, 28px); } }   /* cursor moving onto its target */
+@keyframes settle { from { translate: 0 0 calc(var(--i) * 40px); } }       /* layers drop into the stack */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Hero copy: staggered on first paint */
+  .hero-copy > * { animation: rise 700ms var(--ease-out) backwards; }
+  .hero-copy > :nth-child(1) { animation-delay: 80ms; }
+  .hero-copy > :nth-child(2) { animation-delay: 140ms; }
+  .hero-copy > :nth-child(3) { animation-delay: 200ms; }
+  .hero-copy > :nth-child(4) { animation-delay: 260ms; }
+  .hero-copy > :nth-child(5) { animation-delay: 320ms; }
+
+  /* Hero stack: fades in while each layer settles from slightly higher up, bottom layer first.
+     Uses the `translate` property so it never fights the orbit (stage transform) or the bob (slab transform).
+     Opacity sits on .iso, outside the preserve-3d tree, so the stack never flattens. */
+  .iso { animation: fade 900ms ease backwards 200ms; }
+  .slab   { animation: settle 1100ms var(--ease-out) backwards; animation-delay: calc(260ms + var(--i) * 90ms); }
+  .slab-2 { animation: settle 1100ms var(--ease-out) backwards 440ms, float2 6s ease-in-out 1540ms infinite; }
+  .slab-3 { animation: settle 1100ms var(--ease-out) backwards 530ms, float3 6s ease-in-out 1630ms infinite; }
+  .iso-note { animation: rise 600ms var(--ease-out) backwards 1100ms; }
+  .iso-note + .iso-note { animation-delay: 1180ms; }
+
+  /* Feature vignettes: each plays once, when its card is revealed */
+  /* Compare: Ghid's reply arrives in parts, then the cursor moves onto the answer */
+  .js .reveal.in .ghid-reply > * { animation: rise 500ms var(--ease-out) backwards; }
+  .js .reveal.in .ghid-reply > :nth-child(1) { animation-delay: 300ms; }
+  .js .reveal.in .ghid-reply > :nth-child(2) { animation-delay: 380ms; }
+  .js .reveal.in .ghid-reply > :nth-child(3) { animation-delay: 460ms; }
+  .js .reveal.in .chat ~ .cursor { animation: arrive 700ms var(--ease-in-out) backwards 760ms; }
+
+  /* Simulate: the cursor drags the amount to 8,000 lei (on-screen movement → ease-in-out) */
+  .js .reveal.in .track i,
+  .js .reveal.in .simcard ~ .cursor { animation: glide 900ms var(--ease-in-out) backwards 420ms; }
+  .js .reveal.in .track span { transform-origin: left; animation: fill-in 900ms var(--ease-in-out) backwards 420ms; }
+
+  /* Savings: options stagger in, then the "matches" tag appears from its own corner */
+  .js .reveal.in .saves .save { animation: rise 500ms var(--ease-out) backwards; }
+  .js .reveal.in .saves .save:nth-child(1) { animation-delay: 260ms; }
+  .js .reveal.in .saves .save:nth-child(2) { animation-delay: 320ms; }
+  .js .reveal.in .saves .save:nth-child(3) { animation-delay: 380ms; }
+  .js .reveal.in .saves .save:nth-child(4) { animation-delay: 440ms; }
+  .js .reveal.in .save-tag { transform-origin: right bottom; animation: pop 300ms var(--ease-out) backwards 720ms; }
+
+  /* Fees: cursor lands on the fee, then the explanation opens from the selected line */
+  .js .reveal.in .stmt ~ .cursor { animation: arrive 700ms var(--ease-in-out) backwards 300ms; }
+  .js .reveal.in .pop { transform-origin: 0 24px; animation: pop 260ms var(--ease-out) backwards 1000ms; }
+
+  /* Documents: progress fills, checks land, then the advisor card picks up the thread */
+  .js .reveal.in .prog span { transform-origin: left; animation: grow-x 800ms var(--ease-out) backwards 300ms; }
+  .js .reveal.in .ck .bx.ok { animation: pop 260ms var(--ease-out) backwards; }
+  .js .reveal.in .ck:nth-of-type(3) .bx.ok { animation-delay: 420ms; }
+  .js .reveal.in .ck:nth-of-type(4) .bx.ok { animation-delay: 500ms; }
+  .js .reveal.in .handoff { animation: rise 600ms var(--ease-out) backwards 640ms; }
+
+  /* Bank: the day's questions sweep in left to right, so the evening peak lands last */
+  .js .reveal.in .hchart::after { animation: uncover 1200ms var(--ease-in-out) backwards 300ms; }
+  .js .reveal.in .onb .step { animation: rise 500ms var(--ease-out) backwards; }
+  .js .reveal.in .onb .step:nth-child(1) { animation-delay: 260ms; }
+  .js .reveal.in .onb .step:nth-child(2) { animation-delay: 320ms; }
+  .js .reveal.in .onb .step:nth-child(3) { animation-delay: 380ms; }
+  .js .reveal.in .onb .step:nth-child(4) { animation-delay: 440ms; }
+  .js .reveal.in .why-row { animation: rise 500ms var(--ease-out) backwards; }
+  .js .reveal.in .why-row:nth-of-type(2) { animation-delay: 300ms; }
+  .js .reveal.in .why-row:nth-of-type(3) { animation-delay: 360ms; }
+  .js .reveal.in .why-row:nth-of-type(4) { animation-delay: 420ms; }
+}
+</style>
+</head>
+<body data-mode="daylight">
+
+<a class="sr-only" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="logo" href="#top" aria-label="Ghid, home">
+      <span class="logo-mark"><i data-lucide="compass"></i></span>
+      Ghid <small>by Raiffeisen Bank</small>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#features">What it helps with</a>
+      <a href="#simulator">Try a comparison</a>
+      <a href="#safeguards">Principles</a>
+      <a href="#bank">For the bank</a>
+    </nav>
+    <div class="nav-actions">
+      <span class="lang" aria-label="Language">RO · <b style="font-weight:500">EN</b></span>
+      <a class="btn btn-ghost" href="#handoff">Talk to an advisor</a>
+      <a class="btn btn-dark" href="login.html#signup">Ask Ghid</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ═════════════ Hero (Nocturne, isometric, iso-tilt orbit) ═════════════ -->
+<section class="hero" id="top" data-mode="nocturne" data-hero-art="isometric">
+  <!-- Static backdrop in its own layer: rasterized once, so the blend modes and noise never repaint while the stack floats/tilts -->
+  <div class="hl-bg">
+  <div class="hl hl-base"></div>
+  <div class="hl hl-haze"></div>
+  <div class="hl hl-smoke" aria-hidden="true">
+    <svg preserveAspectRatio="none"><filter id="smoke"><feTurbulence type="fractalNoise" baseFrequency=".004 .009" numOctaves="4" seed="5"/>
+      <feColorMatrix values="0 0 0 0 1  0 0 0 0 .74  0 0 0 0 .22  0 0 0 1.1 -.44"/></filter><rect width="100%" height="100%" filter="url(#smoke)"/></svg>
+  </div>
+  <div class="hl hl-grid"></div>
+
+  <div class="hl hl-ghost" aria-hidden="true"><div class="container">
+    <div class="ghost ghost-panel g-card hide-sm" style="left:50%;top:104px">
+      <div class="t">Personal loan for a<br>kitchen renovation</div>
+      <div class="g-tags"><span>Simulation</span><span>3 years</span></div>
+      <div class="g-foot"><span>APR 8.42%</span><span class="n">782 lei/mo</span></div>
+    </div>
+    <div class="ghost g-list hide-sm" style="left:87%;top:150px">
+      <div class="g-row ghost-panel"><i class="on"></i>ID card</div>
+      <div class="g-row ghost-panel"><i class="on"></i>Proof of income</div>
+      <div class="g-row ghost-panel"><i></i>Utility bill</div>
+    </div>
+    <div class="ghost ghost-panel g-stat hide-sm" style="left:52%;top:520px"><span>Emergency fund</span><b>4.2 months</b></div>
+    <svg class="ghost g-line hide-sm" style="left:86%;top:520px" viewBox="0 0 160 48"><path d="M0 40 L20 36 L40 37 L60 30 L80 31 L100 22 L120 20 L140 12 L160 10" fill="none" stroke="rgba(255,240,215,.6)" stroke-width="1.4"/></svg>
+    <div class="ghost g-dock hide-sm" style="left:70%;top:650px">
+      <span class="ghost-panel"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>
+      <span class="ghost-panel"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg></span>
+      <span class="ghost-panel"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span>
+      <span class="ghost-panel"><svg viewBox="0 0 24 24"><path d="M5 18V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H9l-4 3z"/></svg></span>
+    </div>
+  </div></div>
+
+  <div class="hl hl-grain"></div>
+  </div>
+
+  <div class="container" style="position:relative">
+    <div class="hero-copy">
+      <div class="eyebrow"><i></i>Concept · Raiffeisen Bank Romania</div>
+      <h1>Understand every financial decision before you make it</h1>
+      <p class="lead">Ghid is the AI assistant in the Raiffeisen app and website. It compares loans, savings and fees in plain language, simulates repayments and gets your documents ready. It explains your options. You decide.</p>
+      <div class="cta">
+        <a class="btn-glow" href="#simulator">Try a comparison <i data-lucide="arrow-right"></i></a>
+        <a class="btn-line" href="#bank">The case for the bank</a>
+      </div>
+      <div class="hero-proof">
+        <span><i data-lucide="clock"></i>Answers 24/7</span>
+        <span><i data-lucide="scale"></i>Never chooses for you</span>
+        <span><i data-lucide="headset"></i>Hands you to a human advisor</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="iso" aria-hidden="true">
+    <div class="iso-floor-glow"></div>
+    <div class="iso-tilt">
+      <div class="iso-stage" data-iso-stage>
+        <div class="slab slab-0" style="--i:0"><span class="guide a"></span><span class="guide b"></span></div>
+        <div class="slab slab-1" style="--i:1">
+          <div class="cmp">
+            <span class="h">8,000 LEI</span><span class="h">LOAN</span><span class="h">OVERDRAFT</span>
+            <span class="k">Interest</span><span>7.9% fixed</span><span>11.5% var.</span>
+            <span class="k">Monthly payment</span><span>696 lei</span><span>709 lei</span>
+            <span class="k hl-row">Total cost</span><span class="hl-row">596 lei</span><span class="hl-row">507 lei</span>
+            <span class="k">Early repayment</span><span>0.5% fee</span><span>Anytime</span>
+          </div>
+        </div>
+        <div class="slab slab-2" style="--i:2">
+          <div>
+            <div class="sim-lbl">Repayment · 12 months</div>
+            <div class="sim-top"><b>696 lei</b><span>per month</span></div>
+          </div>
+          <div>
+            <svg viewBox="0 0 200 70" preserveAspectRatio="none">
+              <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD23F" stop-opacity=".4"/><stop offset="1" stop-color="#FFD23F" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0 6 L200 64 L200 70 L0 70Z" fill="url(#area)"/>
+              <path d="M0 6 C 60 20, 120 40, 200 64" fill="none" stroke="#FFD86A" stroke-width="2"/>
+              <path d="M0 6 C 70 16, 130 34, 200 64" fill="none" stroke="rgba(255,244,225,.3)" stroke-width="1.2" stroke-dasharray="3 3"/>
+            </svg>
+            <div class="sim-axis"><span>nov</span><span>feb</span><span>may</span><span>oct</span></div>
+          </div>
+        </div>
+        <div class="slab slab-3" style="--i:3">
+          <div class="chip"><i><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>You decide</div>
+        </div>
+      </div>
+    </div>
+    <div class="iso-note" style="left:2%;top:64%"><i style="background:#FFD23F"></i>Explained in plain language</div>
+    <div class="iso-note" style="right:0;top:78%"><i style="background:#34D399"></i>Appointment booked · Tue 10:30</div>
+  </div>
+</section>
+
+<!-- ═════════════ Channels ═════════════ -->
+<section class="channels" aria-label="Where Ghid is available">
+  <div class="container">
+    <span class="eyebrow">Where customers already are</span>
+    <span class="ch"><i data-lucide="smartphone"></i>Smart Mobile app</span>
+    <span class="ch"><i data-lucide="monitor"></i>Raiffeisen Online</span>
+    <span class="ch"><i data-lucide="globe"></i>raiffeisen.ro</span>
+    <span class="ch"><i data-lucide="tablet"></i>Tablets in branches</span>
+    <span class="ch"><i data-lucide="phone"></i>Call center</span>
+  </div>
+</section>
+
+<!-- ═════════════ Features (zigzag bento) ═════════════ -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="eyebrow">What Ghid helps with</span>
+      <h2>The questions people usually save for a visit to the bank</h2>
+      <p class="lead">Every answer uses the customer’s own offers and rates, shows all the options side by side and says where the numbers come from.</p>
+    </div>
+
+    <div class="bento">
+      <!-- 1. Compare -->
+      <article class="card span-7 reveal">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:78%;--y:22%;--size:340px"></div>
+          <div class="frag chat fade-r">
+            <div class="msg me"><div class="bubble">I need 8,000 lei for a year. Overdraft or a small loan?</div></div>
+            <div class="msg">
+              <span class="ava ava-ghid"><i data-lucide="compass"></i></span>
+              <div class="ghid-reply">
+                <p>Both work. Over 12 months the overdraft costs about 89 lei less, but the loan locks in your rate.</p>
+                <div class="mtable">
+                  <div class="th"></div><div class="th">Personal loan</div><div class="th">Overdraft</div>
+                  <div class="rk">Monthly payment</div><div>696 lei</div><div>709 lei</div>
+                  <div class="rk on">Total cost</div><div class="on">596 lei</div><div class="on">507 lei</div>
+                  <div class="rk">Interest</div><div>7.9% fixed</div><div>11.5% variable</div>
+                </div>
+                <div class="src"><span class="pill"><i data-lucide="file-text"></i>Your pre-approved offer</span><span class="pill"><i data-lucide="calendar"></i>Rates as of 28 Oct</span></div>
+              </div>
+            </div>
+          </div>
+          <svg class="cursor" style="left:300px;top:178px" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>
+        </div>
+        <div class="card-body">
+          <h4>Compare a loan with an overdraft</h4>
+          <p class="text-sm">Ghid puts both options in one table, with the same amount and the same term, then explains the trade-off: a lower total cost or more flexibility.</p>
+        </div>
+      </article>
+
+      <!-- 2. Simulate -->
+      <article class="card span-5 reveal" style="--d:1">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:20%;--y:90%;--size:320px"></div>
+          <div class="frag simcard" style="-webkit-mask-image:linear-gradient(to bottom,#000 78%,transparent);mask-image:linear-gradient(to bottom,#000 78%,transparent)">
+            <div class="sim-row">
+              <div class="top"><span>Amount</span><b>8,000 lei</b></div>
+              <div class="track"><span></span><i></i></div>
+            </div>
+            <div class="sim-row">
+              <div class="top"><span>Term</span><b>12 months</b></div>
+              <div class="terms"><span>6</span><span class="on">12</span><span>24</span><span>36</span><span>60</span></div>
+            </div>
+            <div class="sim-out">
+              <div><span class="micro">Monthly payment</span><br><b>696 lei</b><small>/ month</small></div>
+              <div class="bars"><i class="p" style="height:100%"></i><i class="p" style="height:92%"></i><i class="p" style="height:84%"></i><i style="height:75%"></i><i style="height:66%"></i><i style="height:57%"></i><i style="height:48%"></i><i style="height:39%"></i><i style="height:30%"></i></div>
+            </div>
+          </div>
+          <svg class="cursor" style="left:calc(28px + 16px + 34% - 4px);top:76px" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>
+        </div>
+        <div class="card-body">
+          <h4>Simulate repayments</h4>
+          <p class="text-sm">Move the amount, change the term and watch the monthly payment and the total cost change together.</p>
+        </div>
+      </article>
+
+      <!-- 3. Savings -->
+      <article class="card span-5 reveal">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:80%;--y:70%;--size:300px"></div>
+          <div class="saves fade-b">
+            <div class="frag save dim" style="position:relative">
+              <span class="ic"><i data-lucide="wallet"></i></span>
+              <div><div class="nm">Current account</div><div class="ds">Instant access</div></div>
+              <div class="rt">0.05%<div class="liq"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></div></div>
+            </div>
+            <div class="frag save on" style="position:relative">
+              <span class="save-tag pill" style="--c:#8A6A00;background:#FFF3C4">Good fit: access within a week</span>
+              <span class="ic"><i data-lucide="piggy-bank"></i></span>
+              <div><div class="nm">Savings account</div><div class="ds">Withdraw anytime, no penalties</div></div>
+              <div class="rt">3.5%<div class="liq"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div></div>
+            </div>
+            <div class="frag save" style="position:relative">
+              <span class="ic"><i data-lucide="lock"></i></span>
+              <div><div class="nm">Term deposit · 6 months</div><div class="ds">Locked until 28 Apr</div></div>
+              <div class="rt">5.6%<div class="liq"><i class="f"></i><i></i><i></i><i></i></div></div>
+            </div>
+            <div class="frag save dim" style="position:relative">
+              <span class="ic"><i data-lucide="landmark"></i></span>
+              <div><div class="nm">Government bonds · 1 year</div><div class="ds">Early sale at market price</div></div>
+              <div class="rt">6.2%<div class="liq"><i class="f"></i><i class="f"></i><i></i><i></i></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h4>Choose where to keep your savings</h4>
+          <p class="text-sm">Interest versus access to your money, presented honestly. Ghid asks when you might need the money before it shows you any option.</p>
+        </div>
+      </article>
+
+      <!-- 4. Fees -->
+      <article class="card span-7 reveal" style="--d:1">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:72%;--y:20%;--size:340px"></div>
+          <div class="frag stmt fade-b">
+            <div class="stmt-h"><b>October statement</b><span>Current account</span></div>
+            <div class="line"><span>Lidl Pipera<span class="dsc">Card payment · 24 Oct</span></span><span class="amt">−186.40</span></div>
+            <div class="line sel"><span>ATM withdrawal fee<span class="dsc">Another bank’s ATM · 22 Oct</span></span><span class="amt">−5.00</span></div>
+            <div class="line"><span>Account package<span class="dsc">Monthly · 1 Oct</span></span><span class="amt">−9.00</span></div>
+            <div class="line"><span>Salary<span class="dsc">Incoming transfer · 10 Oct</span></span><span class="amt">+6,420.00</span></div>
+            <div class="line"><span>Enel Energie<span class="dsc">Direct debit · 8 Oct</span></span><span class="amt">−212.15</span></div>
+          </div>
+          <div class="frag pop">
+            <div class="pop-h"><span class="ava ava-ghid"><i data-lucide="compass"></i></span>Why did I pay 5 lei?</div>
+            <p>You withdrew cash from another bank’s ATM. Your package only includes free withdrawals at Raiffeisen ATMs.</p>
+            <div class="tip"><i data-lucide="map-pin"></i>Nearest Raiffeisen ATM to that one: 350 m, Str. Barbu Văcărescu.</div>
+          </div>
+          <svg class="cursor" style="left:230px;top:118px" viewBox="0 0 16 16"><path d="M2 1l11 6.5-4.6 1.1L6.3 13z" fill="#111" stroke="#fff" stroke-width="1"/></svg>
+        </div>
+        <div class="card-body">
+          <h4>Understand every fee</h4>
+          <p class="text-sm">Tap any fee on your statement and Ghid explains why you paid it and how to avoid it next time.</p>
+        </div>
+      </article>
+
+      <!-- 5. Documents + handoff -->
+      <article class="card span-12 reveal" id="handoff">
+        <div class="card-visual docs-visual" aria-hidden="true">
+          <div class="bloom" style="--x:40%;--y:100%;--size:460px"></div>
+          <div class="frag checklist">
+            <div class="cl-h"><b>Before your loan meeting</b><span class="micro">2 of 3 ready</span></div>
+            <div class="prog"><span></span></div>
+            <div class="ck"><span class="bx ok"><i data-lucide="check"></i></span><span>ID card<small>Scanned in the app · valid until 2031</small></span><span class="micro">Done</span></div>
+            <div class="ck"><span class="bx ok"><i data-lucide="check"></i></span><span>Proof of income<small>From your employer, issued 21 Oct</small></span><span class="micro">Done</span></div>
+            <div class="ck"><span class="bx"></span><span>Proof of address<small>Utility bill from the last 3 months</small></span><span class="up"><i data-lucide="upload"></i>Upload</span></div>
+          </div>
+          <span class="docs-link"></span>
+          <div class="frag handoff fade-r">
+            <div class="adv"><span class="ava">AM</span><div><b>Andreea M., personal advisor</b><span class="micro">Floreasca branch · or video call</span></div></div>
+            <div class="slot"><span>Mon 09:00</span><span class="on">Tue 10:30</span><span>Wed 15:00</span></div>
+            <div class="summary"><b><i data-lucide="file-text"></i>Ghid summary, shared with your consent</b>Wants 8,000 lei over 12 months. Compared the loan with the overdraft. Leaning towards the loan for the fixed rate. Has two questions about early repayment.</div>
+          </div>
+          <div class="frag handoff-dim dim"></div>
+        </div>
+        <div class="card-body">
+          <h4>Arrive at your advisor prepared</h4>
+          <p class="text-sm">Ghid tells you what the meeting needs, checks the documents you already have and books an appointment. With your permission, the advisor gets a short summary, so you don’t start from scratch.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ Deep dive: safeguards + live simulator ═════════════ -->
+<section class="section" id="simulator" style="padding-top:0">
+  <div class="container dive">
+    <div id="safeguards" class="reveal">
+      <span class="eyebrow">Explains, never decides</span>
+      <h2 style="margin-top:16px">A guide with rules it can’t break</h2>
+      <p class="lead" style="margin-top:16px">Customers trust advice that shows its working. Ghid is built so that every answer can be checked.</p>
+      <ul class="rules">
+        <li><span class="ic"><i data-lucide="columns-2"></i></span><div><h4>Every option, given equal weight</h4><p>Alternatives appear side by side, with the same amount, the same term and the same fields. Nothing is preselected.</p></div></li>
+        <li><span class="ic"><i data-lucide="file-search"></i></span><div><h4>A source for every number</h4><p>Rates, fees and limits link to the customer’s offer or to the published fee schedule.</p></div></li>
+        <li><span class="ic"><i data-lucide="circle-help"></i></span><div><h4>Says when it doesn’t know</h4><p>Tax, legal and complex lending questions go to a human advisor, along with the context.</p></div></li>
+        <li><span class="ic"><i data-lucide="shield-check"></i></span><div><h4>Suitability first, product second</h4><p>An offer only appears after an affordability check, and Ghid explains why it appeared.</p></div></li>
+      </ul>
+    </div>
+
+    <div class="card simulator reveal" style="--d:1" aria-labelledby="sim-title">
+      <div class="bloom" aria-hidden="true"></div>
+      <div class="sim-head">
+        <h3 id="sim-title">Loan or overdraft? Try it.</h3>
+        <span class="pill" style="--c:#8A6A00;background:#FFF3C4">Illustrative rates</span>
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-top"><label for="amt">How much do you need?</label><output id="amt-out" for="amt">8,000 lei</output></div>
+        <input class="range" id="amt" type="range" min="1000" max="40000" step="500" value="8000" aria-describedby="amt-scale">
+        <div class="scale" id="amt-scale"><span>1,000 lei</span><span>40,000 lei</span></div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top"><label for="term">Over how long?</label><output id="term-out" for="term">12 months</output></div>
+        <input class="range" id="term" type="range" min="3" max="60" step="1" value="12" aria-describedby="term-scale">
+        <div class="scale" id="term-scale"><span>3 months</span><span>60 months</span></div>
+      </div>
+
+      <div class="opts">
+        <div class="opt" id="opt-loan">
+          <div class="opt-h">Personal loan <span class="micro">7.9% fixed · 250 lei fee</span></div>
+          <div class="big" id="loan-m">696<small>lei / month</small></div>
+          <div class="kv">
+            <div>Total cost <b id="loan-c">596 lei</b></div>
+            <div>Total to repay <b id="loan-t">8,596 lei</b></div>
+          </div>
+          <div class="costbar"><span id="loan-bar"></span></div>
+          <div class="opt-note">The same payment every month, until the end.</div>
+        </div>
+        <div class="opt" id="opt-od">
+          <div class="opt-h">Overdraft <span class="micro">11.5% variable · no fee</span></div>
+          <div class="big" id="od-m">709<small>lei / month</small></div>
+          <div class="kv">
+            <div>Total cost <b id="od-c">507 lei</b></div>
+            <div>Total to repay <b id="od-t">8,507 lei</b></div>
+          </div>
+          <div class="costbar"><span id="od-bar"></span></div>
+          <div class="opt-note" id="od-note">Repay any amount, anytime.</div>
+        </div>
+      </div>
+
+      <div class="explain">
+        <span class="ava ava-ghid" aria-hidden="true"><i data-lucide="compass"></i></span>
+        <div>
+          <p id="explain" aria-live="polite">Over 12 months, the overdraft costs about 89 lei less, because the loan has a one-off fee. The loan gives you a fixed rate and a clear end date. What matters more to you?</p>
+          <div class="q">
+            <button class="qbtn" type="button" id="q-early">What if I repay early?</button>
+            <a class="qbtn" href="#handoff">Book an advisor</a>
+          </div>
+        </div>
+      </div>
+      <p class="sim-foot">Concept demo. The overdraft is modelled as repaid in equal monthly instalments, up to an illustrative limit of 15,000 lei. Not an offer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════ For the bank ═════════════ -->
+<section class="section bank" id="bank" style="background:#F4F3F0">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="eyebrow">For Raiffeisen Bank</span>
+      <h2>Growth that scales without overloading the branches</h2>
+      <p class="lead">Ghid takes on the repetitive questions, so advisors can spend their time on the conversations that really need a person.</p>
+    </div>
+
+    <div class="bento">
+      <article class="card span-4 reveal">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:85%;--y:15%;--size:280px"></div>
+          <div class="frag hours fade-b">
+            <div class="hours-h"><div><span class="micro">Questions by hour</span><br><b>62%</b> <span class="micro">outside branch hours</span></div></div>
+            <div class="hchart">
+              <span class="hband"><span>Branches open</span></span>
+              <i style="height:30%"></i><i style="height:18%"></i><i style="height:10%"></i><i style="height:6%"></i><i style="height:5%"></i><i style="height:8%"></i>
+              <i style="height:22%"></i><i style="height:40%"></i><i style="height:52%"></i>
+              <i class="in" style="height:46%"></i><i class="in" style="height:40%"></i><i class="in" style="height:44%"></i><i class="in" style="height:58%"></i><i class="in" style="height:54%"></i><i class="in" style="height:42%"></i><i class="in" style="height:40%"></i><i class="in" style="height:48%"></i>
+              <i style="height:66%"></i><i style="height:78%"></i><i style="height:92%"></i><i style="height:100%"></i><i style="height:88%"></i><i style="height:70%"></i><i style="height:48%"></i>
+            </div>
+            <div class="haxis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h4>Serve more customers, 24/7</h4>
+          <p class="text-sm">Most money questions come up in the evening, after hours. Ghid answers them then, without adding load on the branches.</p>
+        </div>
+      </article>
+
+      <article class="card span-4 reveal" style="--d:1">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:15%;--y:85%;--size:280px"></div>
+          <div class="frag onb">
+            <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Scan your ID card</span><span>1:40</span></div>
+            <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Video selfie check</span><span>0:55</span></div>
+            <div class="step"><span class="dot"><i data-lucide="check"></i></span><span>Ghid explains the account package</span><span>4:10</span></div>
+            <div class="step"><span class="dot now"></span><span>Sign the contract</span><span>~2:00</span></div>
+            <div class="onb-total"><span>New customer, in the app</span><b>8 min 45 s</b></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h4>Onboard new customers faster</h4>
+          <p class="text-sm">Questions that used to stall account opening get answered on the spot, so people finish the process instead of booking a visit.</p>
+        </div>
+      </article>
+
+      <article class="card span-4 reveal" style="--d:2">
+        <div class="card-visual" aria-hidden="true">
+          <div class="bloom" style="--x:80%;--y:85%;--size:280px"></div>
+          <div class="frag why-dim dim"></div>
+          <div class="frag why fade-b">
+            <div class="why-h">Why you’re seeing this offer <span class="pill" style="--c:#2E7D4F">Check passed</span></div>
+            <div class="why-row"><i data-lucide="check"></i><span>The payment is 11% of your monthly income, under the 40% limit</span></div>
+            <div class="why-row"><i data-lucide="check"></i><span>You asked about financing a purchase this week</span></div>
+            <div class="why-row"><i data-lucide="check"></i><span>Shown next to two alternatives, including saving</span></div>
+            <div class="why-foot"><span>Logged · audit #A-20481</span><span>28 Oct, 21:14</span></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <h4>Recommend relevant products, responsibly</h4>
+          <p class="text-sm">Every suggestion passes an affordability check, explains its reasoning to the customer and leaves an audit trail for compliance.</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="kpis reveal">
+      <div class="kpi"><b>40%</b><span>of routine branch questions resolved in the app</span></div>
+      <div class="kpi"><b>3×</b><span>more product conversations started outside branch hours</span></div>
+      <div class="kpi"><b>0</b><span>products chosen on the customer’s behalf</span></div>
+    </div>
+    <p class="footnote">Pilot targets for the concept, not measured results.</p>
+  </div>
+</section>
+
+<!-- ═════════════ Final CTA ═════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="card cta-card reveal">
+      <div class="bloom" aria-hidden="true"></div>
+      <span class="eyebrow">Pilot proposal</span>
+      <h2>Start with one question: loan or overdraft?</h2>
+      <p class="lead">A 12-week pilot in the Smart Mobile app, with handoff to advisors in five Bucharest branches.</p>
+      <div class="row">
+        <a class="btn btn-dark" href="#simulator">Try the comparison <i data-lucide="arrow-right"></i></a>
+        <a class="btn btn-ghost" href="#bank">See the business case</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <div class="foot">
+      <div>
+        <a class="logo" href="#top"><span class="logo-mark"><i data-lucide="compass"></i></span>Ghid <small>by Raiffeisen Bank</small></a>
+        <p>An AI assistant that explains financial options in plain language. The decision always stays with the customer.</p>
+      </div>
+      <div><h5>Ghid</h5><ul><li><a href="#features">What it helps with</a></li><li><a href="#simulator">Try a comparison</a></li><li><a href="#safeguards">Principles</a></li></ul></div>
+      <div><h5>For the bank</h5><ul><li><a href="#bank">Business case</a></li><li><a href="#handoff">Advisor handoff</a></li><li><a href="#bank">Pilot plan</a></li></ul></div>
+      <div><h5>Trust</h5><ul><li><a href="#safeguards">How answers are checked</a></li><li><a href="#safeguards">Data and consent</a></li><li><a href="#safeguards">Accessibility</a></li></ul></div>
+    </div>
+    <div class="legal">
+      <span>Concept work. Not an official Raiffeisen Bank Romania product or offer.</span>
+      <span>All rates, fees and figures are illustrative.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+document.documentElement.classList.replace('no-js', 'js');
+if (window.lucide) lucide.createIcons({ attrs: { 'stroke-width': 1.6 } });
+
+/* Nav: dark glass over the hero, light glass over Daylight sections */
+(function () {
+  var nav = document.getElementById('nav'), hero = document.querySelector('.hero');
+  /* Observers instead of measuring the hero on every scroll event (which forces layout) */
+  var past = false;
+  function update() {
+    nav.classList.toggle('is-light', past);
+    nav.classList.toggle('is-dark', !past && scrollY > 8);
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (en) { past = !en[0].isIntersecting; update(); }, { rootMargin: '-60px 0px 0px 0px' }).observe(hero);
+    new IntersectionObserver(function (en) { hero.classList.toggle('is-off', !en[0].isIntersecting); }).observe(hero);
+  }
+  addEventListener('scroll', update, { passive: true }); update();
+})();
+
+/* Reveal once on scroll */
+(function () {
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+  /* Cards entering in the same batch start 90ms apart, so their first frames don't all land on one frame */
+  var io = new IntersectionObserver(function (entries) {
+    var n = 0;
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      var t = en.target; io.unobserve(t);
+      setTimeout(function () { t.classList.add('in'); }, n++ * 90);
+    });
+  }, { rootMargin: '0px 0px -80px 0px' });
+  els.forEach(function (e) { io.observe(e); });
+
+  /* Blooms only drift while on screen */
+  var bio = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { en.target.classList.toggle('is-visible', en.isIntersecting); });
+  });
+  document.querySelectorAll('.bloom').forEach(function (b) { bio.observe(b); });
+})();
+
+/* Simulator. Values update instantly while dragging: no animation on a high-frequency input. */
+(function () {
+  var LOAN = { rate: .079, fee: 250 }, OD = { rate: .115, limit: 15000 };
+  var $ = function (id) { return document.getElementById(id); };
+  var amt = $('amt'), term = $('term');
+  /* English formatting: comma as thousands separator ("8,000 lei") */
+  var fmt = function (n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  function lei(n) { return fmt(n) + ' lei'; }
+  function months(n) { return n === 1 ? '1 month' : n + ' months'; }
+  function pmt(P, annual, n) { var r = annual / 12; return P * r / (1 - Math.pow(1 + r, -n)); }
+  function fill(el) { el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%'); }
+
+  function render() {
+    var A = +amt.value, n = +term.value;
+    var lm = pmt(A, LOAN.rate, n), lc = lm * n - A + LOAN.fee;
+    var om = pmt(A, OD.rate, n), oc = om * n - A;
+    var odOk = A <= OD.limit;
+    $('amt-out').textContent = fmt(A) + ' lei';
+    $('term-out').textContent = months(n);
+    $('loan-m').firstChild.nodeValue = fmt(lm);
+    $('loan-c').textContent = fmt(lc) + ' lei';
+    $('loan-t').textContent = fmt(A + lc) + ' lei';
+    $('od-m').firstChild.nodeValue = odOk ? fmt(om) : '—';
+    $('od-c').textContent = odOk ? fmt(oc) + ' lei' : '—';
+    $('od-t').textContent = odOk ? fmt(A + oc) + ' lei' : '—';
+    $('opt-od').classList.toggle('na', !odOk);
+    $('od-note').textContent = !odOk ? 'Over the 15,000 lei overdraft limit.'
+      : n > 12 ? 'Renews every 12 months; the rate can change.' : 'Repay any amount, anytime.';
+    var max = Math.max(lc, odOk ? oc : 0);
+    $('loan-bar').style.transform = 'scaleX(' + (lc / max) + ')';
+    $('od-bar').style.transform = 'scaleX(' + (odOk ? oc / max : 0) + ')';
+    fill(amt); fill(term);
+
+    var t = months(n), d = Math.abs(lc - oc), ask = ' What matters more to you?', msg;
+    if (!odOk) {
+      msg = lei(A) + ' is over the usual overdraft limit, so the personal loan is the fit here. Over ' + t + ' you would pay ' + lei(lm) + ' a month. Want to see how the total changes over a shorter term?';
+    } else if (d < 40) {
+      msg = 'Over ' + t + ' they cost almost the same. The real difference is certainty versus flexibility: a fixed payment with the loan, or repaying whenever you like with the overdraft.' + ask;
+    } else if (oc < lc) {
+      msg = 'Over ' + t + ', the overdraft costs about ' + lei(d) + ' less, because the loan has a one-off fee. The loan gives you a fixed rate and a clear end date.' + ask;
+    } else {
+      msg = 'Over ' + t + ', the loan costs about ' + lei(d) + ' less, thanks to its lower fixed rate.' + (n > 12 ? ' The overdraft renews every year, so its rate can change along the way.' : ' The overdraft lets you repay early with no fee.') + ask;
+    }
+    if (mode === 'early') {
+      var k = Math.max(1, Math.floor(n / 2)), r = LOAN.rate / 12;
+      var left = A * Math.pow(1 + r, k) - lm * (Math.pow(1 + r, k) - 1) / r;
+      msg = 'Say you pay it all off after ' + months(k) + '. The loan charges 0.5% of the remaining balance, about ' + lei(left * .005) + '. '
+        + (odOk ? 'The overdraft costs nothing extra. ' : '') + 'Either way, interest stops the day you repay. Do you expect to repay early?';
+    }
+    return msg;
+  }
+
+  /* The answer only crossfades when the customer asks a new question (an occasional click).
+     While dragging a slider it updates instantly: easing a value under the user's finger reads as lag. */
+  var explain = $('explain'), qEarly = $('q-early'), mode = 'compare', swapTimer = 0;
+  function swapTo(text) {
+    clearTimeout(swapTimer);
+    explain.classList.add('swapping');
+    swapTimer = setTimeout(function () { explain.textContent = text; explain.classList.remove('swapping'); }, 120);
+  }
+  function onSlide() {
+    if (mode !== 'compare') { mode = 'compare'; qEarly.textContent = 'What if I repay early?'; }
+    clearTimeout(swapTimer); explain.classList.remove('swapping');
+    explain.textContent = render();
+  }
+  qEarly.addEventListener('click', function () {
+    mode = mode === 'early' ? 'compare' : 'early';
+    qEarly.textContent = mode === 'early' ? 'Back to the comparison' : 'What if I repay early?';
+    swapTo(render());
+  });
+  amt.addEventListener('input', onSlide);
+  term.addEventListener('input', onSlide);
+  explain.textContent = render();
+})();
+</script>
+
+<!-- iso-tilt.js (inline). Orbit mode, tracking the whole hero so the stack turns while visitors read the copy. -->
+<script>
+(function (global) {
+  'use strict';
+  var DEFAULTS = { mode: 'orbit', trackOn: null, targets: null, maxYaw: 16, maxPitch: 8, maxTiltX: 10, maxTiltY: 14, reach: 520, ease: 0.08, invert: false, returnOnLeave: true, light: 22 };
+  function clamp(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
+  function IsoTilt(scene, options) {
+    if (!scene) throw new Error('IsoTilt: scene element not found');
+    var o = {};
+    for (var k in DEFAULTS) o[k] = (options && k in options) ? options[k] : DEFAULTS[k];
+    var reduce = global.matchMedia('(prefers-reduced-motion: reduce)');
+    var fine = global.matchMedia('(hover: hover) and (pointer: fine)');
+    var track = o.trackOn || scene.closest('section') || global;
+    var rect = scene.getBoundingClientRect();
+    /* Elements that receive the variables: the scene by default, or only the ones that read them */
+    var targets = o.targets ? Array.prototype.slice.call(scene.querySelectorAll(o.targets)) : [scene];
+    var target = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
+    var raf = 0, last = 0, visible = true, stale = false;
+    /* Scroll/resize only mark the rect stale; it's re-measured lazily on the next pointer move */
+    function measure() { stale = true; }
+    function enabled() { return !reduce.matches && fine.matches; }
+    function onMove(e) {
+      if (!enabled() || e.pointerType === 'touch') return;
+      if (stale) { rect = scene.getBoundingClientRect(); stale = false; }
+      var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2, s = o.invert ? -1 : 1;
+      target.x = s * clamp((e.clientX - cx) / o.reach);
+      target.y = s * clamp((e.clientY - cy) / o.reach);
+      kick();
+    }
+    function onLeave() { if (!o.returnOnLeave) return; target.x = 0; target.y = 0; kick(); }
+    function write() {
+      var x = cur.x, y = cur.y, v = {
+        '--iso-x': x.toFixed(4), '--iso-y': y.toFixed(4),
+        '--iso-yaw': (-x * o.maxYaw).toFixed(3) + 'deg', '--iso-pitch': (-y * o.maxPitch).toFixed(3) + 'deg'
+      };
+      /* Only write what the current mode reads: every extra property is another style invalidation per frame */
+      if (o.mode === 'tilt') { v['--iso-tilt-x'] = (-y * o.maxTiltX).toFixed(3) + 'deg'; v['--iso-tilt-y'] = (x * o.maxTiltY).toFixed(3) + 'deg'; }
+      if (o.light) { v['--iso-lx'] = (50 + x * o.light).toFixed(2) + '%'; v['--iso-ly'] = (50 + y * o.light).toFixed(2) + '%'; }
+      for (var i = 0; i < targets.length; i++) for (var k in v) targets[i].style.setProperty(k, v[k]);
+    }
+    function frame(t) {
+      var dt = last ? Math.min(t - last, 64) : 16.667; last = t;
+      var a = 1 - Math.pow(1 - o.ease, dt / 16.667);
+      cur.x += (target.x - cur.x) * a; cur.y += (target.y - cur.y) * a;
+      write();
+      if (Math.abs(target.x - cur.x) < 0.0005 && Math.abs(target.y - cur.y) < 0.0005) {
+        cur.x = target.x; cur.y = target.y; write(); raf = 0; last = 0; return;
+      }
+      raf = global.requestAnimationFrame(frame);
+    }
+    function kick() { if (!raf && visible) raf = global.requestAnimationFrame(frame); }
+    function onPrefChange() { if (!enabled()) { target.x = target.y = cur.x = cur.y = 0; write(); } }
+    var io = 'IntersectionObserver' in global ? new IntersectionObserver(function (en) { visible = en[0].isIntersecting; if (visible) { measure(); kick(); } }) : null;
+    var ro = 'ResizeObserver' in global ? new ResizeObserver(measure) : null;
+    track.addEventListener('pointermove', onMove, { passive: true });
+    track.addEventListener('pointerleave', onLeave, { passive: true });
+    global.addEventListener('scroll', measure, { passive: true });
+    global.addEventListener('resize', measure, { passive: true });
+    reduce.addEventListener && reduce.addEventListener('change', onPrefChange);
+    fine.addEventListener && fine.addEventListener('change', onPrefChange);
+    if (io) io.observe(scene);
+    if (ro) ro.observe(scene);
+    scene.setAttribute('data-iso-mode', o.mode);
+    write();
+    return {
+      set: function (x, y) { target.x = clamp(x); target.y = clamp(y); kick(); },
+      jump: function (x, y) { target.x = cur.x = clamp(x); target.y = cur.y = clamp(y); write(); },
+      destroy: function () {
+        track.removeEventListener('pointermove', onMove); track.removeEventListener('pointerleave', onLeave);
+        global.removeEventListener('scroll', measure); global.removeEventListener('resize', measure);
+        if (io) io.disconnect(); if (ro) ro.disconnect(); if (raf) global.cancelAnimationFrame(raf);
+      }
+    };
+  }
+  global.IsoTilt = IsoTilt;
+})(window);
+
+window.heroTilt = IsoTilt(document.querySelector('.iso'), {
+  mode: 'orbit', trackOn: document.querySelector('.hero'), maxYaw: 16, maxPitch: 7, reach: 580, ease: 0.07,
+  targets: '.iso-floor-glow, .iso-stage, .slab, .iso-note', light: 0
+});
+</script>
+</body>
+</html>
