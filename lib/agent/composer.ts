@@ -24,7 +24,7 @@ const RESPONSES: Partial<Record<RoutePlan["handler"], string>> = {
 
 export function routeResponse(plan: RoutePlan): RagAnswer {
   const text = plan.reason === "explicit_memory_request" ? RESPONSES.memory!
-    : plan.reason === "catalog_required" ? "The reviewed product-terms catalog is not connected yet, so I cannot verify exact rates, fees or amounts. Please check the bank's official product page or an adviser. I can help explain sourced conditions and documents."
+    : plan.reason === "catalog_required" ? "Verified product prices are not available in this preview, so I cannot confirm exact rates, fees or amounts. Please check the bank's official product page or an adviser. I can help explain sourced conditions and documents."
     : plan.reason === "confirm_track_before_access" ? "Is this about a product for you personally or for a business? This chat uses your personal banking profile."
     : plan.reason === "uncertain_goal_count" ? "Which financial goal would you like us to work through first?"
     : RESPONSES[plan.handler] ?? RESPONSES.unavailable!;

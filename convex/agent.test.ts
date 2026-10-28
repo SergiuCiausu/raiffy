@@ -72,7 +72,7 @@ describe("UI to Jev to RAG pipeline", () => {
     runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "The interest rate is 5.5%." });
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(result.answer.text).not.toContain("5.5");
-    expect(result.answer.text).toContain("catalog is not connected");
+    expect(result.answer.text).toContain("prices are not available");
     expect(result.answer.verification.financialTermsSupported).toBe(false);
     expect(result.answer.ui.mode).toBe("degraded");
   });
