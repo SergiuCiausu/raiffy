@@ -19,6 +19,8 @@ Read only the files the task needs:
 | Operator and admin console: catalog editing, rules, prompts, reviews, evals | `docs/shared/console.md` |
 | Relationship pricing, conditional discounts, competitor evidence, counter-offer bands and logging, client personas | `docs/shared/pricing.md` |
 | Shared chats: share links, members and viewers, data scope, one agent per prompt | `docs/shared/shared-chats.md` |
+| Raiffy inside Smart Mobile: launch context, deep links, status events, proactive cards, mobile layout | `docs/shared/smart-mobile.md` |
+| The 10 "From Raiffy" cards, toggling, and what happens when a customer taps one but doesn't act | `docs/shared/raiffy-recommendations/` |
 | Anything business-specific | `docs/business/scope-and-roadmap.md` first |
 
 Tracks: `docs/individuals/` and `docs/business/`. Business files only list differences; the individuals rules apply to businesses unless overridden.
@@ -48,4 +50,4 @@ Also: the Vercel AI SDK (streaming and generative UI), Convex reactive queries a
 
 ## Brand
 
-Palette, fonts and visual language come from `../DESIGN.md` and the HTML prototypes (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`). Use the yellow `#FFD23F` and amber `#FF9A3D` accent as light, ink `#1A1A1A` for selection, and Geist with Geist Mono for numbers. They override any palette or font named elsewhere in this spec.
+Palette, fonts and visual language come from `../DESIGN.md` and the HTML prototypes (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`, `smart-mobile.html`). Use the yellow `#FFD23F` and amber `#FF9A3D` accent as light, ink `#1A1A1A` for selection, and Geist with Geist Mono for numbers. They override any palette or font named elsewhere in this spec.

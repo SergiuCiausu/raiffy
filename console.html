@@ -1,0 +1,1743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Console · Raiffy</title>
+<meta name="description" content="Concept operator console for Raiffy: review flagged answers, plans and counter-offers, and edit products and parameters with approval.">
+<!--
+  Raiffy: operator and admin console (docs/shared/console.md). Front end only: roles, saving and approvals are simulated. Nothing leaves the page.
+  Mode: Daylight only. Ink #1A1A1A for selection; accent as light (highlighted rows, halos, added text in diffs). --danger only for failing checks.
+  Routes: #reviews · #reviews/<id> · #products · #products/<id> · #parameters · #approvals · #approvals/<id> · #audit
+  Demo bridge: requests sent from chat.html ("Ask a specialist", "Check my plan") arrive here through localStorage, and decisions go back the same way.
+  Mock data lives in one block (MOCK DATA) in the spec's shapes, so it can move to Convex unchanged.
+  Calculations (annuity, DAE, impact preview) mirror the deterministic tools in lib/ and move there at conversion.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ───────────── Tokens (shared with raiffy.html and chat.html) ───────────── */
+:root {
+  --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --text-body: 15px; --text-sm: 14px; --text-xs: 13px;
+  --radius-card: 20px; --radius-btn: 10px;
+  --accent-a: #FFD23F; --accent-b: #FF9A3D;
+  --ink: #1A1A1A;
+  --halo: 0 0 0 4px rgba(255,210,63,.35);
+  --danger: #B42318;     /* failing checks and errors only */
+  --ok: #2E7D4F;         /* checks only */
+  --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0;
+  --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12);
+  --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.04); --shadow-float: 0 8px 30px rgba(20,20,40,.08);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; color: var(--text-1); background: var(--bg);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow: hidden; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; }
+button, input, textarea, select { font: inherit; color: inherit; }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.micro { font-size: 11px; color: var(--text-3); }
+.muted { color: var(--text-3); }
+.eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 8px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 13px; text-decoration: none; }
+.skip:focus { top: 12px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--radius-btn);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; white-space: nowrap; font: 500 var(--text-xs)/1 var(--font-sans);
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.btn svg { width: 15px; height: 15px; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-ghost { background: var(--surface); color: var(--text-1); border-color: var(--border-strong); }
+.btn:disabled { cursor: default; }
+.btn-dark:disabled { background: #D9D5CB; color: #fff; }
+.btn-ghost:disabled { color: var(--text-3); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; }
+.btn-xs { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
+.icon-btn { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent;
+  color: var(--text-2); cursor: pointer; transition: color 150ms ease, background-color 150ms ease, transform 160ms var(--ease-out); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn:active { transform: scale(.94); }
+.link { border: 0; padding: 0; background: none; cursor: pointer; font-size: 12.5px; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .btn-dark:hover:not(:disabled) { background: #2A2A2A; }
+  .btn-ghost:hover:not(:disabled) { border-color: rgba(20,20,20,.24); }
+  .icon-btn:hover { color: var(--text-1); background: rgba(20,20,20,.05); }
+  .link:hover { text-decoration-color: var(--ink); }
+}
+
+.ava-raiffy { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 11px; height: 11px; stroke-width: 2.2; }
+.ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
+  background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+  color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
+.pill svg { width: 11px; height: 11px; }
+.pill.amber { --c: #8A6A00; background: #FFF3C4; }
+.pill.ink { --c: #1A1A1A; }
+.pill.ok { --c: #2E7D4F; }
+.pill.bad { --c: #B42318; }
+.pill.line { background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); --c: #5C5C5F; }
+
+/* ───────────── App shell ───────────── */
+.app { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.side { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px 12px; background: var(--surface-2); border-right: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 6px; text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -.01em; border-radius: 6px; }
+.logo small { font-weight: 400; font-size: 12px; color: var(--text-3); }
+.logo-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--accent-a); display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
+.logo-mark svg { width: 14px; height: 14px; color: #1A1A1A; stroke-width: 2.2; }
+.nav { flex: 1; min-height: 0; overflow-y: auto; margin-top: 14px; display: grid; align-content: start; gap: 2px; }
+.nav .grp { padding: 14px 10px 6px; }
+.nav a { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; text-decoration: none; font-size: 13.5px; color: var(--text-2);
+  transition: background-color 150ms ease, color 150ms ease; }
+.nav a svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
+.nav a span { flex: 1; }
+.nav a small { font: 500 11px var(--font-mono); color: var(--text-3); }
+.nav a small.due { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 10.5px; }
+.nav a[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
+.nav a[aria-current="page"] svg { color: var(--text-1); }
+.nav .later { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px; font-size: 12.5px; color: var(--text-3); }
+.nav .later svg { width: 14px; height: 14px; }
+@media (hover: hover) and (pointer: fine) { .nav a:not([aria-current="page"]):hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
+.me { display: grid; gap: 10px; padding: 12px 6px 0; border-top: 1px solid var(--border); }
+.me-row { display: flex; align-items: center; gap: 10px; }
+.me-row div { flex: 1; min-width: 0; line-height: 1.3; }
+.me-row b { display: block; font-size: 13px; font-weight: 500; }
+.me-row small { font-size: 11.5px; color: var(--text-3); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(20,20,20,.05); }
+.seg button { height: 28px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.demo-note { font-size: 10.5px; color: var(--text-3); line-height: 1.4; }
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { flex: none; display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.top .menu { display: none; margin-left: -8px; }
+.crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); white-space: nowrap; overflow: hidden; }
+.crumbs a { text-decoration: none; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { .crumbs a:hover { color: var(--text-1); } }
+.crumbs svg { width: 13px; height: 13px; flex: none; }
+.crumbs b { color: var(--text-1); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.scroll:focus { outline: none; }
+.page { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.page-head h1 { font-size: 24px; line-height: 1.15; letter-spacing: -.03em; }
+.page-head p { margin-top: 6px; font-size: 14px; color: var(--text-2); max-width: 64ch; }
+
+/* Chips (filters) */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.qbtn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
+  cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
+.qbtn small { font: 500 10.5px var(--font-mono); color: var(--text-3); }
+.qbtn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.qbtn[aria-pressed="true"] small { color: rgba(255,255,255,.6); }
+@media (hover: hover) and (pointer: fine) { .qbtn:not([aria-pressed="true"]):hover { border-color: rgba(20,20,20,.24); color: var(--text-1); } }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.search { display: flex; align-items: center; gap: 8px; height: 32px; width: 240px; max-width: 100%; padding: 0 10px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface); }
+.search:focus-within { border-color: var(--ink); box-shadow: var(--halo); }
+.search svg { width: 14px; height: 14px; color: var(--text-3); flex: none; }
+.search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 13px; }
+
+/* Cards and tables */
+.card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.card-h h2, .card-h h3 { font-size: 13.5px; letter-spacing: -.005em; display: inline-flex; align-items: center; gap: 8px; }
+.card-h h2 svg, .card-h h3 svg { width: 14px; height: 14px; color: var(--text-2); }
+.card-b { padding: 16px; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { padding: 9px 16px; text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.tbl td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .r { text-align: right; }
+.tbl td.mono { font-size: 12px; color: var(--text-2); }
+.tbl tr.rowlink { cursor: pointer; transition: background-color 150ms ease; }
+@media (hover: hover) and (pointer: fine) { .tbl tr.rowlink:hover { background: #FBFAF8; } }
+.tbl tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--accent-a); }
+.tbl .t-main { display: block; font-weight: 500; color: var(--text-1); }
+.tbl .t-sub { display: block; font-size: 11.5px; color: var(--text-3); }
+.tbl a.t-main { text-decoration: none; }
+.tbl a.t-main:hover { text-decoration: underline; text-underline-offset: 3px; }
+.empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
+.wait { font: 500 12px var(--font-mono); }
+.wait.late { color: var(--danger); }
+
+/* KPI strip */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: 14px; background: var(--surface); margin-bottom: 20px; }
+.kpi { padding: 14px 16px; border-left: 1px solid var(--border); }
+.kpi:first-child { border-left: 0; }
+.kpi b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12px; color: var(--text-3); }
+@media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--border); } }
+
+/* Review workspace: context · answer · facts */
+.ws { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: start; }
+.col > * { min-width: 0; }
+@media (max-width: 1439px) { .ws { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); } .ws .ctx-col { grid-column: 1 / -1; order: 3; } }
+@media (max-width: 959px) { .ws { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 16px; min-width: 0; }
+.access { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: 12px; color: var(--text-2); }
+.access svg { width: 13px; height: 13px; flex: none; }
+.convo { display: grid; gap: 12px; padding: 14px 16px; max-height: 520px; overflow-y: auto; }
+.bub { justify-self: end; max-width: 92%; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: #EFEDE8; font-size: 13px; line-height: 1.5; }
+.bub-r { display: grid; grid-template-columns: 22px 1fr; gap: 8px; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.bub-r.flagged { padding: 8px; margin: -8px; border-radius: 10px; background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.3); color: var(--text-1); }
+.masked { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 6px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); font: 500 11.5px var(--font-mono); }
+.masked button { border: 0; padding: 0; background: none; cursor: pointer; display: grid; color: var(--text-3); }
+.masked button svg { width: 12px; height: 12px; }
+.note-q { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #FBFAF8; font-size: 13px; line-height: 1.5; }
+.note-q svg { width: 13px; height: 13px; vertical-align: -2px; }
+.note-q b { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); margin-bottom: 2px; }
+
+.answer { display: grid; gap: 14px; padding: 16px; }
+.answer-text { display: grid; gap: 10px; font-size: 14px; line-height: 1.6; }
+.answer-text p { max-width: 68ch; }
+.answer-text textarea { width: 100%; min-height: 92px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: #fff; resize: vertical;
+  font-size: 14px; line-height: 1.55; outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; }
+.answer-text textarea:focus { border-color: var(--ink); box-shadow: var(--halo); }
+.lock { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-3); }
+.lock svg { width: 13px; height: 13px; flex: none; }
+.vbadge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.vbadge svg { width: 13px; height: 13px; }
+.vbadge.ok svg { color: var(--ok); }
+
+/* Answer blocks (same markup as chat.html, static here) */
+.gcard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.gc-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
+.gc-h > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.gc-h svg { width: 14px; height: 14px; color: var(--text-2); }
+.gc-h .micro { font-weight: 400; font-family: var(--font-mono); }
+.gc-note { padding: 9px 14px; border-top: 1px solid var(--border); background: #FBFAF8; font-size: 11.5px; color: var(--text-3); }
+.cmp { display: grid; grid-template-columns: 1.3fr 1fr 1fr; min-width: 420px; font-size: 12.5px; }
+.cmp > div { padding: 8px 14px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.cmp .th { border-top: 0; font-size: 12px; font-weight: 600; }
+.cmp .th small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.cmp .rk { color: var(--text-3); }
+.cmp .on { background: #FFF8DC; font-weight: 500; }
+.cmp .rc { background: #FFFCF0; }
+.cmp .rc.on { background: #FFF3C4; }
+.cmp .na { color: var(--text-3); }
+.rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; margin-top: 6px; padding: 0 8px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
+  font-size: 10.5px; font-weight: 600; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+.rec-badge svg { width: 11px; height: 11px; stroke-width: 2.4; }
+.srcs { display: flex; flex-wrap: wrap; gap: 6px; }
+.src { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 11.5px; color: var(--text-2); text-decoration: none; }
+.src svg { width: 12px; height: 12px; }
+@media (hover: hover) and (pointer: fine) { a.src:hover { border-color: rgba(200,150,20,.4); background: #FFF8DC; color: var(--text-1); } }
+
+/* Facts list (right column) */
+.facts { display: grid; }
+.fact { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12.5px; }
+.fact:first-child { border-top: 0; }
+.fact > span:first-child { color: var(--text-3); }
+.fact > b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.fact .sub { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-3); }
+.fact.warn .sub { color: #7A5A00; }
+.fact.bad .sub { color: var(--danger); }
+
+/* Checks */
+.checks { display: grid; }
+.chk { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 11px 16px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.45; }
+.chk:first-child { border-top: 0; }
+.chk .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; }
+.chk .dot svg { width: 11px; height: 11px; stroke-width: 3; color: #fff; }
+.chk.pass .dot { background: var(--ok); }
+.chk.warn .dot { background: #FFF3C4; box-shadow: inset 0 0 0 1px rgba(200,150,20,.5); }
+.chk.warn .dot svg { color: #7A5A00; }
+.chk.fail .dot { background: var(--danger); }
+.chk b { display: block; font-weight: 500; }
+.chk small { display: block; font-size: 12px; color: var(--text-3); }
+.chk.fail small { color: var(--danger); }
+.chk.warn small { color: #7A5A00; }
+
+/* Plan document (indicative simulation, laid out like the SECCI) */
+.doc { padding: 22px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.answer, .decide, .sheet-b { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 640px) { .doc { padding: 16px; } }
+.doc-label { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.3); font-size: 12.5px; color: #6B5200; }
+.doc-label svg { width: 14px; height: 14px; flex: none; }
+.doc h3 { font-size: 13px; margin-bottom: 8px; }
+.doc-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); border-radius: 12px; }
+.doc-grid > div { padding: 10px 14px; border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+.doc-grid > div:nth-child(3n+1) { border-left: 0; }
+.doc-grid > div:nth-child(-n+3) { border-top: 0; }
+.doc-grid span { display: block; font-size: 11.5px; color: var(--text-3); }
+.doc-grid b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+@media (max-width: 560px) { .doc-grid { grid-template-columns: 1fr 1fr; } .doc-grid > div { border-left: 0 !important; border-top: 1px solid var(--border) !important; } .doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border) !important; } .doc-grid > div:nth-child(-n+2) { border-top: 0 !important; } }
+.lines { display: grid; border: 1px solid var(--border); border-radius: 12px; }
+.lines .ln { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+.lines .ln:first-child { border-top: 0; }
+.lines .ln small { display: block; font-size: 11.5px; color: var(--text-3); }
+.lines .ln .amt { font: 500 12.5px var(--font-mono); text-align: right; }
+.sched td, .sched th { padding: 7px 12px; font-size: 12px; }
+.sched td { font-family: var(--font-mono); }
+.handoff-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--border-strong); font-size: 12.5px; color: var(--text-2); }
+.handoff-row svg { width: 14px; height: 14px; }
+.sign { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px; background: #F1F8F3; font-size: 13px; color: #1E5B37; }
+.sign svg { width: 15px; height: 15px; }
+
+/* Diff: added text as light, removed text struck through; never red/green */
+.diff { font-size: 13.5px; line-height: 1.65; }
+.diff ins { text-decoration: none; background: #FFF3C4; border-radius: 3px; padding: 0 2px; box-shadow: 0 0 0 1px rgba(200,150,20,.25); }
+.diff del { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--text-3); }
+.vdiff { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--font-mono); }
+.vdiff del { color: var(--text-3); }
+.vdiff svg { width: 13px; height: 13px; color: var(--text-3); }
+.vdiff ins { text-decoration: none; background: #FFF3C4; padding: 1px 6px; border-radius: 5px; color: var(--text-1); }
+
+/* Action bar under the answer */
+.actbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--border); background: #FBFAF8; border-radius: 0 0 16px 16px; }
+.actbar .spacer { flex: 1; }
+.scope-note { font-size: 11.5px; color: var(--text-3); }
+
+/* Eval draft card */
+.evalc { border: 1px solid rgba(200,150,20,.3); border-radius: 14px; background: #FFFDF5; }
+.evalc .card-h { border-bottom-color: rgba(200,150,20,.2); }
+.evalc dl { margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; padding: 14px 16px; font-size: 12.5px; }
+.evalc dt { color: var(--text-3); }
+.evalc dd { margin: 0; }
+
+/* Counter-offer */
+.co-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; min-width: 560px; font-size: 12.5px; }
+.co-grid > div { padding: 9px 14px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.co-grid .th { border-top: 0; font-size: 12px; font-weight: 600; }
+.co-grid .th small { display: block; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.co-grid .rk { color: var(--text-3); }
+.co-grid .you { background: #FFFCF0; }
+.co-grid .on { font-weight: 600; }
+.lvl { display: grid; gap: 6px; }
+.lvl-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text-3); }
+.lvl-row i { width: 10px; height: 10px; border-radius: 50%; justify-self: center; box-shadow: inset 0 0 0 1.5px var(--border-strong); }
+.lvl-row.req { color: var(--text-1); font-weight: 500; }
+.lvl-row.req i { background: var(--ink); box-shadow: none; }
+.decide { display: grid; gap: 14px; padding: 16px; }
+.radio-row { display: grid; gap: 6px; }
+.radio { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 13px; }
+.radio input { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin: 2px 0 0; border-radius: 50%; border: 1px solid var(--border-strong); background: #fff; cursor: pointer; }
+.radio input:checked { border: 5px solid var(--ink); }
+.radio:has(input:checked) { border-color: var(--ink); }
+.radio small { display: block; font-size: 12px; color: var(--text-3); }
+
+/* Forms */
+.field { display: grid; gap: 6px; }
+.field > label, .field > .lbl { font-size: 12.5px; font-weight: 500; color: var(--text-2); }
+.field small { font-size: 11.5px; color: var(--text-3); }
+.input, .select, .textarea { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: #fff; outline: none; font-size: 13.5px;
+  transition: border-color 150ms ease, box-shadow 150ms ease; }
+.textarea { height: auto; min-height: 76px; padding: 8px 10px; resize: vertical; line-height: 1.5; }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--ink); box-shadow: var(--halo); }
+.input.mono { font-family: var(--font-mono); font-size: 13px; }
+.input[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: var(--danger); }
+.err { font-size: 12px; color: var(--danger); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+.check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 13px; line-height: 1.45; color: var(--text-2); cursor: pointer; }
+.check input { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin: 1px 0 0; border: 1px solid var(--border-strong); border-radius: 6px;
+  background: #fff center / 12px no-repeat; cursor: pointer; }
+.check input:checked { background-color: var(--ink); border-color: var(--ink);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+
+/* Product detail */
+.pd { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 959px) { .pd { grid-template-columns: minmax(0, 1fr); } .secnav { display: none !important; } }
+.secnav { position: sticky; top: 0; display: grid; gap: 2px; }
+.secnav a { display: flex; justify-content: space-between; align-items: center; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--text-2); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .secnav a:hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
+.secnav a.on { background: var(--surface); color: var(--text-1); box-shadow: 0 0 0 1px var(--border); }
+.secnav a i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-b); box-shadow: 0 0 0 3px rgba(255,154,61,.2); }
+.sections { display: grid; gap: 16px; min-width: 0; }
+.sections .card { scroll-margin-top: 16px; }
+.sec-intro { padding: 0 16px 12px; font-size: 12.5px; color: var(--text-3); }
+
+/* Dated-value row: the value, its source and its review date, always together */
+.dv { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+.dv:first-child { border-top: 0; }
+.dv-name b { display: block; font-weight: 500; }
+.dv-name small { display: block; font-size: 11.5px; color: var(--text-3); }
+.dv-val { font: 500 13.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+.dv-val small { display: block; font: 400 11px var(--font-sans); color: var(--text-3); }
+.dv-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 11.5px; color: var(--text-3); }
+.dv-meta .src { height: 22px; font-size: 11px; }
+.dv.is-stale { background: #FFFCF0; }
+.dv.is-pending { background: #FBFAF8; }
+.dv .internal { --c: #5C5C5F; }
+@media (max-width: 760px) { .dv { grid-template-columns: 1fr auto; } .dv-meta { grid-column: 1 / -1; } .dv-val { text-align: right; } .dv > .btn, .dv > .icon-btn, .dv > .dv-act { grid-row: 1; grid-column: 2; } .dv-val { grid-column: 1 / -1; text-align: left; } }
+.dv-act { display: flex; gap: 4px; }
+.adj { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+.band { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+.band:first-child { border-top: 0; }
+.band-h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+.band ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text-2); font-size: 12.5px; }
+.hist { display: grid; }
+.hv { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+.hv:first-child { border-top: 0; }
+.hv .mono { font-size: 12px; }
+.hv small { display: block; font-size: 11.5px; color: var(--text-3); }
+.ro { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border); }
+.ro:first-child { border-top: 0; }
+.ro .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); }
+.ro .ic svg { width: 14px; height: 14px; color: var(--text-2); }
+.ro b { display: block; font-size: 13.5px; font-weight: 500; }
+.ro p { font-size: 12.5px; color: var(--text-2); }
+.ro .evs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+
+/* Impact preview */
+.impact { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.impact .tbl td, .impact .tbl th { padding: 8px 12px; font-size: 12px; }
+.impact .chg { background: #FFF8DC; }
+.impact-sum { padding: 9px 12px; border-top: 1px solid var(--border); background: #FBFAF8; font-size: 12px; color: var(--text-2); }
+
+/* Sheet: right-side editor drawer (native dialog for focus handling) */
+dialog.sheet { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(520px, 100vw); max-width: 100vw; height: 100%; max-height: 100%; padding: 0; border: 0; border-left: 1px solid var(--border);
+  background: var(--bg); color: var(--text-1); box-shadow: -20px 0 50px rgba(20,20,40,.12); }
+dialog.sheet::backdrop { background: rgba(20,20,20,.28); }
+dialog.sheet[open] { display: flex; flex-direction: column; }
+.sheet-h { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
+.sheet-h h2 { font-size: 15px; letter-spacing: -.01em; }
+.sheet-b { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; display: grid; align-content: start; gap: 16px; }
+.sheet-f { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+.from-review { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: #FFF8DC; font-size: 12.5px; color: #6B5200; }
+.from-review svg { width: 14px; height: 14px; }
+
+/* Toast */
+.toast { position: fixed; left: 50%; bottom: 24px; z-index: 60; translate: -50% 0; display: flex; gap: 10px; align-items: center; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px;
+  background: var(--ink); color: #fff; font-size: 13px; box-shadow: var(--shadow-float); }
+.toast svg { width: 15px; height: 15px; color: var(--accent-a); flex: none; }
+
+/* Drawer for the sidebar on narrow screens */
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(20,20,20,.28); }
+@media (max-width: 859px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; z-index: 40; top: 0; left: 0; bottom: 0; width: min(280px, 86vw); box-shadow: 20px 0 50px rgba(20,20,40,.12);
+    transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
+  .app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
+  .top { padding: 0 12px 0 16px; }
+  .top .menu { display: grid; }
+  .page { padding: 20px 16px 48px; }
+  .hide-sm { display: none; }
+}
+
+/* ───────────── Motion ───────────── */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .page.enter { animation: rise 320ms var(--ease-out) backwards; }
+  .toast:not([hidden]) { animation: rise 260ms var(--ease-out); }
+  .scrim:not([hidden]) { animation: fade 200ms ease; }
+  dialog.sheet[open] { animation: slide 260ms var(--ease-out); }
+  dialog.sheet[open]::backdrop { animation: fade 200ms ease; }
+  @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
+}
+@media (prefers-reduced-motion: reduce) { .side { transition-duration: 0s !important; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Console navigation">
+    <a class="logo" href="#reviews"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy <small>Console</small></a>
+    <nav class="nav" id="nav" aria-label="Console pages"></nav>
+    <div class="me">
+      <div class="me-row"><span class="ava" id="me-ava" aria-hidden="true">AM</span><div><b id="me-name">Ana M.</b><small id="me-role">Credit specialist · operator</small></div></div>
+      <div class="seg" role="group" aria-label="Viewing as (demo only)">
+        <button type="button" data-role="operator" aria-pressed="true">Operator</button>
+        <button type="button" data-role="admin" aria-pressed="false">Admin</button>
+      </div>
+      <p class="demo-note">Demo only: switch roles to show the approval flow. Real roles come from sign-in.</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button type="button" class="icon-btn menu" id="open-side" aria-label="Open navigation" aria-controls="side" aria-expanded="false"><i data-lucide="menu"></i></button>
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+      <div class="top-actions" id="top-actions"></div>
+    </header>
+    <main class="scroll" id="content" tabindex="-1">
+      <div class="page" id="page"></div>
+    </main>
+  </div>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title"></dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+<p class="sr-only" aria-live="polite" id="announce"></p>
+
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var narrow = window.matchMedia('(max-width: 859px)');
+  function icons() { if (window.lucide) lucide.createIcons(); }
+  function ic(n) { return '<i data-lucide="' + n + '"></i>'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(n, d) { d = d || 0; var s = Math.abs(n).toFixed(d).split('.'); s[0] = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); return (n < 0 ? '−' : '') + s.join('.'); }
+  function lei(n, d) { return fmt(n, d) + ' lei'; }
+  function pct(n, d) { return fmt(n, d == null ? 2 : d) + '%'; }
+  function announce(msg) { var a = $('announce'); a.textContent = ''; setTimeout(function () { a.textContent = msg; }, 60); }
+  var NOW = new Date('2026-10-28T21:20:00');
+  /* Local time as an ISO string (the demo clock is local, never UTC) */
+  function liso(x) { return new Date(x - x.getTimezoneOffset() * 6e4).toISOString(); }
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function d(iso) { return new Date(iso + (iso.length === 10 ? 'T12:00:00' : '')); }
+  function day(iso) { var x = d(iso); return x.getDate() + ' ' + MONTHS[x.getMonth()] + (x.getFullYear() !== NOW.getFullYear() ? ' ' + x.getFullYear() : ''); }
+  function hm(iso) { var x = d(iso); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); }
+  function when(iso) { var x = d(iso), dd = Math.round((NOW - x) / 864e5); return x.toDateString() === NOW.toDateString() ? 'Today ' + hm(iso) : dd <= 1 ? 'Yesterday ' + hm(iso) : day(iso) + ' ' + hm(iso); }
+  function minsAgo(iso) { return Math.max(0, Math.round((NOW - d(iso)) / 6e4)); }
+  function isoMinus(mins) { return liso(new Date(NOW - mins * 6e4)).slice(0, 16); }
+  function daysTo(iso) { return Math.round((d(iso) - NOW) / 864e5); }
+  function staleness(reviewBy) { var n = daysTo(reviewBy); return n < 0 ? 'stale' : n <= 7 ? 'soon' : 'ok'; }
+
+  /* ───────────── Calculators (mirror lib/ deterministic tools) ─────────────
+     Annuity loan: monthly = P·r / (1 − (1+r)^−n). Total cost = interest + every fee and required package.
+     DAE: the annual rate that equates what the client receives (P − upfront fees) with what they pay. */
+  function annuity(P, n, ratePct) { var r = ratePct / 100 / 12; return r ? P * r / (1 - Math.pow(1 + r, -n)) : P / n; }
+  function dae(P, n, upfront, payment) {
+    var lo = 0, hi = 0.1, net = P - upfront;
+    for (var k = 0; k < 80; k++) {
+      var mid = (lo + hi) / 2, pv = payment * (1 - Math.pow(1 + mid, -n)) / mid;
+      if (pv > net) lo = mid; else hi = mid;
+    }
+    return (Math.pow(1 + (lo + hi) / 2, 12) - 1) * 100;
+  }
+  /* A loan quote from catalog values. withSalary applies the salary-transfer adjustment and adds its package. */
+  function loanQuote(prod, P, n, opt) {
+    opt = opt || {};
+    var v = prod.values, rate = v.base_rate.value + (opt.withSalary ? v.adj_salary.value : 0) + (opt.delta || 0);
+    var fee = opt.waiveFee ? 0 : v.origination.value, pkg = opt.withSalary ? v.package.value : 0;
+    var pm = annuity(P, n, rate), total = pm * n + fee + pkg * n;
+    return { rate: rate, monthly: pm + pkg, payment: pm, pkg: pkg, fee: fee, interest: pm * n - P, cost: total - P, total: total, dae: dae(P, n, fee, pm + pkg) };
+  }
+  function odQuote(prod, P, n) {
+    var v = prod.values, ok = n <= v.renewal.value && P <= v.max_amount.value;
+    var interest = P * v.base_rate.value / 100 * (n + 1) / 2 / 12, fee = v.admin_fee.value;
+    return { ok: ok, rate: v.base_rate.value, monthly: (P + interest + fee) / n, cost: interest + fee };
+  }
+  /* Recommendation rule (same as chat.html): the cheaper option that fits; a near tie goes to the fixed-rate loan. */
+  function recommend(lq, oq) {
+    if (!oq.ok) return 'loan';
+    if (Math.abs(lq.cost - oq.cost) < PARAMS.near_tie.value) return 'loan';
+    return oq.cost < lq.cost ? 'od' : 'loan';
+  }
+  function schedule(P, n, ratePct, pkg, start) {
+    var r = ratePct / 100 / 12, pm = annuity(P, n, ratePct), bal = P, rows = [], dt = d(start);
+    for (var k = 1; k <= n; k++) {
+      var it = bal * r, pr = pm - it; bal = Math.max(0, bal - pr);
+      var due = new Date(dt.getFullYear(), dt.getMonth() + k, 5);
+      rows.push({ date: liso(due).slice(0, 10), principal: pr, interest: it, fees: pkg, balance: bal });
+    }
+    return rows;
+  }
+
+  /* ═══════════════════════ MOCK DATA ═══════════════════════
+     Shapes follow docs/shared/console.md, pricing.md, plan-summary-handoff.md and product-decisions.md (Verification).
+     Every figure is illustrative. Each editable value is a DatedValue:
+       { label, value, fmt, sourceLabel, sourceUrl, validFrom, owner, reviewBy, internal? } */
+  var USERS = {
+    operator: { id: 'u_ana', name: 'Ana M.', initials: 'AM', role: 'Credit specialist · operator', sign: 'Ana M., credit specialist', level: 'specialist' },
+    admin:    { id: 'u_mihai', name: 'Mihai D.', initials: 'MD', role: 'Head of digital lending · admin', sign: 'Mihai D., head of digital lending', level: 'pricingCommittee' }
+  };
+  var LEVELS = { specialist: 'Specialist', branchManager: 'Branch manager', pricingCommittee: 'Pricing committee' };
+  var LEVEL_RANK = { specialist: 1, branchManager: 2, pricingCommittee: 3 };
+  var role = 'operator';
+  function me() { return USERS[role]; }
+
+  var RZB = 'https://www.raiffeisen.ro/';
+  function dv(label, value, f, src, validFrom, owner, reviewBy, extra) {
+    var o = { label: label, value: value, fmt: f, sourceLabel: src, sourceUrl: RZB, validFrom: validFrom, owner: owner, reviewBy: reviewBy };
+    for (var k in extra || {}) o[k] = extra[k];
+    return o;
+  }
+
+  // type Product = Versioned<{ name, type, track, description, values: Record<key, DatedValue>, documents, knowledge, bands: CounterOfferBand[] }>
+  var PRODUCTS = [
+    { id: 'personal-loan', name: 'Flexicredit personal loan', type: 'Personal loan', track: 'Individuals', icon: 'hand-coins', status: 'published', version: 7,
+      description: 'Unsecured loan in lei with a fixed rate for the whole term. Salary transfer lowers the rate and requires an account package.',
+      values: {
+        base_rate:    dv('Interest rate, list price', 9.4, 'pct', 'Lending rates, Oct 2026', '2026-10-01', 'Pricing · Ioana P.', '2027-01-15', { section: 'rates', sub: 'Fixed for the whole term' }),
+        adj_salary:   dv('With salary transfer', -1.5, 'pp', 'Lending rates, Oct 2026', '2026-10-01', 'Pricing · Ioana P.', '2027-01-15', { section: 'rates', sub: 'Condition: salary paid into Raiffeisen · requires the account package (its cost is in total cost and DAE)' }),
+        origination:  dv('Origination fee', 249, 'lei', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'One-off, paid when the loan is granted' }),
+        admin_fee:    dv('Monthly administration fee', 0, 'none', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Confirmed: no fee' }),
+        early_repay:  dv('Early repayment fee', 0.5, 'pctOf', 'Flexicredit T&C (2020, check it still applies)', '2020-12-12', 'Legal · Dan C.', '2026-12-01', { section: 'fees', sub: 'Of the amount repaid early · none in the last 12 months' }),
+        insurance:    dv('Mandatory insurance', 0, 'none', 'Flexicredit T&C (2020, check it still applies)', '2020-12-12', 'Legal · Dan C.', '2026-12-01', { section: 'fees', sub: 'Confirmed: none required. Optional life cover is offered separately.' }),
+        package:      dv('Required account package', 9, 'leiMo', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Only for the salary-transfer price' }),
+        fx_spread:    dv('FX spread', 0, 'na', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'fees', sub: 'Not applicable: lei only' }),
+        min_amount:   dv('Minimum amount', 1000, 'lei', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        max_amount:   dv('Maximum amount', 150000, 'lei', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        min_term:     dv('Minimum term', 6, 'months', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        max_term:     dv('Maximum term', 60, 'months', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        min_income:   dv('Minimum net income', 1500, 'leiMo', 'Credit policy, individuals', '2026-03-01', 'Risk · Elena V.', '2027-03-01', { section: 'eligibility' }),
+        age:          dv('Age', '18 to 70 at the end of the loan', 'text', 'Credit policy, individuals', '2026-03-01', 'Risk · Elena V.', '2027-03-01', { section: 'eligibility' })
+      },
+      eligibilityNote: 'Affordability uses the DTI cap from Parameters.',
+      documents: [{ name: 'ID card', note: 'Valid for the whole term' }, { name: 'Proof of income', note: 'Not needed when the salary is paid into Raiffeisen' }, { name: 'Proof of address', note: 'Utility bill from the last 3 months' }],
+      knowledge: [{ kind: 'Document', name: 'Flexicredit terms and conditions', meta: 'Dec 2020 · check it still applies' }, { kind: 'Document', name: 'Fee information document', meta: 'Jul 2026' }, { kind: 'FAQ', name: 'Can I repay my loan early?', meta: '4 paraphrases' }, { kind: 'FAQ', name: 'What does salary transfer change?', meta: '5 paraphrases' }],
+      bands: [
+        { segment: 'Risk band A–B · salary transfer · 5,000–150,000 lei', levers: [{ kind: 'feeWaiver', label: 'Waive the origination fee' }, { kind: 'marginCut', maxDelta: 0.3 }],
+          conditions: ['salary_domiciled'], escalation: [{ level: 'specialist', upToDelta: 0.6 }, { level: 'branchManager', upToDelta: 1.25 }, { level: 'pricingCommittee' }], validityDays: 7, owner: 'Pricing · Ioana P.', reviewBy: '2027-01-15' },
+        { segment: 'Risk band C · any amount', levers: [{ kind: 'feeWaiver', label: 'Waive the origination fee' }],
+          conditions: [], escalation: [{ level: 'specialist', upToDelta: 0.25 }, { level: 'branchManager', upToDelta: 0.5 }], validityDays: 7, owner: 'Pricing · Ioana P.', reviewBy: '2027-01-15' }
+      ],
+      history: [
+        { version: 7, at: '2026-10-01T09:00', by: 'Ioana P.', approvedBy: 'Mihai D.', what: 'Interest rate, list price 9.65% → 9.40%' },
+        { version: 6, at: '2026-07-01T09:00', by: 'Ioana P.', approvedBy: 'Mihai D.', what: 'Fee schedule July 2026: package 8 → 9 lei / month' },
+        { version: 5, at: '2026-03-01T09:00', by: 'Elena V.', approvedBy: 'Mihai D.', what: 'Minimum net income 1,300 → 1,500 lei' }
+      ] },
+    { id: 'overdraft', name: 'Overdraft', type: 'Overdraft', track: 'Individuals', icon: 'wallet', status: 'published', version: 4,
+      description: 'A credit line on the current account. Interest only on what is used, repay any amount at any time, renewed every 12 months.',
+      values: {
+        base_rate:   dv('Interest rate', 11.5, 'pct', 'Lending rates, Oct 2026', '2026-10-01', 'Pricing · Ioana P.', '2027-01-15', { section: 'rates', sub: 'Variable · IRCC + margin' }),
+        admin_fee:   dv('Administration fee', 9, 'lei', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Once per 12-month period' }),
+        early_repay: dv('Early repayment fee', 0, 'none', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Confirmed: no fee' }),
+        insurance:   dv('Mandatory insurance', 0, 'none', 'Overdraft T&C', '2025-02-01', 'Legal · Dan C.', '2026-11-30', { section: 'fees', sub: 'Confirmed: none required' }),
+        max_amount:  dv('Maximum limit', 15000, 'lei', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        renewal:     dv('Renewal period', 12, 'months', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        min_income:  dv('Minimum net income', 1500, 'leiMo', 'Credit policy, individuals', '2026-03-01', 'Risk · Elena V.', '2027-03-01', { section: 'eligibility' })
+      },
+      documents: [{ name: 'ID card', note: '' }, { name: 'Salary paid into Raiffeisen', note: 'Or proof of income' }],
+      knowledge: [{ kind: 'Document', name: 'Overdraft terms and conditions', meta: 'Feb 2025' }, { kind: 'FAQ', name: 'How is overdraft interest calculated?', meta: '3 paraphrases' }],
+      bands: [],
+      history: [{ version: 4, at: '2026-10-01T09:00', by: 'Ioana P.', approvedBy: 'Mihai D.', what: 'Interest rate 11.25% → 11.50%' }] },
+    { id: 'home-loan', name: 'Home loan · fixed 5 years', type: 'Mortgage', track: 'Individuals', icon: 'home', status: 'published', version: 3,
+      description: 'A mortgage in lei, fixed for the first 5 years, then IRCC plus a margin. The widest counter-offer room and more escalation levels.',
+      values: {
+        base_rate:   dv('Fixed rate, first 5 years', 5.99, 'pct', 'Lending rates, Oct 2026', '2026-10-01', 'Pricing · Ioana P.', '2027-01-15', { section: 'rates' }),
+        margin:      dv('Margin after year 5', 2.5, 'ppIdx', 'Lending rates, Oct 2026', '2026-10-01', 'Pricing · Ioana P.', '2027-01-15', { section: 'rates', sub: 'Added to IRCC' }),
+        valuation:   dv('Property valuation', 450, 'lei', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Paid to the valuer, once' }),
+        origination: dv('Origination fee', 0, 'none', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Confirmed: no fee' }),
+        insurance:   dv('Mandatory home insurance', 130, 'leiYr', 'Mortgage T&C', '2026-01-15', 'Legal · Dan C.', '2027-01-15', { section: 'fees', sub: 'PAD plus optional cover, assigned to the bank' }),
+        min_amount:  dv('Minimum amount', 60000, 'lei', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' }),
+        max_term:    dv('Maximum term', 360, 'months', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' })
+      },
+      documents: [{ name: 'ID card', note: '' }, { name: 'Proof of income', note: 'Last 6 months' }, { name: 'Pre-sale agreement', note: 'Signed at a notary' }],
+      knowledge: [{ kind: 'Document', name: 'Mortgage terms and conditions', meta: 'Jan 2026' }, { kind: 'Document', name: 'ESIS template', meta: 'Jan 2026' }],
+      bands: [{ segment: 'Risk band A–B · salary transfer', levers: [{ kind: 'marginCut', maxDelta: 0.5 }], conditions: ['salary_domiciled'],
+        escalation: [{ level: 'specialist', upToDelta: 0.75 }, { level: 'branchManager', upToDelta: 1.25 }, { level: 'pricingCommittee' }], validityDays: 14, owner: 'Pricing · Ioana P.', reviewBy: '2027-01-15' }],
+      history: [{ version: 3, at: '2026-10-01T09:00', by: 'Ioana P.', approvedBy: 'Mihai D.', what: 'Fixed rate 6.19% → 5.99%' }] },
+    { id: 'savings', name: 'Savings account', type: 'Savings', track: 'Individuals', icon: 'piggy-bank', status: 'published', version: 5,
+      description: 'Withdraw any time, no penalties. Interest paid monthly.',
+      values: {
+        base_rate: dv('Interest rate', 3.5, 'pct', 'Savings rates, Oct 2026', '2026-10-01', 'Treasury · Paul R.', '2026-11-02', { section: 'rates', sub: 'Variable, per year' }),
+        admin_fee: dv('Account fee', 0, 'none', 'Fee schedule, 1 Jul 2026', '2026-07-01', 'Pricing · Ioana P.', '2027-01-01', { section: 'fees', sub: 'Confirmed: no fee' })
+      },
+      documents: [], knowledge: [{ kind: 'FAQ', name: 'Is the interest taxed?', meta: '3 paraphrases' }], bands: [],
+      history: [{ version: 5, at: '2026-10-01T09:00', by: 'Paul R.', approvedBy: 'Mihai D.', what: 'Interest rate 3.25% → 3.50%' }] },
+    { id: 'deposit-6m', name: 'Term deposit · 6 months', type: 'Deposit', track: 'Individuals', icon: 'lock', status: 'published', version: 6,
+      description: 'Fixed rate for 6 months. Breaking it early loses the interest.',
+      values: {
+        base_rate:   dv('Interest rate', 5.6, 'pct', 'Savings rates, Oct 2026', '2026-10-01', 'Treasury · Paul R.', '2026-10-30', { section: 'rates', sub: 'Fixed, per year' }),
+        early_exit:  dv('Early withdrawal', 'Interest is lost', 'text', 'Deposit T&C', '2025-06-01', 'Legal · Dan C.', '2026-12-01', { section: 'fees' }),
+        min_amount:  dv('Minimum amount', 500, 'lei', 'Product sheet', '2026-07-01', 'Product · Sorin L.', '2027-07-01', { section: 'limits' })
+      },
+      documents: [], knowledge: [{ kind: 'FAQ', name: 'What happens if I break a deposit early?', meta: '4 paraphrases' }], bands: [],
+      history: [{ version: 6, at: '2026-10-01T09:00', by: 'Paul R.', approvedBy: 'Mihai D.', what: 'Interest rate 5.40% → 5.60%' }] }
+  ];
+  function product(id) { for (var i = 0; i < PRODUCTS.length; i++) if (PRODUCTS[i].id === id) return PRODUCTS[i]; }
+
+  // Parameters: DatedValue rows in docs/business/calculations.md format, plus where they're used.
+  var PARAMS = {
+    dti_cap:      dv('DTI cap, loans in lei', 40, 'pct0', 'BNR Regulation 17/2012', '2026-01-01', 'Risk · Elena V.', '2026-10-26', { group: 'Credit limits', sub: 'Monthly debt payments as a share of net income', usedBy: ['Affordability in Solution, Compare and Plan answers', 'Plan checks', 'Flexicredit, Home loan'], blocks: 3 }),
+    dti_cap_fx:   dv('DTI cap, loans in foreign currency', 20, 'pct0', 'BNR Regulation 17/2012', '2026-01-01', 'Risk · Elena V.', '2027-01-01', { group: 'Credit limits', usedBy: ['Affordability for EUR loans'], blocks: 1 }),
+    ltv_lei:      dv('Maximum LTV, home loans in lei', 85, 'pct0', 'BNR Regulation 17/2012', '2026-01-01', 'Risk · Elena V.', '2027-01-01', { group: 'Credit limits', usedBy: ['Home loan answers'], blocks: 1 }),
+    stress_shock: dv('Stress test rate shock', 2, 'ppPlus', 'Credit policy, individuals', '2026-03-01', 'Risk · Elena V.', '2027-03-01', { group: 'Credit limits', sub: 'Added to variable rates for the stressed DTI', usedBy: ['Affordability gauge (stressed DTI)'], blocks: 2 }),
+    auto_escalate:dv('Automatic review above', 100000, 'lei', 'Human verification policy', '2026-09-01', 'Digital lending · Mihai D.', '2027-03-01', { group: 'Escalation and review', sub: 'Loan amounts above this go to a specialist automatically', usedBy: ['Router: automatic escalation'], blocks: 0 }),
+    confidence:   dv('Minimum evaluator confidence', 0.75, 'score', 'Human verification policy', '2026-09-01', 'Digital lending · Mihai D.', '2027-03-01', { group: 'Escalation and review', sub: 'Below this, the answer is sent for review', usedBy: ['Evaluator'], blocks: 0 }),
+    review_target:dv('Response target for checks', 30, 'minutes', 'Human verification policy', '2026-09-01', 'Digital lending · Mihai D.', '2027-03-01', { group: 'Escalation and review', sub: 'Shown to customers as the expected wait', usedBy: ['Chat: specialist request', 'Reviews queue'], blocks: 0 }),
+    competitor_fresh: dv('Competitor data freshness', 30, 'days', 'Product decisions · RAG', '2026-05-01', 'Product · Sorin L.', '2027-05-01', { group: 'Data freshness', sub: 'Older competitor data is left out of comparisons', usedBy: ['Comparison', 'Counter-offers'], blocks: 2 }),
+    near_tie:     dv('Recommendation near-tie margin', 40, 'lei', 'Recommendation rule', '2026-06-01', 'Product · Sorin L.', '2027-06-01', { group: 'Recommendation', sub: 'Below this total-cost gap, the fixed-rate option is recommended', usedBy: ['Compare answers', 'Simulator'], blocks: 0 }),
+    deposit_tax:  dv('Tax on deposit interest', 10, 'pct0', 'Fiscal Code, art. 96', '2026-01-01', 'Tax · Laura S.', '2026-11-04', { group: 'Tax', usedBy: ['Savings answers'], blocks: 1 }),
+    counter_validity: dv('Counter-offer validity, default', 7, 'days', 'Pricing policy', '2026-09-01', 'Pricing · Ioana P.', '2027-03-01', { group: 'Recommendation', sub: 'Used when a band sets no validity', usedBy: ['Counter-offers'], blocks: 0 })
+  };
+  var HARD_LIMITS = [
+    { icon: 'eye-off', name: 'PII masking', text: 'Card numbers, CNP, IBAN and special-category data are masked in prompts, logs and the console. Unmasking needs a logged reason.', evals: ['HL-01 mask CNP', 'HL-02 mask IBAN', 'HL-03 health data'] },
+    { icon: 'user-lock', name: 'User-scoped data access', text: 'Tools read only the signed-in customer’s data, and only what they allowed in “What Raiffy can see”.', evals: ['HL-07 other client', 'HL-08 permission off'] },
+    { icon: 'ban', name: 'No payments or signatures', text: 'Raiffy never moves money, collects SMS codes or signs anything. It hands off to Smart Mobile.', evals: ['HL-11 transfer request', 'HL-12 SMS code'] },
+    { icon: 'scale', name: 'No credit decisions', text: 'Answers and plans are indicative. Approval happens in the bank’s own flow. Specialists confirm information, not credit.', evals: ['HL-15 “am I approved”', 'HL-16 plan label'] },
+    { icon: 'calculator', name: 'Numbers only from tools', text: 'Output checks compare every number in an answer with the tool results and block any mismatch.', evals: ['HL-20 number drift', 'HL-21 invented fee'] },
+    { icon: 'shield', name: 'Band limits stay internal', text: 'Counter-offer limits are never shown to customers or written into any answer.', evals: ['HL-24 band leak'] }
+  ];
+
+  /* Answers keep the figures they were built with (a quote stores its version IDs); later publishes don't change them. */
+  function compareSnap(P, n) {
+    var pl = product('personal-loan'), od = product('overdraft'), l = loanQuote(pl, P, n, { withSalary: true }), o = odQuote(od, P, n);
+    return { amount: P, term: n, loanRate: l.rate, loanMonthly: l.monthly, loanCost: l.cost, fee: l.fee, pkg: l.pkg, odRate: o.rate, odMonthly: o.monthly, odCost: o.cost, odOk: o.ok, rec: recommend(l, o) };
+  }
+  function planSummary(id, P, n, rate, pkg, fee, createdAt, goal, route, versions) {
+    var rows = schedule(P, n, rate, pkg, createdAt.slice(0, 10)), pm = annuity(P, n, rate);
+    var total = pm * n + pkg * n + fee;
+    var commissions = [{ name: 'Origination fee', amount: fee, note: 'One-off' }, { name: 'Monthly administration fee', amount: 0, note: 'None, confirmed' }, { name: 'Mandatory insurance', amount: 0, note: 'None, confirmed' }];
+    if (pkg) commissions.push({ name: 'Account package', amount: pkg * n, note: lei(pkg) + ' / month · required for the salary-transfer rate' });
+    commissions.push({ name: 'Early repayment fee', amount: null, note: '0.5% of the amount repaid early, only if you repay early' });
+    return { id: id, track: 'personal', goals: [{ summary: goal, chosenRoute: route, amount: P, termMonths: n }], rate: rate,
+      figures: { monthly: pm + pkg, total: total, dae: dae(P, n, fee, pm + pkg), commissions: commissions },
+      repaymentSchedule: rows, createdAt: createdAt, label: 'indicative', versions: versions,
+      sources: ['Lending rates, Oct 2026', 'Fee schedule, 1 Jul 2026', 'Flexicredit T&C'] };
+  }
+  function coCase(P, n, comp) {
+    var pl = product('personal-loan'), band = pl.bands[0];
+    var cp = annuity(P, n, comp.rate), compTotal = cp * n + comp.fee;
+    var list = loanQuote(pl, P, n, { withSalary: true });
+    var inBand = loanQuote(pl, P, n, { withSalary: true, waiveFee: true, delta: -band.levers[1].maxDelta });
+    var need = null;
+    for (var x = 0; x <= 3.001; x += 0.05) { var q = loanQuote(pl, P, n, { withSalary: true, waiveFee: true, delta: -x }); if (q.total <= compTotal) { need = Math.round(x * 100) / 100; break; } }
+    var lvl = 'pricingCommittee';
+    for (var i = 0; i < band.escalation.length; i++) { var e = band.escalation[i]; if (e.upToDelta == null || e.upToDelta >= need) { lvl = e.level; break; } }
+    return { amount: P, term: n, competitor: { bank: comp.bank, rate: comp.rate, fee: comp.fee, monthly: cp, total: compTotal, dae: dae(P, n, comp.fee, cp), source: 'client_secci', file: comp.file, confirmedByClient: true, verifiedAt: comp.at },
+      list: list, inBand: inBand, need: need, level: lvl, band: band };
+  }
+
+  // type ReviewRequest (+ the payload the console shows). trigger: customer | plan | escalation | counterOffer
+  var REVIEWS = [];
+  function seedReviews() {
+    var s1 = compareSnap(8000, 12), gap = Math.abs(s1.loanCost - s1.odCost);
+    REVIEWS.push({ id: 'R-1042', trigger: 'customer', status: 'open', createdAt: isoMinus(18), client: { ref: 'Client ••4821', segment: 'Risk band B · salary transfer' },
+      topic: 'Personal loan or overdraft · 8,000 lei', conversationId: 'conv_8f21',
+      note: 'My branch told me the loan origination fee dropped to 199 lei this month. Is 249 still right?',
+      convo: [
+        { role: 'user', text: 'I need 8,000 lei for about a year to fix up the kitchen. My salary goes into {{IBAN:RO49 RZBR 0000 0600 1234 5678}}. Is an overdraft or a personal loan better?' },
+        { role: 'raiffy', flagged: true, text: 'For 8,000 lei over 12 months, I recommend the overdraft…' },
+        { role: 'user', text: 'Ask a specialist to check' }
+      ],
+      answer: { pattern: 'Compare', confidence: 0.92, versions: { 'personal-loan': 7, 'overdraft': 4 },
+        paras: ['For 8,000 lei over 12 months, I recommend the overdraft. It costs ' + lei(gap) + ' less in total, mostly because the loan adds a one-off 249 lei origination fee and the account package needed for its salary-transfer rate.',
+                'The loan is the better pick if you’d rather have a fixed rate and the same payment every month. Here they are side by side, with the same amount and the same term:'],
+        card: { type: 'compare', snap: s1 }, sources: ['Lending rates, Oct 2026', 'Fee schedule, 1 Jul 2026'],
+        inputs: [['Amount', '8,000 lei'], ['Term', '12 months'], ['Salary transfer', 'Yes'], ['Offer access', 'On']] } });
+
+    var ps = planSummary('PS-2210', 40000, 60, 7.9, 9, 249, '2026-10-25T18:05', 'Renovate the flat in Titan', 'Flexicredit with salary transfer', { 'personal-loan': 7 });
+    REVIEWS.push({ id: 'R-1041', trigger: 'plan', status: 'open', createdAt: isoMinus(41), client: { ref: 'Client ••1937', segment: 'Risk band A · salary transfer', income: 7800, obligations: 650 },
+      topic: 'Plan check · 40,000 lei over 60 months', conversationId: 'conv_77c0', merged: 2,
+      note: 'I’d like someone to check this before I apply in Smart Mobile.',
+      convo: [
+        { role: 'user', text: 'We want to renovate the flat, about 40,000 lei. What would that cost us per month over 5 years?' },
+        { role: 'raiffy', text: 'With your salary paid into Raiffeisen, Flexicredit at 7.9% fixed comes to about ' + lei(ps.figures.monthly) + ' a month, including the 9 lei account package…' },
+        { role: 'user', text: 'OK, that works. Check my plan' },
+        { role: 'raiffy', flagged: true, text: 'Here’s your plan summary. A specialist will check it.' }
+      ],
+      plan: ps });
+
+    REVIEWS.push({ id: 'R-1040', trigger: 'escalation', status: 'open', createdAt: isoMinus(9), client: { ref: 'Client ••6610', segment: 'Risk band B · salary transfer', income: 14500, obligations: 2100 },
+      topic: 'Debt consolidation · 120,000 lei', conversationId: 'conv_a3d9', reason: 'Large loan: 120,000 lei is above the 100,000 lei automatic review line',
+      convo: [
+        { role: 'user', text: 'I have a car loan and two credit cards, about 120,000 lei in total. Can I put them into one loan? My CNP is {{CNP:1850412400123}}.' },
+        { role: 'raiffy', flagged: true, text: 'Yes, a single Flexicredit loan could replace all three…' }
+      ],
+      answer: (function () {
+        var q = loanQuote(product('personal-loan'), 120000, 60, { withSalary: true });
+        return { pattern: 'Solution', confidence: 0.81, versions: { 'personal-loan': 7 },
+          paras: ['Yes, a single Flexicredit loan could replace all three. Over 60 months it would be about ' + lei(q.monthly) + ' a month, and you’d stop paying the card interest.',
+                  'Your total cost depends on how much your current loans charge for paying them off early. I’ve asked a specialist to check this before you decide.'],
+          card: { type: 'facts', title: 'One loan instead of three', lines: [['Amount', lei(120000)], ['Term', '60 months'], ['Monthly payment', lei(q.monthly)], ['Rate', pct(q.rate) + ' fixed, with salary transfer'], ['DAE', pct(q.dae)], ['Total cost', lei(q.cost)]] },
+          sources: ['Lending rates, Oct 2026', 'Fee schedule, 1 Jul 2026'], inputs: [['Amount', '120,000 lei'], ['Term', '60 months'], ['Existing debts', '3'], ['Salary transfer', 'Yes']] };
+      })() });
+
+    REVIEWS.push({ id: 'R-1039', trigger: 'counterOffer', status: 'open', createdAt: isoMinus(26), client: { ref: 'Client ••3052', segment: 'Risk band B · salary transfer' },
+      topic: 'Counter-offer · 30,000 lei vs BT', conversationId: 'conv_c1e4',
+      convo: [
+        { role: 'user', text: 'BT offered me 7.4% for 30,000 lei over 3 years. Can you do better? I uploaded their form.' },
+        { role: 'raiffy', flagged: true, text: 'Thanks, I’ve read the SECCI and compared the total cost. A specialist can review this…' }
+      ],
+      co: coCase(30000, 36, { bank: 'BT', rate: 7.4, fee: 300, file: 'SECCI_BT_Oct2026.pdf', at: '2026-10-28' }) });
+    REVIEWS[REVIEWS.length - 1].approvalLevel = REVIEWS[REVIEWS.length - 1].co.level;
+
+    REVIEWS.push({ id: 'R-1036', trigger: 'counterOffer', status: 'open', createdAt: isoMinus(95), client: { ref: 'Client ••8140', segment: 'Risk band A · salary transfer' },
+      topic: 'Counter-offer · 60,000 lei vs ING', conversationId: 'conv_e902',
+      convo: [
+        { role: 'user', text: 'ING offered 7.1% with no fees for 60,000 lei over 5 years. Here is the form.' },
+        { role: 'raiffy', flagged: true, text: 'I’ve compared the total cost. A specialist can review this…' }
+      ],
+      co: coCase(60000, 60, { bank: 'ING', rate: 7.1, fee: 0, file: 'SECCI_ING_Oct2026.pdf', at: '2026-10-28' }) });
+    REVIEWS[REVIEWS.length - 1].approvalLevel = REVIEWS[REVIEWS.length - 1].co.level;
+
+    REVIEWS.push({ id: 'R-1038', trigger: 'customer', status: 'confirmed', createdAt: '2026-10-27T19:02', closedAt: '2026-10-27T19:20', reviewer: 'Ana M.', client: { ref: 'Client ••0937', segment: '' },
+      topic: 'Where to keep 15,000 lei', convo: [], answer: null });
+    REVIEWS.push({ id: 'R-1037', trigger: 'plan', status: 'edited', createdAt: '2026-10-26T11:40', closedAt: '2026-10-26T12:05', reviewer: 'Ana M.', client: { ref: 'Client ••5521', segment: '' },
+      topic: 'Plan check · 15,000 lei over 24 months', convo: [], answer: null });
+  }
+
+  // Versioned changes waiting for approval or already decided
+  var CHANGES = [
+    { id: 'CH-31', entity: 'product', entityId: 'home-loan', key: 'base_rate', from: 5.99, to: 5.79, sourceLabel: 'ALCO rate decision, 24 Oct 2026', validFrom: '2026-11-01',
+      note: 'New fixed rate from 1 November, agreed at ALCO.', by: 'Radu T.', byRole: 'operator', status: 'pending', at: '2026-10-28T16:40' }
+  ];
+  var AUDIT = [
+    { at: '2026-10-28T16:40', user: 'Radu T.', action: 'Proposed change', entity: 'Home loan · fixed rate', diff: '5.99% → 5.79%', reason: 'ALCO rate decision' },
+    { at: '2026-10-28T10:12', user: 'Ana M.', action: 'Opened chat', entity: 'R-1038 · conv_51b2', reason: 'Trigger: customer request' },
+    { at: '2026-10-27T19:20', user: 'Ana M.', action: 'Confirmed answer', entity: 'R-1038' },
+    { at: '2026-10-27T15:31', user: 'Ana M.', action: 'Unmasked data', entity: 'R-1037 · IBAN', reason: 'Customer asked to check the account the salary goes into' },
+    { at: '2026-10-26T12:05', user: 'Ana M.', action: 'Edited answer', entity: 'R-1037', diff: 'Plan: added early repayment fee line' },
+    { at: '2026-10-01T09:00', user: 'Mihai D.', action: 'Approved change', entity: 'Flexicredit · interest rate', diff: '9.65% → 9.40%' }
+  ];
+  var EVALS = [];
+  var CO_STATS = { decided: 23, inBand: 9, specialist: 6, declined: 4, won: 14, avgGap: 410 };
+  var openedChats = {};
+
+  /* ═══════════════════════ Formatting and shared pieces ═══════════════════════ */
+  function fv(o, v) {
+    v = v === undefined ? o.value : v;
+    switch (o.fmt) {
+      case 'pct': return pct(v);
+      case 'pct0': return fmt(v) + '%';
+      case 'pctOf': return pct(v, 1);
+      case 'pp': return (v > 0 ? '+' : '') + fmt(v, 2) + ' pp';
+      case 'ppPlus': return '+' + fmt(v, 2) + ' pp';
+      case 'ppIdx': return 'IRCC + ' + fmt(v, 2) + ' pp';
+      case 'lei': return lei(v);
+      case 'leiMo': return lei(v) + ' / month';
+      case 'leiYr': return lei(v) + ' / year';
+      case 'months': return v + ' months';
+      case 'days': return v + ' days';
+      case 'minutes': return v + ' minutes';
+      case 'score': return fmt(v, 2);
+      case 'none': return 'None';
+      case 'na': return 'n/a';
+      default: return String(v);
+    }
+  }
+  function numeric(o) { return ['text', 'none', 'na'].indexOf(o.fmt) < 0; }
+  function stalePill(reviewBy) {
+    var s = staleness(reviewBy), n = daysTo(reviewBy);
+    if (s === 'stale') return '<span class="pill bad">' + ic('clock-alert') + 'Past review date · ' + day(reviewBy) + '</span>';
+    if (s === 'soon') return '<span class="pill amber">' + ic('clock') + 'Review in ' + n + (n === 1 ? ' day' : ' days') + '</span>';
+    return '<span>Review by ' + day(reviewBy) + '</span>';
+  }
+  function srcPill(o) { return '<a class="src" href="' + esc(o.sourceUrl) + '" target="_blank" rel="noopener">' + ic('file-text') + esc(o.sourceLabel) + '</a>'; }
+  var STATUS = {
+    open: '<span class="pill amber">Open</span>', confirmed: '<span class="pill ok">' + ic('check') + 'Confirmed</span>', edited: '<span class="pill ink">' + ic('pencil') + 'Edited</span>',
+    approved: '<span class="pill ok">' + ic('check') + 'Offer approved</span>', declined: '<span class="pill line">Declined</span>', returned: '<span class="pill line">Returned</span>',
+    pending: '<span class="pill amber">Pending approval</span>', merged: '<span class="pill line">Merged</span>', published: '<span class="pill ok">Published</span>', rejected: '<span class="pill line">Rejected</span>', scheduled: '<span class="pill ink">' + ic('calendar') + 'Scheduled</span>'
+  };
+  var TRIGGER = {
+    customer: { label: 'Flagged answer', icon: 'flag', sub: 'Customer asked a specialist to check' },
+    plan: { label: 'Plan check', icon: 'file-check', sub: 'Customer asked to check the plan' },
+    escalation: { label: 'Automatic review', icon: 'shield-alert', sub: 'Escalated by Raiffy' },
+    counterOffer: { label: 'Counter-offer', icon: 'handshake', sub: 'Above the pre-approved band' }
+  };
+
+  /* PII: {{KIND:value}} renders masked; unmasking asks for a reason and is logged. */
+  function maskTok(kind, v) {
+    if (kind === 'IBAN') return v.slice(0, 2) + '•• •••• •••• ' + v.replace(/\s/g, '').slice(-4);
+    if (kind === 'CNP') return '•••••••••' + v.slice(-4);
+    return '••••';
+  }
+  function piiHTML(text, revId) {
+    var i = 0;
+    return esc(text).replace(/\{\{(\w+):([^}]+)\}\}/g, function (_, k, v) {
+      var key = revId + ':' + (i++), shown = UNMASKED[key];
+      return '<span class="masked">' + (shown ? esc(v) : maskTok(k, v)) + (shown ? '' : '<button type="button" data-unmask="' + key + '" data-kind="' + k + '" aria-label="Unmask ' + k + '">' + ic('eye') + '</button>') + '</span>';
+    });
+  }
+  var UNMASKED = {};
+
+  function audit(action, entity, extra) {
+    var e = { at: liso(NOW).slice(0, 16), user: me().name, action: action, entity: entity };
+    for (var k in extra || {}) e[k] = extra[k];
+    AUDIT.unshift(e);
+    NOW = new Date(+NOW + 6e4);
+  }
+  var toastT;
+  function toast(msg, icon) {
+    var t = $('toast');
+    t.innerHTML = ic(icon || 'check') + '<span>' + esc(msg) + '</span>';
+    t.hidden = false; icons();
+    clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 3200);
+  }
+
+  /* Word diff (LCS), used for edited answers and changes: added text as light, removed text struck through */
+  function wordDiff(a, b) {
+    var A = a.split(/(\s+)/), B = b.split(/(\s+)/), n = A.length, m = B.length, L = [];
+    for (var i = 0; i <= n; i++) { L[i] = new Array(m + 1).fill(0); }
+    for (i = n - 1; i >= 0; i--) for (var j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    var out = '', x = 0, y = 0;
+    while (x < n && y < m) {
+      if (A[x] === B[y]) { out += esc(A[x]); x++; y++; }
+      else if (L[x + 1][y] >= L[x][y + 1]) { out += '<del>' + esc(A[x]) + '</del>'; x++; }
+      else { out += '<ins>' + esc(B[y]) + '</ins>'; y++; }
+    }
+    while (x < n) out += '<del>' + esc(A[x++]) + '</del>';
+    while (y < m) out += '<ins>' + esc(B[y++]) + '</ins>';
+    return out.replace(/<\/del>(\s*)<del>/g, '$1').replace(/<\/ins>(\s*)<ins>/g, '$1');
+  }
+
+  /* Answer blocks: the same markup as chat.html, rendered from the stored snapshot */
+  function blockHTML(c) {
+    if (!c) return '';
+    if (c.type === 'compare') {
+      var s = c.snap, L = s.rec === 'loan' ? ' rc' : '', O = s.rec === 'od' ? ' rc' : '';
+      var badge = '<span class="rec-badge">' + ic('sparkles') + 'Recommended</span>';
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('scale') + 'Loan vs overdraft</span><span class="micro">' + lei(s.amount) + ' · ' + s.term + ' mo</span></div>' +
+        '<div class="tbl-wrap"><div class="cmp" role="table" aria-label="Personal loan compared with overdraft">' +
+        '<div class="th"></div><div class="th' + L + '">Personal loan<small>' + pct(s.loanRate, 1) + ' fixed · salary transfer</small>' + (L ? badge : '') + '</div><div class="th' + O + '">Overdraft<small>' + pct(s.odRate, 1) + ' variable</small>' + (O ? badge : '') + '</div>' +
+        '<div class="rk">Monthly payment</div><div class="' + L + '">' + lei(s.loanMonthly) + '</div><div class="' + O + '">' + (s.odOk ? lei(s.odMonthly) : '—') + '</div>' +
+        '<div class="rk on">Total cost</div><div class="on' + L + '">' + lei(s.loanCost) + '</div><div class="on' + O + '">' + (s.odOk ? lei(s.odCost) : 'n/a') + '</div>' +
+        '<div class="rk">Fees in total cost</div><div class="' + L + '">' + lei(s.fee) + ' origination' + (s.pkg ? ' + ' + lei(s.pkg) + ' / mo package' : '') + '</div><div class="' + O + '">9 lei a year</div>' +
+        '<div class="rk">Early repayment</div><div class="' + L + '">0.5% fee</div><div class="' + O + '">Anytime, free</div>' +
+        '</div></div></div>';
+    }
+    if (c.type === 'chatsim') {
+      var t = c.snap;
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('calculator') + 'Repayment simulation</span><span class="micro">' + lei(t.amount) + ' · ' + t.term + ' mo</span></div>' +
+        '<div class="tbl-wrap"><div class="cmp"><div class="th"></div><div class="th">Personal loan<small>' + pct(t.rate * 100, 1) + ' fixed</small></div><div class="th">Overdraft<small>11.5% variable</small></div>' +
+        '<div class="rk">Monthly payment</div><div>' + lei(t.loanMonthly) + '</div><div>' + (t.odOk ? lei(t.odMonthly) : '—') + '</div>' +
+        '<div class="rk on">Total cost</div><div class="on">' + lei(t.loanCost) + '</div><div class="on">' + (t.odOk ? lei(t.odCost) : 'n/a') + '</div></div></div>' +
+        '<p class="gc-note">Figures as the customer saw them in the chat.</p></div>';
+    }
+    if (c.type === 'facts') {
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('list') + esc(c.title) + '</span><span class="micro">illustrative</span></div><div class="lines" style="border:0;border-radius:0">' +
+        c.lines.map(function (l) { return '<div class="ln"><span>' + esc(l[0]) + '</span><span class="amt">' + esc(l[1]) + '</span></div>'; }).join('') + '</div></div>';
+    }
+    return '';
+  }
+
+  /* ═══════════════════════ Shell ═══════════════════════ */
+  var ui = { revType: 'all', revStatus: 'open', editing: {}, prodFilter: 'all', auditQ: '', auditKind: 'all', showSched: {}, pendingEdit: null };
+  function review(id) { for (var i = 0; i < REVIEWS.length; i++) if (REVIEWS[i].id === id) return REVIEWS[i]; }
+  function dueValues(p) { var n = 0; for (var k in p.values) if (staleness(p.values[k].reviewBy) !== 'ok') n++; p.bands.forEach(function (b) { if (staleness(b.reviewBy) !== 'ok') n++; }); return n; }
+  function staleParams() { var n = 0; for (var k in PARAMS) if (staleness(PARAMS[k].reviewBy) === 'stale') n++; return n; }
+  function pendingChanges() { return CHANGES.filter(function (c) { return c.status === 'pending'; }); }
+
+  function renderNav(cur) {
+    var open = REVIEWS.filter(function (r) { return r.status === 'open'; }).length;
+    var due = PRODUCTS.reduce(function (a, p) { return a + dueValues(p); }, 0), stale = staleParams(), pend = pendingChanges().length;
+    function item(href, icon, label, count, hot) {
+      return '<a href="#' + href + '"' + (cur === href ? ' aria-current="page"' : '') + '>' + ic(icon) + '<span>' + label + '</span>' +
+        (count ? '<small class="' + (hot ? 'due' : '') + '" aria-label="' + count + ' need attention">' + count + '</small>' : '') + '</a>';
+    }
+    $('nav').innerHTML = '<span class="grp eyebrow">Work</span>' +
+      item('reviews', 'inbox', 'Reviews', open, true) +
+      item('approvals', 'git-pull-request-arrow', 'Approvals', pend, role === 'admin') +
+      '<span class="grp eyebrow">Catalog</span>' +
+      item('products', 'package', 'Products', due) +
+      item('parameters', 'sliders-horizontal', 'Parameters', stale, stale > 0) +
+      '<span class="grp eyebrow">Records</span>' +
+      item('audit', 'scroll-text', 'Audit log', 0) +
+      '<span class="grp eyebrow">Later in the console</span>' +
+      ['Knowledge', 'Prompts', 'Evals', 'Win rate'].map(function (t) { return '<span class="later">' + ic('circle-dashed') + t + '</span>'; }).join('');
+  }
+  function crumbs(list) {
+    $('crumbs').innerHTML = list.map(function (c, i) {
+      return (i ? ic('chevron-right') : '') + (c[1] ? '<a href="#' + c[1] + '">' + esc(c[0]) + '</a>' : '<b aria-current="page">' + esc(c[0]) + '</b>');
+    }).join('');
+  }
+  function setRole(r) {
+    role = r;
+    document.querySelectorAll('[data-role]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.role === r); });
+    $('me-name').textContent = me().name; $('me-role').textContent = me().role; $('me-ava').textContent = me().initials;
+    announce('Viewing as ' + (r === 'admin' ? 'admin' : 'operator') + '.');
+    render(false);
+  }
+
+  /* ═══════════════════════ Reviews queue ═══════════════════════ */
+  function waitHTML(r) {
+    if (r.status !== 'open') return '<span class="t-main">' + (r.closedAt ? when(r.closedAt) : '—') + '</span><span class="t-sub">by ' + esc(r.reviewer || '') + '</span>';
+    var m = minsAgo(r.createdAt), late = m > PARAMS.review_target.value;
+    return '<span class="wait' + (late ? ' late' : '') + '">' + (m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min') + '</span><span class="t-sub">' + (late ? 'past the ' + PARAMS.review_target.value + '-min target' : 'target ' + PARAMS.review_target.value + ' min') + '</span>';
+  }
+  function pageReviews() {
+    crumbs([['Reviews']]);
+    $('top-actions').innerHTML = '';
+    var open = REVIEWS.filter(function (r) { return r.status === 'open'; });
+    var late = open.filter(function (r) { return minsAgo(r.createdAt) > PARAMS.review_target.value; }).length;
+    var types = [['all', 'All'], ['customer', 'Flagged answers'], ['plan', 'Plan checks'], ['escalation', 'Automatic reviews'], ['counterOffer', 'Counter-offers']];
+    var rows = REVIEWS.filter(function (r) { return (ui.revType === 'all' || r.trigger === ui.revType) && (ui.revStatus === 'open' ? r.status === 'open' : r.status !== 'open'); })
+      .sort(function (a, b) { return a.status === 'open' ? d(a.createdAt) - d(b.createdAt) : d(b.createdAt) - d(a.createdAt); });
+    function count(t) { return open.filter(function (r) { return t === 'all' || r.trigger === t; }).length; }
+    return '<div class="page-head"><div><h1>Reviews</h1><p>Answers customers asked a specialist to check, plans sent before applying, automatic reviews and counter-offers above the band. Oldest first. You confirm information, not credit approval.</p></div></div>' +
+      '<div class="kpis"><div class="kpi"><b>' + open.length + '</b><span>Open requests</span></div><div class="kpi"><b>' + late + '</b><span>Past the ' + PARAMS.review_target.value + '-min target</span></div>' +
+      '<div class="kpi"><b>96%</b><span>Confirmed without edits, last 30 days (QA sample)</span></div><div class="kpi"><b>22 min</b><span>Median wait this week</span></div></div>' +
+      '<div class="toolbar"><div class="chips" role="group" aria-label="Request type">' + types.map(function (t) {
+        return '<button type="button" class="qbtn" data-revtype="' + t[0] + '" aria-pressed="' + (ui.revType === t[0]) + '">' + t[1] + ' <small>' + count(t[0]) + '</small></button>';
+      }).join('') + '</div><div class="chips" role="group" aria-label="Status">' +
+      '<button type="button" class="qbtn" data-revstatus="open" aria-pressed="' + (ui.revStatus === 'open') + '">Open</button><button type="button" class="qbtn" data-revstatus="closed" aria-pressed="' + (ui.revStatus !== 'open') + '">Closed</button></div></div>' +
+      '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Request</th><th>Type</th><th class="hide-sm">Client</th><th>' + (ui.revStatus === 'open' ? 'Waiting' : 'Closed') + '</th><th class="hide-sm">Level</th><th>Status</th></tr></thead><tbody>' +
+      (rows.length ? rows.map(function (r) {
+        var t = TRIGGER[r.trigger], can = r.status === 'open' && (!r.approvalLevel || LEVEL_RANK[me().level] >= LEVEL_RANK[r.approvalLevel]);
+        var link = r.answer || r.plan || r.co;
+        return '<tr class="' + (link ? 'rowlink' : '') + (r.fromChat ? ' is-new' : '') + '" data-href="' + (link ? '#reviews/' + r.id : '') + '">' +
+          '<td>' + (link ? '<a class="t-main" href="#reviews/' + r.id + '">' + esc(r.topic) + '</a>' : '<span class="t-main">' + esc(r.topic) + '</span>') + '<span class="t-sub mono">' + r.id + (r.fromChat ? ' · just now from chat' : '') + (r.merged ? ' · ' + r.merged + ' answer checks merged' : '') + '</span></td>' +
+          '<td><span class="pill line">' + ic(t.icon) + t.label + '</span></td>' +
+          '<td class="hide-sm"><span class="t-main mono" style="font-size:12px">' + esc(r.client.ref) + '</span><span class="t-sub">' + esc(r.client.segment) + '</span></td>' +
+          '<td>' + waitHTML(r) + '</td>' +
+          '<td class="hide-sm">' + (r.approvalLevel ? '<span class="t-main">' + LEVELS[r.approvalLevel] + '</span><span class="t-sub">' + (can ? 'You can decide' : 'Above your level') + '</span>' : '<span class="muted">—</span>') + '</td>' +
+          '<td>' + (STATUS[r.status] || '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="6" class="empty-row">Nothing here. New requests from customers appear at the top.</td></tr>') +
+      '</tbody></table></div></div>';
+  }
+
+  /* ═══════════════════════ Review detail: shared columns ═══════════════════════ */
+  function contextCol(r) {
+    return '<div class="col ctx-col"><div class="access">' + ic('shield-check') + '<span>Access logged · ' + TRIGGER[r.trigger].sub.toLowerCase() + '. Sensitive data is masked.</span></div>' +
+      '<section class="card" aria-labelledby="cv-' + r.id + '"><div class="card-h"><h2 id="cv-' + r.id + '">' + ic('messages-square') + 'Conversation</h2><span class="micro mono">' + esc(r.conversationId || '') + '</span></div>' +
+      '<div class="convo">' + r.convo.map(function (m) {
+        return m.role === 'user' ? '<div class="bub">' + piiHTML(m.text, r.id) + '</div>' :
+          '<div class="bub-r' + (m.flagged ? ' flagged' : '') + '"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span>' + esc(m.text) + (m.flagged ? '<br><span class="micro">This is the answer under review</span>' : '') + '</span></div>';
+      }).join('') + '</div></section>' +
+      (r.note ? '<div class="note-q"><b>Customer’s note</b>' + esc(r.note) + '</div>' : '') +
+      (r.reason ? '<div class="note-q"><b>Why it was escalated</b>' + esc(r.reason) + '</div>' : '') + '</div>';
+  }
+  function versionFacts(vs) {
+    return Object.keys(vs).map(function (id) {
+      var p = product(id), cur = p.version === vs[id];
+      return '<div class="fact' + (cur ? '' : ' bad') + '"><span>' + esc(p.name) + '</span><b class="mono">v' + vs[id] + '</b><span class="sub">' + (cur ? 'Current version' : 'v' + p.version + ' published since. Figures updated since this answer.') + '</span></div>';
+    }).join('');
+  }
+  function causeCard(r) {
+    var opts = PRODUCTS.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
+    var pl = product('personal-loan');
+    return '<section class="card" aria-labelledby="cause-' + r.id + '"><div class="card-h"><h3 id="cause-' + r.id + '">' + ic('crosshair') + 'Flag the cause</h3></div><div class="card-b" style="display:grid;gap:12px">' +
+      '<p style="font-size:12.5px;color:var(--text-2)">If a number was wrong, fix it at the source. This opens a linked draft change.</p>' +
+      '<div class="field"><label for="ck-' + r.id + '">What caused it</label><select class="select" id="ck-' + r.id + '" data-cause-kind><option value="product">A product value</option><option value="parameter">A parameter</option><option value="faq" disabled>An FAQ (Knowledge, later)</option><option value="prompt" disabled>A prompt (Prompts, later)</option></select></div>' +
+      '<div class="field" data-cause-prod><label for="cp-' + r.id + '">Product</label><select class="select" id="cp-' + r.id + '" data-cause-product>' + opts + '</select></div>' +
+      '<div class="field"><label for="cv2-' + r.id + '">Value</label><select class="select" id="cv2-' + r.id + '" data-cause-value>' + valueOptions(pl) + '</select></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-open-cause="' + r.id + '">' + ic('file-pen-line') + 'Open linked draft change</button>' +
+      (r.cause ? '<p class="micro">Linked: ' + esc(r.cause.label) + '</p>' : '') + '</div></section>';
+  }
+  function valueOptions(p) { return Object.keys(p.values).filter(function (k) { return numeric(p.values[k]); }).map(function (k) { return '<option value="' + k + '"' + (k === 'origination' ? ' selected' : '') + '>' + esc(p.values[k].label) + '</option>'; }).join(''); }
+  function paramOptions() { return Object.keys(PARAMS).map(function (k) { return '<option value="' + k + '">' + esc(PARAMS[k].label) + '</option>'; }).join(''); }
+  function signedHTML(r) {
+    if (r.status === 'confirmed') return '<div class="sign">' + ic('badge-check') + '<span><b>Confirmed by ' + esc(r.reviewer) + ' · ' + hm(r.closedAt) + '</b>. The customer sees the badge on the answer, still labelled AI-generated.</span></div>';
+    if (r.status === 'edited') return '<div class="sign">' + ic('pencil-line') + '<span><b>Edited by ' + esc(r.reviewer) + ' · ' + hm(r.closedAt) + '</b>. Sent to the customer as a new signed version with the changes highlighted.</span></div>';
+    if (r.status === 'returned') return '<div class="sign" style="background:var(--surface-2);color:var(--text-2)">' + ic('undo-2') + '<span><b>Returned to the customer · ' + hm(r.closedAt) + '</b>. ' + esc(r.returnNote || '') + '</span></div>';
+    return '';
+  }
+  function evalCard(r) {
+    var e = EVALS.filter(function (x) { return x.reviewId === r.id; })[0];
+    if (!e) return '';
+    return '<section class="evalc" aria-labelledby="ev-' + e.id + '"><div class="card-h"><h3 id="ev-' + e.id + '">' + ic('flask-conical') + 'Draft eval case created</h3><span class="pill amber">Waiting for an admin</span></div>' +
+      '<dl><dt>Case</dt><dd class="mono">' + e.id + ' · pattern ' + esc(e.pattern) + '</dd><dt>Question</dt><dd>' + esc(e.input) + '</dd><dt>Should contain</dt><dd>' + esc(e.expected) + '</dd><dt>Reason</dt><dd>' + esc(e.reason) + '</dd>' +
+      (e.cause ? '<dt>Cause</dt><dd>' + esc(e.cause) + '</dd>' : '') + '</dl></section>';
+  }
+
+  /* ═══════════════════════ Flagged answer and automatic review ═══════════════════════ */
+  /* The live part of the editor (diff + send), re-rendered while typing so the textareas keep focus */
+  function editLive(r) {
+    var a = r.answer, ed = ui.editing[r.id], changed = ed.paras.join('|') !== a.paras.join('|'), ok = changed && ed.reason.trim();
+    return (changed ? '<div class="field" style="margin-bottom:12px"><span class="lbl">What the customer will see changed</span><div class="note-q diff">' + a.paras.map(function (p, i) { return wordDiff(p, ed.paras[i]); }).join('<br><br>') + '</div></div>' : '') +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-dark btn-sm" data-send-edit="' + r.id + '"' + (ok ? '' : ' disabled') + '>' + ic('send') + 'Send edited version</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-cancel-edit="' + r.id + '">Cancel</button><span class="scope-note" style="align-self:center">' +
+      (changed ? (ok ? 'Ready to send, signed ' + esc(me().sign) + '.' : 'Add a reason to send.') : 'Change the text to send an edited version.') + '</span></div>';
+  }
+  function pageAnswer(r) {
+    var a = r.answer, ed = ui.editing[r.id], shown = r.edited ? r.edited.paras : a.paras;
+    var text;
+    if (ed) {
+      text = '<div class="answer-text">' + ed.paras.map(function (p, i) { return '<label class="sr-only" for="ep-' + i + '">Paragraph ' + (i + 1) + '</label><textarea id="ep-' + i + '" data-edit-para="' + i + '">' + esc(p) + '</textarea>'; }).join('') + '</div>' +
+        '<p class="lock">' + ic('lock') + 'Numbers in the blocks come from the catalog and can’t be typed in. If one is wrong, flag the cause.</p>';
+    } else if (r.edited) {
+      text = '<div class="answer-text diff">' + a.paras.map(function (p, i) { return '<p>' + wordDiff(p, r.edited.paras[i]) + '</p>'; }).join('') + '</div>';
+    } else {
+      text = '<div class="answer-text">' + shown.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('') + '</div>';
+    }
+    var acts;
+    if (r.status !== 'open') acts = '';
+    else if (ed) {
+      acts = '<div class="actbar" style="display:grid;gap:12px;justify-content:stretch">' +
+        '<div class="field"><label for="ereason">Why it needed an edit <span class="muted">(goes into the eval case)</span></label><textarea class="textarea" id="ereason" data-edit-reason="' + r.id + '" placeholder="For example: the origination fee changed on 1 October">' + esc(ed.reason) + '</textarea></div>' +
+        '<div data-edit-live>' + editLive(r) + '</div></div>';
+    } else {
+      acts = '<div class="actbar"><button type="button" class="btn btn-dark btn-sm" data-confirm="' + r.id + '">' + ic('badge-check') + 'Confirm</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + r.id + '">' + ic('pencil') + 'Edit</button><span class="spacer"></span><span class="scope-note">You confirm information only, not credit approval or investment advice.</span></div>';
+    }
+    return '<div class="page-head"><div><span class="eyebrow">' + TRIGGER[r.trigger].label + ' · ' + r.id + '</span><h1 style="margin-top:6px">' + esc(r.topic) + '</h1></div>' + (STATUS[r.status] || '') + '</div>' +
+      '<div class="ws">' + contextCol(r) +
+      '<div class="col"><section class="card" aria-labelledby="ans-' + r.id + '"><div class="card-h"><h2 id="ans-' + r.id + '">' + ic('sparkles') + (r.edited ? 'Edited answer · changes highlighted' : 'Answer as the customer saw it') + '</h2><span class="pill line">' + esc(a.pattern) + '</span></div>' +
+      '<div class="answer">' + text + blockHTML(a.card) + '<div class="srcs">' + a.sources.map(function (s) { return '<span class="src">' + ic('file-text') + esc(s) + '</span>'; }).join('') + '</div>' + signedHTML(r) + '</div>' + acts + '</section>' + evalCard(r) + '</div>' +
+      '<div class="col"><section class="card" aria-labelledby="bf-' + r.id + '"><div class="card-h"><h3 id="bf-' + r.id + '">' + ic('database') + 'Built from</h3></div><div class="facts">' +
+      a.inputs.map(function (x) { return '<div class="fact"><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></div>'; }).join('') +
+      versionFacts(a.versions) +
+      '<div class="fact' + (a.confidence < PARAMS.confidence.value ? ' warn' : '') + '"><span>Evaluator confidence</span><b class="mono">' + fmt(a.confidence, 2) + '</b><span class="sub">Review line ' + fmt(PARAMS.confidence.value, 2) + '</span></div>' +
+      '</div></section>' + (r.status !== 'confirmed' ? causeCard(r) : '') + '</div></div>';
+  }
+
+  /* ═══════════════════════ Plan check ═══════════════════════ */
+  function planChecks(r) {
+    var ps = r.plan, g = ps.goals[0], out = [];
+    var sum = ps.repaymentSchedule.reduce(function (a, x) { return a + x.principal + x.interest + x.fees; }, 0) + ps.figures.commissions[0].amount;
+    var princ = ps.repaymentSchedule.reduce(function (a, x) { return a + x.principal; }, 0);
+    var ok = Math.abs(sum - ps.figures.total) < 0.005 && Math.abs(princ - g.amount) < 0.005;
+    out.push({ s: ok ? 'pass' : 'fail', t: 'Matches the calculator to the cent', x: ok ? 'Schedule adds up to ' + lei(ps.figures.total, 2) + ', principal to ' + lei(g.amount, 2) + '.' : 'The schedule and the figures differ.' });
+    var fees = ['Origination fee', 'Monthly administration fee', 'Mandatory insurance', 'Early repayment fee'], names = ps.figures.commissions.map(function (c) { return c.name; });
+    var missing = fees.filter(function (f) { return names.indexOf(f) < 0; });
+    out.push({ s: missing.length ? 'fail' : 'pass', t: 'Every commission is listed', x: missing.length ? 'Missing: ' + missing.join(', ') : names.length + ' lines, including the ones that are none.' });
+    out.push({ s: 'pass', t: 'Indicative label is on the plan', x: '“Indicative simulation: not a firm credit offer”' });
+    var stale = Object.keys(ps.versions).filter(function (id) { return product(id).version !== ps.versions[id]; });
+    out.push({ s: stale.length ? 'fail' : 'pass', t: 'Catalog versions are current', x: stale.length ? stale.map(function (id) { return product(id).name + ' v' + product(id).version + ' published since this plan.'; }).join(' ') + ' Figures updated since this plan: return it so Raiffy rebuilds it.' : Object.keys(ps.versions).map(function (id) { return product(id).name + ' v' + ps.versions[id]; }).join(', ') + ', still current.' });
+    if (r.client.income) {
+      var dti = (ps.figures.monthly + r.client.obligations) / r.client.income * 100, cap = PARAMS.dti_cap, st = staleness(cap.reviewBy);
+      var over = dti > cap.value;
+      out.push({ s: over ? 'fail' : st === 'stale' ? 'warn' : 'pass', t: 'Affordability: DTI ' + fmt(dti, 1) + '% against a ' + fv(cap) + ' cap',
+        x: (over ? 'Above the cap. ' : 'Income ' + lei(r.client.income) + ', other debts ' + lei(r.client.obligations) + ' a month. ') + (st === 'stale' ? 'The cap is past its review date (' + day(cap.reviewBy) + '). Re-confirm it before signing.' : ''), link: st === 'stale' ? '#parameters' : '' });
+    } else out.push({ s: 'warn', t: 'Affordability not checked', x: 'The customer hasn’t shared income in this chat.' });
+    return out;
+  }
+  function checksHTML(list) {
+    return '<div class="checks">' + list.map(function (c) {
+      return '<div class="chk ' + c.s + '"><span class="dot" aria-hidden="true">' + ic(c.s === 'pass' ? 'check' : c.s === 'warn' ? 'minus' : 'x') + '</span><div><b>' + esc(c.t) + '<span class="sr-only"> (' + c.s + ')</span></b><small>' + esc(c.x) + '</small>' +
+        (c.link ? '<a class="link" href="' + c.link + '" style="font-size:12px">Open Parameters</a>' : '') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  function pagePlan(r) {
+    var ps = r.plan, g = ps.goals[0], f = ps.figures, checks = planChecks(r), fails = checks.filter(function (c) { return c.s === 'fail'; }).length;
+    var rows = ps.repaymentSchedule, showAll = ui.showSched[r.id], ed = ui.editing[r.id];
+    var note = r.edited ? r.edited.note : '';
+    var acts = '';
+    if (r.status === 'open' && ed) {
+      acts = '<div class="actbar" style="display:grid;gap:12px;justify-content:stretch">' +
+        '<div class="field"><label for="pnote">Specialist note added to the plan</label><textarea class="textarea" id="pnote" data-plan-note="' + r.id + '" placeholder="For example: the early repayment fee doesn’t apply in the last 12 months">' + esc(ed.note) + '</textarea></div>' +
+        '<div class="field"><label for="preason">Why it needed an edit <span class="muted">(goes into the eval case)</span></label><textarea class="textarea" id="preason" data-plan-reason="' + r.id + '">' + esc(ed.reason) + '</textarea></div>' +
+        '<div data-plan-live>' + planLive(r) + '</div></div>';
+    } else if (r.status === 'open') {
+      acts = '<div class="actbar"><button type="button" class="btn btn-dark btn-sm" data-confirm-plan="' + r.id + '"' + (fails ? ' disabled' : '') + '>' + ic('signature') + 'Confirm and sign</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-edit-plan="' + r.id + '">' + ic('pencil') + 'Add a correction</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-return="' + r.id + '">' + ic('undo-2') + 'Return with note</button><span class="spacer"></span>' +
+        '<span class="scope-note">' + (fails ? fails + (fails === 1 ? ' check fails' : ' checks fail') + ': return the plan instead of signing.' : 'Signing confirms the information, not a credit decision.') + '</span></div>';
+    }
+    return '<div class="page-head"><div><span class="eyebrow">Plan check · ' + r.id + ' · ' + ps.id + '</span><h1 style="margin-top:6px">' + esc(r.topic) + '</h1></div>' + (STATUS[r.status] || '') + '</div>' +
+      '<div class="ws">' + contextCol(r) +
+      '<div class="col"><section class="card" aria-labelledby="doc-' + r.id + '"><div class="card-h"><h2 id="doc-' + r.id + '">' + ic('file-text') + 'Plan summary</h2><span class="micro mono">created ' + when(ps.createdAt) + '</span></div><div class="doc">' +
+      '<p class="doc-label">' + ic('info') + 'Indicative simulation: not a firm credit offer. The bank issues the official SECCI and contract in Smart Mobile.</p>' +
+      '<div><h3>Goal</h3><p style="font-size:13.5px">' + esc(g.summary) + ' · <b style="font-weight:500">' + esc(g.chosenRoute) + '</b></p></div>' +
+      '<div><h3>Main features</h3><div class="doc-grid">' +
+      [['Amount', lei(g.amount)], ['Term', g.termMonths + ' months, monthly'], ['Rate', pct(ps.rate) + ' fixed'], ['Monthly payment', lei(f.monthly, 2)], ['Total payable', lei(f.total, 2)], ['DAE', pct(f.dae)]]
+        .map(function (x) { return '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('') + '</div></div>' +
+      '<div><h3>All commissions</h3><div class="lines">' + f.commissions.map(function (c) {
+        return '<div class="ln"><span>' + esc(c.name) + '<small>' + esc(c.note) + '</small></span><span class="amt">' + (c.amount == null ? 'if used' : c.amount ? lei(c.amount, 2) : 'None') + '</span></div>'; }).join('') + '</div></div>' +
+      '<div><h3>Indicative repayment schedule</h3><div class="lines" style="overflow-x:auto"><table class="tbl sched"><thead><tr><th>Date</th><th class="r">Principal</th><th class="r">Interest</th><th class="r">Fees</th><th class="r">Balance</th></tr></thead><tbody>' +
+      (showAll ? rows : rows.slice(0, 6)).map(function (x) { return '<tr><td>' + day(x.date) + ' ' + d(x.date).getFullYear() + '</td><td class="r">' + fmt(x.principal, 2) + '</td><td class="r">' + fmt(x.interest, 2) + '</td><td class="r">' + fmt(x.fees, 2) + '</td><td class="r">' + fmt(x.balance, 2) + '</td></tr>'; }).join('') +
+      '</tbody></table></div><button type="button" class="link" style="margin-top:8px" data-sched="' + r.id + '">' + (showAll ? 'Show the first 6 rows' : 'Show all ' + rows.length + ' rows') + '</button></div>' +
+      (note ? '<div><h3>Specialist note</h3><p class="diff" style="font-size:13.5px"><ins>' + esc(note) + '</ins></p></div>' : '') +
+      '<div class="srcs">' + ps.sources.map(function (s) { return '<span class="src">' + ic('file-text') + esc(s) + '</span>'; }).join('') + '</div>' +
+      '<div class="handoff-row">' + ic('smartphone') + '<span>Ends with <b style="font-weight:500;color:var(--text-1)">Apply in Smart Mobile</b>, pre-filled with ' + lei(g.amount) + ', ' + g.termMonths + ' months and Flexicredit. The bank’s flow issues the SECCI and the 15-day reflection period.</span></div>' +
+      signedHTML(r) + '</div>' + acts + '</section>' + evalCard(r) + '</div>' +
+      '<div class="col"><section class="card" aria-labelledby="chk-' + r.id + '"><div class="card-h"><h3 id="chk-' + r.id + '">' + ic('list-checks') + 'Automatic checks</h3><span class="micro">' + (checks.length - fails) + ' of ' + checks.length + ' pass</span></div>' + checksHTML(checks) + '</section>' +
+      (r.merged ? '<div class="note-q"><b>Merged</b>This plan check replaces ' + r.merged + ' open answer checks in the same chat.</div>' : '') + '</div></div>';
+  }
+  function planLive(r) {
+    var ed = ui.editing[r.id], ok = ed.note.trim() && ed.reason.trim();
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-dark btn-sm" data-send-plan-edit="' + r.id + '"' + (ok ? '' : ' disabled') + '>' + ic('signature') + 'Sign with correction</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-cancel-edit="' + r.id + '">Cancel</button><span class="scope-note" style="align-self:center">' + (ok ? 'The customer gets the plan with your note highlighted.' : 'Add the note and a reason.') + '</span></div>';
+  }
+
+  /* ═══════════════════════ Counter-offer ═══════════════════════ */
+  function coState(r) {
+    if (!ui.co) ui.co = {};
+    if (!ui.co[r.id]) ui.co[r.id] = { mode: 'approve', rate: Math.round((r.co.list.rate - r.co.need) * 100) / 100, salary: true, reason: '' };
+    return ui.co[r.id];
+  }
+  function myLimit() { if (role === 'admin') return null; var b = product('personal-loan').bands[0].escalation; return b[0].upToDelta; }
+  function coQuote(r, rate) { return loanQuote(product('personal-loan'), r.co.amount, r.co.term, { withSalary: true, waiveFee: true, delta: rate - r.co.list.rate }); }
+  function coLive(r) {
+    var st = coState(r), c = r.co, q = coQuote(r, st.rate), delta = c.list.rate - st.rate, lim = myLimit();
+    var err = isNaN(st.rate) ? 'Enter a rate.' : lim != null && delta > lim + 1e-9 ? 'Above your approval level: up to −' + fmt(lim, 2) + ' pp. Pass it to a branch manager.' : st.rate > c.list.rate ? 'Higher than the list price.' : '';
+    var vs = q.total - c.competitor.total;
+    return '<div class="kv-live" style="display:grid;gap:6px;font-size:12.5px">' +
+      '<div class="adj"><span class="muted">Monthly, package included</span><b class="num">' + lei(q.monthly, 2) + '</b></div>' +
+      '<div class="adj"><span class="muted">Total payable · origination fee waived</span><b class="num">' + lei(q.total) + '</b></div>' +
+      '<div class="adj"><span class="muted">Against ' + esc(c.competitor.bank) + '’s total</span><b class="num">' + (vs <= 0 ? lei(-vs) + ' cheaper' : lei(vs) + ' dearer') + '</b></div>' +
+      '<div class="adj"><span class="muted">Change from list price</span><b class="num">−' + fmt(Math.max(0, delta), 2) + ' pp</b></div>' +
+      (err ? '<p class="err" role="alert">' + esc(err) + '</p>' : '') + '</div>';
+  }
+  function coErr(r) { var st = coState(r), lim = myLimit(), delta = r.co.list.rate - st.rate; return isNaN(st.rate) || (lim != null && delta > lim + 1e-9) || st.rate > r.co.list.rate; }
+  function pageCounter(r) {
+    var c = r.co, comp = c.competitor, st = coState(r), canDecide = LEVEL_RANK[me().level] >= LEVEL_RANK[r.approvalLevel];
+    var col = function (label, sub, o, cls) { return { label: label, sub: sub, o: o, cls: cls || '' }; };
+    var cols = [col(comp.bank, 'Client’s SECCI · confirmed', { rate: comp.rate, fee: comp.fee, pkg: 0, monthly: comp.monthly, total: comp.total, dae: comp.dae }),
+      col('Raiffeisen list', 'With salary transfer', c.list, 'you'), col('Best inside the band', 'What Raiffy could offer', c.inBand)];
+    function row(k, f) { return '<div class="rk">' + k + '</div>' + cols.map(function (x) { return '<div class="' + x.cls + '">' + f(x.o) + '</div>'; }).join(''); }
+    var decision;
+    if (r.status !== 'open') {
+      decision = '<div class="decide">' + (r.status === 'approved'
+        ? '<div class="sign">' + ic('badge-check') + '<span><b>Offer from ' + esc(r.offer.by) + ' · valid until ' + day(r.offer.validUntil) + '</b>. ' + pct(r.offer.rate) + ' fixed, origination fee waived' + (r.offer.conditions.length ? ', with ' + r.offer.conditions.join(', ') : '') + '. Sent back to the chat as a personal offer. Still indicative until the bank issues it.</span></div>'
+        : '<div class="sign" style="background:var(--surface-2);color:var(--text-2)">' + ic('x') + '<span><b>Declined by ' + esc(r.reviewer) + '</b>. ' + esc(r.declineReason) + ' The chat shows the best offer inside the band: ' + pct(c.inBand.rate) + ', fee waived.</span></div>') + '</div>';
+    } else if (!canDecide) {
+      decision = '<div class="decide"><p style="font-size:13px">This gap needs <b>' + LEVELS[r.approvalLevel] + '</b> approval, above your level (' + LEVELS[me().level] + ').</p>' +
+        (r.passedTo ? '<div class="sign" style="background:var(--surface-2);color:var(--text-2)">' + ic('forward') + '<span>Passed to ' + esc(r.passedTo) + '.</span></div>'
+          : '<div><button type="button" class="btn btn-ghost btn-sm" data-pass="' + r.id + '">' + ic('forward') + 'Pass to Cristina B., branch manager, Floreasca</button></div>') +
+        '<p class="micro">Switch to Admin in the sidebar to decide it in this demo.</p></div>';
+    } else {
+      decision = '<form class="decide" data-co-form="' + r.id + '" novalidate><div class="radio-row" role="radiogroup" aria-label="Decision">' +
+        [['approve', 'Approve a price', 'Returns to the chat as a personal offer with your name and an expiry'], ['conditions', 'Approve with conditions', 'The offer only holds while the conditions are met'], ['decline', 'Decline with a reason', 'The chat shows the best offer inside the band']].map(function (o) {
+          return '<label class="radio"><input type="radio" name="mode-' + r.id + '" value="' + o[0] + '"' + (st.mode === o[0] ? ' checked' : '') + ' data-co-mode="' + r.id + '"><span>' + o[1] + '<small>' + o[2] + '</small></span></label>'; }).join('') + '</div>' +
+        (st.mode !== 'decline' ? '<div class="row2"><div class="field"><label for="corate">Rate (fixed)</label><input class="input mono" id="corate" inputmode="decimal" value="' + st.rate.toFixed(2) + '" data-co-rate="' + r.id + '"><small>List ' + pct(c.list.rate) + ' · needed to match: ' + pct(c.list.rate - c.need) + '</small></div>' +
+          '<div class="field"><span class="lbl">Validity</span><b style="font-size:13.5px;font-weight:500;line-height:36px">' + c.band.validityDays + ' days · until ' + day(liso(new Date(+NOW + c.band.validityDays * 864e5)).slice(0, 10)) + '</b></div></div>' +
+          (st.mode === 'conditions' ? '<label class="check"><input type="checkbox" data-co-salary="' + r.id + '"' + (st.salary ? ' checked' : '') + '><span><b style="color:var(--text-1);font-weight:500">Salary stays paid into Raiffeisen</b><br>Shown on the offer card next to the price.</span></label>' : '') +
+          '<div data-co-live>' + coLive(r) + '</div>'
+          : '<div class="field"><label for="codecl">Reason, shown to the customer in plain words</label><textarea class="textarea" id="codecl" data-co-reason="' + r.id + '">' + esc(st.reason) + '</textarea></div>') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="submit" class="btn btn-dark btn-sm">' + ic(st.mode === 'decline' ? 'x' : 'badge-check') + (st.mode === 'decline' ? 'Decline' : 'Approve offer') + '</button>' +
+        '<span class="scope-note" style="align-self:center">Never promise to match. The price stays indicative until the bank issues it.</span></div></form>';
+    }
+    var s = CO_STATS;
+    return '<div class="page-head"><div><span class="eyebrow">Counter-offer · ' + r.id + '</span><h1 style="margin-top:6px">' + esc(r.topic) + '</h1></div>' + (STATUS[r.status] || '') + '</div>' +
+      '<div class="ws">' + contextCol(r).replace('</div><section', '</div><div class="file-row note-q"><b>Evidence</b>' + ic('file-text') + ' ' + esc(comp.file) + ' · figures extracted and confirmed by the client on ' + day(comp.verifiedAt) + '. PII masked on upload.</div><section') +
+      '<div class="col"><section class="card" aria-labelledby="tc-' + r.id + '"><div class="card-h"><h2 id="tc-' + r.id + '">' + ic('scale') + 'Total cost, same amount and term</h2><span class="micro mono">' + lei(c.amount) + ' · ' + c.term + ' mo</span></div>' +
+      '<div class="tbl-wrap"><div class="co-grid"><div class="th"></div>' + cols.map(function (x) { return '<div class="th ' + x.cls + '">' + esc(x.label) + '<small>' + esc(x.sub) + '</small></div>'; }).join('') +
+      row('Rate', function (o) { return pct(o.rate); }) + row('Fees', function (o) { return o.fee ? lei(o.fee) : 'None'; }) + row('Package', function (o) { return o.pkg ? lei(o.pkg) + ' / mo' : 'None'; }) +
+      row('Monthly', function (o) { return lei(o.monthly, 2); }) + row('<b>Total payable</b>', function (o) { return '<b>' + lei(o.total) + '</b>'; }) + row('DAE', function (o) { return pct(o.dae); }) +
+      '</div></div><p class="gc-note">To match ' + esc(comp.bank) + '’s total cost: ' + pct(c.list.rate - c.need) + ' with the origination fee waived, ' + fmt(c.need, 2) + ' pp below list. The band allows ' + fmt(c.band.levers[1].maxDelta, 2) + ' pp, so it needs ' + LEVELS[r.approvalLevel] + ' approval.</p></section>' +
+      '<section class="card" aria-labelledby="dc-' + r.id + '"><div class="card-h"><h2 id="dc-' + r.id + '">' + ic('gavel') + 'Decision</h2></div>' + decision + '</section></div>' +
+      '<div class="col"><section class="card" aria-labelledby="lv-' + r.id + '"><div class="card-h"><h3 id="lv-' + r.id + '">' + ic('layers') + 'Approval levels</h3><span class="pill line">Internal</span></div><div class="card-b lvl">' +
+      c.band.escalation.map(function (e) { return '<div class="lvl-row' + (e.level === r.approvalLevel ? ' req' : '') + '"><i></i><span>' + LEVELS[e.level] + '</span><span class="mono">' + (e.upToDelta != null ? 'up to −' + fmt(e.upToDelta, 2) + ' pp' : 'no limit') + '</span></div>'; }).join('') +
+      '<p class="micro" style="margin-top:6px">Band: ' + esc(c.band.segment) + '. Limits are never shown to the customer.</p></div></section>' +
+      '<section class="card" aria-labelledby="wr-' + r.id + '"><div class="card-h"><h3 id="wr-' + r.id + '">' + ic('trending-up') + 'Counter-offers in October</h3></div><div class="facts">' +
+      '<div class="fact"><span>Decided</span><b class="mono">' + s.decided + '</b></div><div class="fact"><span>In the band, automatic</span><b class="mono">' + s.inBand + '</b></div>' +
+      '<div class="fact"><span>Approved by a specialist</span><b class="mono">' + s.specialist + '</b></div><div class="fact"><span>Declined</span><b class="mono">' + s.declined + '</b></div>' +
+      '<div class="fact"><span>Win rate</span><b class="mono">' + Math.round(s.won / s.decided * 100) + '%</b><span class="sub">Won ' + s.won + ' of ' + s.decided + '. New decisions count when the client applies or the offer expires.</span></div></div></section></div></div>';
+  }
+
+  /* ═══════════════════════ Values, changes and impact ═══════════════════════ */
+  function target(entity, id, key) { return entity === 'product' ? product(id).values[key] : PARAMS[key]; }
+  function targetName(c) { return c.entity === 'product' ? product(c.entityId).name + ' · ' + target(c.entity, c.entityId, c.key).label : 'Parameter · ' + PARAMS[c.key].label; }
+  function pendingFor(entity, id, key) { return CHANGES.filter(function (c) { return (c.status === 'pending' || c.status === 'scheduled') && c.entity === entity && c.key === key && (entity === 'parameter' || c.entityId === id); })[0]; }
+  function clone(p, key, v) { var q = JSON.parse(JSON.stringify(p)); q.values[key].value = v; return q; }
+
+  /* Impact preview: the calculators run on a fixed set of sample cases, before and after */
+  function impact(entity, id, key, v) {
+    var rows = [], sum = '';
+    if (entity === 'product' && (id === 'personal-loan' || id === 'overdraft')) {
+      var pl = product('personal-loan'), od = product('overdraft'), pl2 = id === 'personal-loan' ? clone(pl, key, v) : pl, od2 = id === 'overdraft' ? clone(od, key, v) : od, recCh = 0;
+      [[8000, 12], [8000, 24], [20000, 36], [40000, 60]].forEach(function (c) {
+        var a = loanQuote(pl, c[0], c[1], { withSalary: true }), b = loanQuote(pl2, c[0], c[1], { withSalary: true });
+        var oa = odQuote(od, c[0], c[1]), ob = odQuote(od2, c[0], c[1]), ra = recommend(a, oa), rb = recommend(b, ob);
+        if (ra !== rb) recCh++;
+        var name = function (k, o) { return !o.ok ? 'Loan (only option)' : k === 'loan' ? 'Loan' : 'Overdraft'; };
+        var mon = id === 'personal-loan' ? [a.monthly, b.monthly] : [oa.ok ? oa.monthly : null, ob.ok ? ob.monthly : null];
+        var cost = id === 'personal-loan' ? [a.cost, b.cost] : [oa.ok ? oa.cost : null, ob.ok ? ob.cost : null];
+        rows.push({ c: lei(c[0]) + ' · ' + c[1] + ' mo', m: mon, t: cost, r: [name(ra, oa), name(rb, ob)] });
+      });
+      sum = recCh ? 'The recommendation changes in ' + recCh + (recCh === 1 ? ' case.' : ' cases.') : 'Recommendation unchanged in every case.';
+      return { head: ['Case', (id === 'personal-loan' ? 'Loan' : 'Overdraft') + ' monthly', 'Total cost', 'Recommended'], rows: rows, sum: sum };
+    }
+    if (entity === 'product' && key === 'base_rate') {
+      var p = product(id), before = p.values.base_rate.value;
+      if (id === 'home-loan') {
+        [[300000, 360], [450000, 300]].forEach(function (c) { rows.push({ c: lei(c[0]) + ' · ' + c[1] / 12 + ' years', m: [annuity(c[0], c[1], before), annuity(c[0], c[1], v)], t: [annuity(c[0], c[1], before) * 60, annuity(c[0], c[1], v) * 60], r: null }); });
+        return { head: ['Case', 'Monthly, first 5 years', 'Paid in 5 years', ''], rows: rows, sum: 'Home loan answers and the affordability gauge use the new rate from its start date.' };
+      }
+      var tax = 1 - PARAMS.deposit_tax.value / 100, months = id === 'savings' ? 12 : 6;
+      [[15000], [50000]].forEach(function (c) { rows.push({ c: lei(c[0]) + ' · ' + months + ' mo', m: [c[0] * before / 100 * months / 12 * tax, c[0] * v / 100 * months / 12 * tax], t: null, r: null }); });
+      return { head: ['Case', 'Interest after tax', '', ''], rows: rows, sum: 'Savings answers show the new rate with its date.' };
+    }
+    if (entity === 'parameter' && key === 'dti_cap') {
+      [[6000, 1200, 1400], [9000, 2300, 1100], [4500, 600, 1100]].forEach(function (c) {
+        var dti = (c[1] + c[2]) / c[0] * 100;
+        rows.push({ c: 'Income ' + lei(c[0]) + ', debts ' + lei(c[1]) + ', new ' + lei(c[2]), m: [fmt(dti, 1) + '%', fmt(dti, 1) + '%'], t: null, r: [dti <= PARAMS.dti_cap.value ? 'Fits' : 'Over the cap', dti <= v ? 'Fits' : 'Over the cap'], raw: true });
+      });
+      var n = rows.filter(function (x) { return x.r[0] !== x.r[1]; }).length;
+      return { head: ['Sample client', 'DTI', '', 'Affordability'], rows: rows, sum: n ? 'Affordability changes for ' + n + ' sample ' + (n === 1 ? 'client.' : 'clients.') : 'No sample client changes.' + (v === PARAMS.dti_cap.value ? ' Re-confirming unblocks the answers that need it.' : '') };
+    }
+    if (entity === 'parameter' && key === 'near_tie') {
+      var pl0 = product('personal-loan'), od0 = product('overdraft');
+      [[4000, 12], [8000, 12], [12000, 12]].forEach(function (c) {
+        var a = loanQuote(pl0, c[0], c[1], { withSalary: true }), o = odQuote(od0, c[0], c[1]), gap = Math.abs(a.cost - o.cost);
+        var r1 = gap < PARAMS.near_tie.value ? 'Loan' : o.cost < a.cost ? 'Overdraft' : 'Loan', r2 = gap < v ? 'Loan' : o.cost < a.cost ? 'Overdraft' : 'Loan';
+        rows.push({ c: lei(c[0]) + ' · ' + c[1] + ' mo · gap ' + lei(gap), m: null, t: null, r: [r1, r2] });
+      });
+      return { head: ['Case', '', '', 'Recommended'], rows: rows, sum: 'Compare answers and the simulator use the new margin.' };
+    }
+    return { head: null, rows: [], sum: 'No calculator reads this value directly. ' + (entity === 'parameter' ? 'Used by: ' + PARAMS[key].usedBy.join(', ') + '.' : 'Answers about this product show the new value with its date and source.') };
+  }
+  function impactHTML(im) {
+    if (!im.head) return '<div class="impact"><div class="impact-sum" style="border-top:0">' + esc(im.sum) + '</div></div>';
+    function pair(x, money) { if (!x) return ''; var a = x[0], b = x[1], f = function (n) { return n == null ? '—' : money ? lei(n) : n; }; return a === b || (money && a != null && b != null && Math.abs(a - b) < 0.5) ? f(a) : f(a) + ' → ' + f(b); }
+    return '<div class="impact"><div class="tbl-wrap"><table class="tbl"><thead><tr>' + im.head.map(function (h) { return h ? '<th>' + h + '</th>' : ''; }).join('') + '</tr></thead><tbody>' +
+      im.rows.map(function (r) {
+        var ch = (r.m && !r.raw && r.m[0] != null && r.m[1] != null && Math.abs(r.m[0] - r.m[1]) >= 0.5) || (r.r && r.r[0] !== r.r[1]);
+        return '<tr class="' + (ch ? 'chg' : '') + '"><td>' + r.c + '</td>' + (im.head[1] ? '<td>' + pair(r.m, !r.raw) + '</td>' : '') + (im.head[2] ? '<td>' + pair(r.t, true) + '</td>' : '') + (im.head[3] ? '<td>' + (r.r ? pair(r.r) : '') + '</td>' : '') + '</tr>';
+      }).join('') + '</tbody></table></div><div class="impact-sum">' + esc(im.sum) + '</div></div>';
+  }
+
+  function applyChange(c, approver) {
+    var o = target(c.entity, c.entityId, c.key), future = d(c.validFrom) > NOW;
+    c.approvedBy = approver || null;
+    if (future) { c.status = 'scheduled'; return { scheduled: true, plans: 0 }; }
+    o.value = c.to; o.sourceLabel = c.sourceLabel; o.validFrom = c.validFrom;
+    var rb = new Date(d(c.validFrom)); rb.setMonth(rb.getMonth() + 6); o.reviewBy = liso(rb).slice(0, 10);
+    c.status = 'published';
+    var plans = 0;
+    if (c.entity === 'product') {
+      var p = product(c.entityId); p.version++;
+      p.history.unshift({ version: p.version, at: liso(NOW).slice(0, 16), by: c.by, approvedBy: approver, what: o.label + ' ' + fv(o, c.from) + ' → ' + fv(o, c.to), key: c.key, from: c.from, to: c.to });
+      REVIEWS.forEach(function (r) { if (r.status === 'open' && r.plan && r.plan.versions[p.id] != null && r.plan.versions[p.id] !== p.version) plans++; });
+    }
+    return { scheduled: false, plans: plans };
+  }
+  function publishMsg(res) { return res.scheduled ? 'Scheduled. It goes live on its start date.' : 'Published.' + (res.plans ? ' ' + res.plans + ' open plan marked “Figures updated since this plan”.' : ''); }
+
+  /* ═══════════════════════ Editor sheet ═══════════════════════ */
+  var editorCtx = null;
+  function openEditor(entity, id, key, fromReview, preset) {
+    var o = target(entity, id, key), stale = staleness(o.reviewBy) !== 'ok';
+    editorCtx = { entity: entity, id: id, key: key, from: fromReview || null, rollback: preset && preset.rollback };
+    var val = preset && preset.value != null ? preset.value : o.value;
+    var sh = $('sheet');
+    sh.innerHTML = '<div class="sheet-h"><h2 id="sheet-title">' + (preset && preset.rollback ? 'Roll back' : 'Edit') + ' · ' + esc(o.label) + '</h2><button type="button" class="icon-btn" data-close-sheet aria-label="Close">' + ic('x') + '</button></div>' +
+      '<form class="sheet-b" id="ed-form" novalidate>' +
+      (fromReview ? '<p class="from-review">' + ic('link') + 'Linked to review ' + esc(fromReview) + '. The eval case will reference this change.</p>' : '') +
+      '<div class="field"><span class="lbl">' + (entity === 'product' ? esc(product(id).name) : 'Parameter') + '</span><span class="vdiff">' + fv(o) + '<small class="muted" style="font-family:var(--font-sans);font-size:11.5px"> now · ' + esc(o.sourceLabel) + '</small></span></div>' +
+      '<div class="row2"><div class="field"><label for="ed-val">New value</label><input class="input mono" id="ed-val" inputmode="decimal" value="' + val + '" aria-describedby="ed-unit"><small id="ed-unit">' + unitHint(o) + '</small></div>' +
+      '<div class="field"><label for="ed-from">Goes live</label><input class="input mono" id="ed-from" type="date" value="' + liso(NOW).slice(0, 10) + '" min="' + liso(NOW).slice(0, 10) + '"><small>Today publishes now. A later date schedules it.</small></div></div>' +
+      '<div class="field"><label for="ed-src">Source</label><input class="input" id="ed-src" value="' + esc(preset && preset.source || '') + '" placeholder="For example: Fee schedule, 1 Oct 2026"><small>Required. Every value shows its source to the customer.</small></div>' +
+      '<div class="field"><label for="ed-note">Note <span class="muted">(optional)</span></label><textarea class="textarea" id="ed-note">' + esc(preset && preset.note || '') + '</textarea></div>' +
+      (stale ? '<p class="note-q" style="font-size:12.5px">' + ic('clock-alert') + ' This value is past or near its review date. Keeping the same value with a fresh source re-confirms it.</p>' : '') +
+      '<div class="field"><span class="lbl">Impact preview</span><div id="ed-impact"></div></div>' +
+      '<p class="err" id="ed-err" role="alert" hidden></p></form>' +
+      '<div class="sheet-f"><button type="button" class="btn btn-ghost btn-sm" data-close-sheet>Cancel</button><button type="submit" form="ed-form" class="btn btn-dark btn-sm" id="ed-go">' + (role === 'admin' ? 'Publish' : 'Submit for approval') + '</button></div>';
+    icons(); refreshImpact();
+    if (!sh.open) sh.showModal();
+    setTimeout(function () { $('ed-val').focus(); $('ed-val').select(); }, 30);
+  }
+  function unitHint(o) { return { pct: 'Percent per year', pct0: 'Percent', pctOf: 'Percent of the amount', pp: 'Percentage points, negative for a discount', ppPlus: 'Percentage points', ppIdx: 'Percentage points over IRCC', lei: 'Lei', leiMo: 'Lei per month', leiYr: 'Lei per year', months: 'Months', days: 'Days', minutes: 'Minutes', score: '0 to 1' }[o.fmt] || ''; }
+  function refreshImpact() {
+    if (!editorCtx) return;
+    var v = parseFloat(String($('ed-val').value).replace(',', '.')), from = $('ed-from').value;
+    $('ed-impact').innerHTML = isNaN(v) ? '<div class="impact"><div class="impact-sum" style="border-top:0">Enter a number to see the impact.</div></div>' : impactHTML(impact(editorCtx.entity, editorCtx.id, editorCtx.key, v));
+    var future = from && d(from) > NOW;
+    $('ed-go').textContent = role === 'admin' ? (future ? 'Schedule' : 'Publish') : 'Submit for approval';
+  }
+  function submitEditor() {
+    var c = editorCtx, o = target(c.entity, c.id, c.key), v = parseFloat(String($('ed-val').value).replace(',', '.')), src = $('ed-src').value.trim(), from = $('ed-from').value;
+    var err = '', stale = staleness(o.reviewBy) !== 'ok';
+    if (isNaN(v)) err = 'Enter a number.';
+    else if (!src) err = 'Add the source of this value.';
+    else if (v === o.value && !stale) err = 'The value is the same. Change it, or close the editor.';
+    else if (!from) err = 'Pick a start date.';
+    $('ed-val').setAttribute('aria-invalid', isNaN(v)); $('ed-src').setAttribute('aria-invalid', !src && !isNaN(v));
+    if (err) { $('ed-err').textContent = err; $('ed-err').hidden = false; return; }
+    var ch = { id: 'CH-' + (32 + CHANGES.length), entity: c.entity, entityId: c.id, key: c.key, from: o.value, to: v, sourceLabel: src, validFrom: from, note: $('ed-note').value.trim(),
+      by: me().name, byRole: role, status: 'pending', at: liso(NOW).slice(0, 16), reviewId: c.from, rollback: c.rollback };
+    CHANGES.unshift(ch);
+    var name = targetName(ch), diff = fv(o, o.value) + ' → ' + fv(o, v);
+    if (c.from) { var r = review(c.from); r.cause = { kind: c.entity, entityId: c.id + ':' + c.key, label: name + ' (' + ch.id + ')' }; var e = EVALS.filter(function (x) { return x.reviewId === c.from; })[0]; if (e) e.cause = name + ' · ' + ch.id; }
+    if (role === 'admin') {
+      var res = applyChange(ch, null);
+      audit(res.scheduled ? 'Scheduled change' : ch.rollback ? 'Rolled back' : 'Published change', name, { diff: diff, reason: src });
+      toast(publishMsg(res));
+    } else {
+      audit('Proposed change', name, { diff: diff, reason: src });
+      toast('Sent for approval. An admin publishes it.', 'send');
+    }
+    $('sheet').close(); editorCtx = null;
+    render(false);
+  }
+
+  /* Small reason dialog: unmasking, returning, rejecting, declining */
+  var askCtx = null;
+  function ask(title, label, okLabel, placeholder, onOk, choices) {
+    askCtx = onOk;
+    var sh = $('sheet');
+    sh.innerHTML = '<div class="sheet-h"><h2 id="sheet-title">' + esc(title) + '</h2><button type="button" class="icon-btn" data-close-sheet aria-label="Close">' + ic('x') + '</button></div>' +
+      '<form class="sheet-b" id="ask-form" novalidate>' +
+      (choices ? '<div class="radio-row">' + choices.map(function (c, i) { return '<label class="radio"><input type="radio" name="ask-c" value="' + esc(c) + '"' + (i ? '' : ' checked') + '><span>' + esc(c) + '</span></label>'; }).join('') + '</div>' : '') +
+      '<div class="field"><label for="ask-t">' + esc(label) + '</label><textarea class="textarea" id="ask-t" placeholder="' + esc(placeholder || '') + '"></textarea></div><p class="err" id="ask-err" role="alert" hidden>Add a reason.</p></form>' +
+      '<div class="sheet-f"><button type="button" class="btn btn-ghost btn-sm" data-close-sheet>Cancel</button><button type="submit" form="ask-form" class="btn btn-dark btn-sm">' + esc(okLabel) + '</button></div>';
+    icons(); if (!sh.open) sh.showModal();
+    setTimeout(function () { $('ask-t').focus(); }, 30);
+  }
+
+  /* ═══════════════════════ Products ═══════════════════════ */
+  function pageProducts() {
+    crumbs([['Products']]);
+    $('top-actions').innerHTML = '';
+    var f = ui.prodFilter, groups = { loans: ['Personal loan', 'Overdraft', 'Mortgage'], savings: ['Savings', 'Deposit'] };
+    var list = PRODUCTS.filter(function (p) { return f === 'all' || (f === 'review' ? dueValues(p) > 0 : groups[f].indexOf(p.type) > -1); });
+    function cnt(k) { return PRODUCTS.filter(function (p) { return k === 'all' || (k === 'review' ? dueValues(p) > 0 : groups[k].indexOf(p.type) > -1); }).length; }
+    return '<div class="page-head"><div><h1>Products</h1><p>The financial solutions Raiffy can explain and compare, for individuals. Every value has a source, an owner and a review date. Answers use only published values.</p></div></div>' +
+      '<div class="toolbar"><div class="chips" role="group" aria-label="Filter products">' + [['all', 'All'], ['loans', 'Loans'], ['savings', 'Savings'], ['review', 'Needs review']].map(function (x) {
+        return '<button type="button" class="qbtn" data-prodf="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + ' <small>' + cnt(x[0]) + '</small></button>'; }).join('') + '</div><span class="micro">Track: Individuals</span></div>' +
+      '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Rate</th><th class="hide-sm">Version</th><th>Status</th><th>Review</th></tr></thead><tbody>' +
+      list.map(function (p) {
+        var due = dueValues(p), pend = CHANGES.filter(function (c) { return c.entity === 'product' && c.entityId === p.id && (c.status === 'pending' || c.status === 'scheduled'); });
+        var st = pend.some(function (c) { return c.status === 'pending'; }) ? STATUS.pending : pend.length ? STATUS.scheduled : STATUS.published;
+        return '<tr class="rowlink" data-href="#products/' + p.id + '"><td><a class="t-main" href="#products/' + p.id + '">' + esc(p.name) + '</a><span class="t-sub">' + esc(p.type) + '</span></td>' +
+          '<td class="mono">' + fv(p.values.base_rate) + (p.values.adj_salary ? '<span class="t-sub" style="font-family:var(--font-sans)">' + pct(p.values.base_rate.value + p.values.adj_salary.value) + ' with salary transfer</span>' : '') + '</td>' +
+          '<td class="mono hide-sm">v' + p.version + '</td><td>' + st + '</td>' +
+          '<td>' + (due ? '<span class="pill amber">' + ic('clock') + due + (due === 1 ? ' value' : ' values') + ' due</span>' : '<span class="muted" style="font-size:12px">Up to date</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+  function dvRow(o, entity, id, key) {
+    var pend = pendingFor(entity, id, key), st = staleness(o.reviewBy);
+    var meta = srcPill(o) + '<span>From ' + day(o.validFrom) + '</span><span>' + esc(o.owner) + '</span>' + stalePill(o.reviewBy) + (o.internal ? '<span class="pill internal">Internal</span>' : '');
+    return '<div class="dv' + (st === 'stale' ? ' is-stale' : '') + (pend ? ' is-pending' : '') + '"><div class="dv-name"><b>' + esc(o.label) + '</b>' + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</div>' +
+      '<div class="dv-val">' + fv(o) + (pend ? '<small>' + (pend.status === 'scheduled' ? 'From ' + day(pend.validFrom) + ': ' : 'Pending: ') + fv(o, pend.to) + ' · ' + esc(pend.by) + '</small>' : '') + '</div>' +
+      '<div class="dv-meta">' + meta + '</div><div class="dv-act">' +
+      (pend ? '<a class="btn btn-ghost btn-xs" href="#approvals/' + pend.id + '">View</a>' : numeric(o) ? '<button type="button" class="btn btn-ghost btn-xs" data-edit-value="' + entity + '|' + id + '|' + key + '" aria-label="Edit ' + esc(o.label) + '">' + (st === 'stale' ? 'Re-confirm' : 'Edit') + '</button>' : '<span class="micro">Text · edit in T&C</span>') + '</div></div>';
+  }
+  var SECTIONS = [['overview', 'Overview'], ['rates', 'Rates and pricing rules'], ['fees', 'Fees and commissions'], ['limits', 'Amount and term'], ['eligibility', 'Eligibility'], ['documents', 'Required documents'], ['knowledge', 'Knowledge links'], ['bands', 'Counter-offer bands'], ['history', 'Version history']];
+  function pageProduct(p) {
+    crumbs([['Products', 'products'], [p.name]]);
+    $('top-actions').innerHTML = '';
+    function secValues(s) { return Object.keys(p.values).filter(function (k) { return p.values[k].section === s; }); }
+    function hasDue(s) { return secValues(s).some(function (k) { return staleness(p.values[k].reviewBy) !== 'ok'; }) || (s === 'bands' && p.bands.some(function (b) { return staleness(b.reviewBy) !== 'ok'; })); }
+    function card(id, title, icon, body, intro) { return '<section class="card" id="sec-' + id + '" aria-labelledby="h-' + id + '"><div class="card-h"><h2 id="h-' + id + '">' + ic(icon) + title + '</h2></div>' + (intro ? '<p class="sec-intro" style="padding-top:12px">' + intro + '</p>' : '') + body + '</section>'; }
+    function vals(s) { var ks = secValues(s); return ks.length ? '<div>' + ks.map(function (k) { return dvRow(p.values[k], 'product', p.id, k); }).join('') + '</div>' : '<p class="empty-row">None for this product.</p>'; }
+    var v = p.values, cond = v.adj_salary ? 'Shown to customers as “' + pct(v.base_rate.value + v.adj_salary.value) + ' with salary transfer · ' + pct(v.base_rate.value) + ' without”, with equal weight. The package cost is in the monthly, total cost and DAE.' : '';
+    var latest = p.history[0];
+    return '<div class="page-head"><div><span class="eyebrow">' + esc(p.type) + ' · ' + esc(p.track) + '</span><h1 style="margin-top:6px">' + esc(p.name) + '</h1><p>' + esc(p.description) + '</p></div>' +
+      '<div style="display:flex;gap:6px;align-items:center">' + STATUS.published + '<span class="pill line mono">v' + p.version + '</span></div></div>' +
+      '<div class="pd"><nav class="secnav" aria-label="Sections">' + SECTIONS.map(function (s) { return '<a href="#products/' + p.id + '" data-jump="sec-' + s[0] + '">' + s[1] + (hasDue(s[0]) ? '<i aria-label="needs review"></i>' : '') + '</a>'; }).join('') + '</nav>' +
+      '<div class="sections">' +
+      card('overview', 'Overview', 'info', '<div class="facts"><div class="fact"><span>Status</span><b>Published · v' + p.version + '</b></div><div class="fact"><span>Last change</span><b>' + day(latest.at.slice(0, 10)) + '</b><span class="sub">' + esc(latest.what) + '</span></div><div class="fact"><span>Values due for review</span><b>' + dueValues(p) + '</b></div></div>') +
+      card('rates', 'Rates and pricing rules', 'percent', vals('rates'), cond) +
+      card('fees', 'Fees and commissions', 'receipt', vals('fees'), 'Every fee is set or confirmed as none. All of them go into total cost and DAE.') +
+      card('limits', 'Amount and term', 'ruler', vals('limits')) +
+      card('eligibility', 'Eligibility', 'user-check', vals('eligibility') + (p.eligibilityNote ? '<p class="sec-intro" style="padding-top:12px">' + esc(p.eligibilityNote) + ' <a class="link" href="#parameters">Open Parameters</a></p>' : '')) +
+      card('documents', 'Required documents', 'files', p.documents.length ? '<div>' + p.documents.map(function (x) { return '<div class="dv" style="grid-template-columns:1fr auto"><div class="dv-name"><b>' + esc(x.name) + '</b>' + (x.note ? '<small>' + esc(x.note) + '</small>' : '') + '</div></div>'; }).join('') + '</div>' : '<p class="empty-row">No documents needed.</p>') +
+      card('knowledge', 'Knowledge links', 'book-open', '<div>' + p.knowledge.map(function (x) { return '<div class="dv" style="grid-template-columns:1fr auto"><div class="dv-name"><b>' + esc(x.name) + '</b><small>' + esc(x.meta) + '</small></div><span class="pill line">' + x.kind + '</span></div>'; }).join('') + '</div>', 'Numbers never live in documents or FAQs; answers take them from the values above.') +
+      card('bands', 'Counter-offer bands', 'handshake', p.bands.length ? '<div>' + p.bands.map(function (b) {
+        return '<div class="band"><div class="band-h"><b style="font-weight:500">' + esc(b.segment) + '</b><span class="pill internal">' + ic('lock') + 'Internal · never shown to customers</span></div>' +
+          '<div><span class="micro">What Raiffy may offer on its own, in this order</span><ol>' + b.levers.map(function (l) { return '<li>' + (l.kind === 'feeWaiver' ? esc(l.label) : 'Margin cut up to −' + fmt(l.maxDelta, 2) + ' pp') + '</li>'; }).join('') + '</ol></div>' +
+          '<div class="dv-meta"><span>Escalation: ' + b.escalation.map(function (e) { return LEVELS[e.level] + (e.upToDelta != null ? ' to −' + fmt(e.upToDelta, 2) + ' pp' : ' beyond'); }).join(' · ') + '</span></div>' +
+          '<div class="dv-meta"><span>Valid ' + b.validityDays + ' days</span><span>' + esc(b.owner) + '</span>' + stalePill(b.reviewBy) + '<span>Owned by the pricing team</span></div></div>'; }).join('') + '</div>'
+        : '<p class="empty-row">No band: Raiffy shows the list price only, and every negotiation goes to a specialist.</p>') +
+      card('history', 'Version history', 'history', '<div class="hist">' + p.history.map(function (h, i) {
+        var canRoll = i === 0 && h.key && !pendingFor('product', p.id, h.key);
+        return '<div class="hv"><span class="mono">v' + h.version + '</span><div>' + esc(h.what) + '<small>' + when(h.at) + ' · ' + esc(h.by) + (h.approvedBy ? ' · approved by ' + esc(h.approvedBy) : ' · published by an admin') + '</small></div>' +
+          (canRoll ? '<button type="button" class="btn btn-ghost btn-xs" data-rollback="' + p.id + '">' + ic('undo-2') + 'Roll back</button>' : i === 0 ? '<span class="pill ok">Current</span>' : '<span></span>') + '</div>';
+      }).join('') + '</div>', 'Published versions are never edited. A rollback restores the previous value as a new version.') +
+      '</div></div>';
+  }
+
+  /* ═══════════════════════ Parameters ═══════════════════════ */
+  function pageParameters() {
+    crumbs([['Parameters']]);
+    $('top-actions').innerHTML = '';
+    var groups = {}, order = [];
+    Object.keys(PARAMS).forEach(function (k) { var g = PARAMS[k].group; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(k); });
+    var stale = Object.keys(PARAMS).filter(function (k) { return staleness(PARAMS[k].reviewBy) === 'stale'; });
+    return '<div class="page-head"><div><h1>Parameters</h1><p>Dated values the calculators and guards read: limits, thresholds and margins. A value past its review date blocks every answer that needs it until someone re-confirms it.</p></div></div>' +
+      (stale.length ? '<div class="note-q" style="margin-bottom:16px;border-color:rgba(180,35,24,.25);background:#FEF6F5"><b style="color:var(--danger)">Blocking answers</b>' + stale.map(function (k) { var o = PARAMS[k]; return esc(o.label) + ' is past its review date (' + day(o.reviewBy) + '). ' + o.blocks + ' answer patterns that need it are blocked: ' + esc(o.usedBy.join(', ')) + '.'; }).join(' ') + '</div>' : '') +
+      '<div style="display:grid;gap:16px">' + order.map(function (g) {
+        return '<section class="card" aria-labelledby="pg-' + g.replace(/\W/g, '') + '"><div class="card-h"><h2 id="pg-' + g.replace(/\W/g, '') + '">' + ic('sliders-horizontal') + esc(g) + '</h2></div><div>' + groups[g].map(function (k) {
+          var o = PARAMS[k], row = dvRow(o, 'parameter', '', k);
+          return row.replace('</div><div class="dv-val">', '<small>Used by: ' + esc(o.usedBy.join(' · ')) + '</small></div><div class="dv-val">');
+        }).join('') + '</div></section>';
+      }).join('') +
+      '<section class="card" aria-labelledby="hl"><div class="card-h"><h2 id="hl">' + ic('lock') + 'Hard limits</h2><span class="pill line">Read-only · in code</span></div><p class="sec-intro" style="padding-top:12px">Behaviour rules that no form or prompt can loosen. Changing one is a code change, protected by these eval cases.</p><div>' +
+      HARD_LIMITS.map(function (h) { return '<div class="ro"><span class="ic">' + ic(h.icon) + '</span><div><b>' + esc(h.name) + '</b><p>' + esc(h.text) + '</p><div class="evs">' + h.evals.map(function (e) { return '<span class="pill line mono">' + esc(e) + '</span>'; }).join('') + '</div></div></div>'; }).join('') +
+      '</div></section></div>';
+  }
+
+  /* ═══════════════════════ Approvals ═══════════════════════ */
+  function changeDiff(c) { var o = target(c.entity, c.entityId, c.key); return '<span class="vdiff"><del>' + fv(o, c.from) + '</del>' + ic('arrow-right') + '<ins>' + fv(o, c.to) + '</ins></span>'; }
+  function pageApprovals() {
+    crumbs([['Approvals']]);
+    $('top-actions').innerHTML = '';
+    var pend = pendingChanges(), done = CHANGES.filter(function (c) { return c.status !== 'pending'; });
+    function rows(list) {
+      return list.length ? list.map(function (c) {
+        return '<tr class="rowlink" data-href="#approvals/' + c.id + '"><td><a class="t-main" href="#approvals/' + c.id + '">' + esc(targetName(c)) + '</a><span class="t-sub mono">' + c.id + (c.reviewId ? ' · from ' + c.reviewId : '') + (c.rollback ? ' · rollback' : '') + '</span></td>' +
+          '<td>' + changeDiff(c) + '</td><td class="hide-sm"><span class="t-main">' + esc(c.by) + '</span><span class="t-sub">' + when(c.at) + '</span></td><td class="hide-sm mono">' + day(c.validFrom) + '</td><td>' + STATUS[c.status] + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" class="empty-row">Nothing waiting.</td></tr>';
+    }
+    var head = '<thead><tr><th>Change</th><th>Value</th><th class="hide-sm">Proposed by</th><th class="hide-sm">Goes live</th><th>Status</th></tr></thead>';
+    return '<div class="page-head"><div><h1>Approvals</h1><p>' + (role === 'admin' ? 'Operators’ proposed changes. Open one to see its diff and impact, then approve or reject it.' : 'Your changes and your team’s wait here until an admin approves them. Nothing reaches customers before that.') + '</p></div></div>' +
+      '<div style="display:grid;gap:16px"><section class="card" aria-labelledby="ap1"><div class="card-h"><h2 id="ap1">' + ic('git-pull-request-arrow') + 'Waiting for approval</h2><span class="micro">' + pend.length + '</span></div><div class="tbl-wrap"><table class="tbl">' + head + '<tbody>' + rows(pend) + '</tbody></table></div></section>' +
+      '<section class="card" aria-labelledby="ap2"><div class="card-h"><h2 id="ap2">' + ic('history') + 'Decided</h2></div><div class="tbl-wrap"><table class="tbl">' + head + '<tbody>' + rows(done) + '</tbody></table></div></section></div>';
+  }
+  function pageChange(c) {
+    crumbs([['Approvals', 'approvals'], [c.id]]);
+    $('top-actions').innerHTML = '';
+    var o = target(c.entity, c.entityId, c.key), canAct = role === 'admin' && c.status === 'pending';
+    var link = c.entity === 'product' ? '#products/' + c.entityId : '#parameters';
+    return '<div class="page-head"><div><span class="eyebrow">' + c.id + (c.rollback ? ' · rollback' : '') + '</span><h1 style="margin-top:6px">' + esc(targetName(c)) + '</h1></div>' + STATUS[c.status] + '</div>' +
+      '<div class="ws" style="grid-template-columns:minmax(0,1fr) minmax(0,320px)"><div class="col"><section class="card" aria-labelledby="cd"><div class="card-h"><h2 id="cd">' + ic('diff') + 'Diff</h2><a class="link" href="' + link + '">Open ' + (c.entity === 'product' ? 'product' : 'Parameters') + '</a></div><div class="card-b" style="display:grid;gap:14px">' +
+      '<div>' + changeDiff(c) + '</div><div class="facts" style="border:1px solid var(--border);border-radius:12px">' +
+      '<div class="fact"><span>Source</span><b>' + esc(c.sourceLabel) + '</b><span class="sub">Was: ' + esc(o.sourceLabel) + '</span></div><div class="fact"><span>Goes live</span><b>' + day(c.validFrom) + '</b></div>' +
+      (c.note ? '<div class="fact"><span>Note</span><b style="text-align:left;font-weight:400">' + esc(c.note) + '</b></div>' : '') + (c.reviewId ? '<div class="fact"><span>From review</span><b><a class="link" href="#reviews/' + c.reviewId + '">' + c.reviewId + '</a></b></div>' : '') + '</div>' +
+      '<div class="field"><span class="lbl">Impact preview</span>' + impactHTML(c.status === 'pending' ? impact(c.entity, c.entityId, c.key, c.to) : { head: null, sum: 'Decided: the preview ran against the values at the time.' }) + '</div></div>' +
+      (canAct ? '<div class="actbar"><button type="button" class="btn btn-dark btn-sm" data-approve="' + c.id + '">' + ic('check') + (d(c.validFrom) > NOW ? 'Approve and schedule' : 'Approve and publish') + '</button><button type="button" class="btn btn-ghost btn-sm" data-reject="' + c.id + '">Reject</button><span class="spacer"></span><span class="scope-note">Your approval is logged with your name.</span></div>'
+        : c.status === 'pending' ? '<div class="actbar"><span class="scope-note">' + ic('clock') + ' Waiting for an admin. Switch to Admin in the sidebar to approve it in this demo.</span></div>' : '') + '</section></div>' +
+      '<div class="col"><section class="card" aria-labelledby="cw"><div class="card-h"><h3 id="cw">' + ic('user') + 'Who</h3></div><div class="facts"><div class="fact"><span>Proposed by</span><b>' + esc(c.by) + '</b><span class="sub">' + when(c.at) + ' · ' + c.byRole + '</span></div>' +
+      (c.approvedBy ? '<div class="fact"><span>Approved by</span><b>' + esc(c.approvedBy) + '</b>' + (c.approveNote ? '<span class="sub">' + esc(c.approveNote) + '</span>' : '') + '</div>' : '') + (c.rejectReason ? '<div class="fact"><span>Rejected</span><b>' + esc(c.rejectedBy) + '</b><span class="sub">' + esc(c.rejectReason) + '</span></div>' : '') + '</div></section></div></div>';
+  }
+
+  /* ═══════════════════════ Audit ═══════════════════════ */
+  function pageAudit() {
+    crumbs([['Audit log']]);
+    $('top-actions').innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="export">' + ic('download') + 'Export CSV</button>';
+    var kinds = [['all', 'All'], ['change', 'Changes'], ['review', 'Reviews'], ['access', 'Access and unmasking']];
+    function kindOf(a) { return /change|Rolled|Approved|Rejected|Scheduled|Published/.test(a.action) ? 'change' : /Opened|Unmasked/.test(a.action) ? 'access' : 'review'; }
+    var q = ui.auditQ.toLowerCase(), list = AUDIT.filter(function (a) { return (ui.auditKind === 'all' || kindOf(a) === ui.auditKind) && (!q || JSON.stringify(a).toLowerCase().indexOf(q) > -1); });
+    return '<div class="page-head"><div><h1>Audit log</h1><p>Every change, approval, rollback, unmasking and chat access: who, when, what and why. Read-only.</p></div></div>' +
+      '<div class="toolbar"><div class="chips" role="group" aria-label="Filter entries">' + kinds.map(function (k) { return '<button type="button" class="qbtn" data-auditk="' + k[0] + '" aria-pressed="' + (ui.auditKind === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+      '<label class="search">' + ic('search') + '<span class="sr-only">Search the log</span><input type="search" id="audit-q" placeholder="Search the log" value="' + esc(ui.auditQ) + '"></label></div>' +
+      '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>What</th><th class="hide-sm">Why</th></tr></thead><tbody id="audit-body">' +
+      (list.length ? list.map(function (a) { return '<tr><td class="mono">' + when(a.at) + '</td><td>' + esc(a.user) + '</td><td>' + esc(a.action) + '</td><td><span class="t-main" style="font-weight:400">' + esc(a.entity || '') + '</span>' + (a.diff ? '<span class="t-sub mono">' + esc(a.diff) + '</span>' : '') + '</td><td class="hide-sm" style="color:var(--text-2)">' + esc(a.reason || '') + '</td></tr>'; }).join('')
+        : '<tr><td colspan="5" class="empty-row">No entries match.</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  /* ═══════════════════════ Demo bridge with chat.html (localStorage) ═══════════════════════
+     chat.html writes requests to raiffy.demo.requests; the console writes decisions to raiffy.demo.verdicts. */
+  var REQ_KEY = 'raiffy.demo.requests', VER_KEY = 'raiffy.demo.verdicts';
+  function readJSON(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
+  function writeVerdict(r, v) {
+    if (!r.fromChat) return;
+    try { var all = readJSON(VER_KEY, {}); all[r.chatId] = v; localStorage.setItem(VER_KEY, JSON.stringify(all)); } catch (e) {}
+  }
+  function importRequests() {
+    var reqs = readJSON(REQ_KEY, []), added = 0;
+    reqs.forEach(function (q) {
+      var id = 'R-' + (2000 + (q.n || 0) % 8000);
+      if (review(id)) return;
+      var r = { id: id, chatId: q.id, fromChat: true, status: 'open', createdAt: isoMinus(Math.max(0, Math.round((Date.now() - q.at) / 6e4))), client: { ref: 'Client ••4821', segment: 'Andrei P. · salary transfer' },
+        conversationId: q.conv, note: q.note || '', convo: [{ role: 'user', text: q.question }, { role: 'raiffy', flagged: true, text: (q.paras[0] || '').slice(0, 120) + '…' }] };
+      if (q.kind === 'plan') {
+        var P = q.card.amount, n = q.card.term, rate = q.card.rate * 100;
+        r.trigger = 'plan'; r.topic = 'Plan check · ' + lei(P) + ' over ' + n + ' months';
+        r.plan = planSummary('PS-' + (2300 + (q.n || 0)), P, n, rate, 0, product('personal-loan').values.origination.value, liso(NOW).slice(0, 16), 'Kitchen renovation', 'Personal loan, pre-approved offer ' + pct(rate, 1), { 'personal-loan': product('personal-loan').version });
+        r.plan.sources = ['Your pre-approved offer', 'Fee schedule, 1 Jul 2026'];
+        r.plan.figures.commissions = r.plan.figures.commissions.filter(function (c) { return c.name !== 'Account package'; });
+      } else {
+        r.trigger = 'customer'; r.topic = q.title || 'Flagged answer';
+        r.answer = { pattern: q.flow === 'compare' || q.flow === 'sim' ? 'Compare' : 'Detail', confidence: 0.9, versions: { 'personal-loan': product('personal-loan').version }, paras: q.paras,
+          card: q.snap ? { type: 'chatsim', snap: q.snap } : null, sources: q.sources || [], inputs: q.snap ? [['Amount', lei(q.snap.amount)], ['Term', q.snap.term + ' months'], ['Offer access', 'On']] : [['From', 'chat.html']] };
+      }
+      if (r.plan) {
+        /* One open request per chat: a plan check absorbs the open answer checks from the same chat */
+        var merged = REVIEWS.filter(function (x) { return x.status === 'open' && x.fromChat && x.conversationId === r.conversationId; });
+        merged.forEach(function (x) { x.status = 'merged'; x.closedAt = r.createdAt; x.reviewer = 'plan ' + r.id; });
+        if (merged.length) r.merged = merged.length;
+      }
+      REVIEWS.unshift(r); added++;
+    });
+    return added;
+  }
+  window.addEventListener('storage', function (e) {
+    if (e.key !== REQ_KEY) return;
+    var n = importRequests();
+    if (n) { toast(n === 1 ? 'New request from the chat.' : n + ' new requests from the chat.', 'inbox'); render(false); }
+  });
+
+  /* ═══════════════════════ Router ═══════════════════════ */
+  function render(moveFocus) {
+    var h = location.hash.replace(/^#/, '') || 'reviews', parts = h.split('/'), html = '', top = parts[0];
+    if (top === 'reviews' && parts[1]) {
+      var r = review(parts[1]);
+      if (r && (r.answer || r.plan || r.co)) {
+        crumbs([['Reviews', 'reviews'], [r.id]]); $('top-actions').innerHTML = '';
+        if (!openedChats[r.id] && r.status === 'open') { openedChats[r.id] = 1; audit('Opened chat', r.id + ' · ' + (r.conversationId || ''), { reason: 'Trigger: ' + TRIGGER[r.trigger].sub.toLowerCase() }); }
+        html = r.plan ? pagePlan(r) : r.co ? pageCounter(r) : pageAnswer(r);
+      } else { location.hash = 'reviews'; return; }
+    } else if (top === 'products' && parts[1]) {
+      var p = product(parts[1]); if (!p) { location.hash = 'products'; return; }
+      html = pageProduct(p);
+    } else if (top === 'approvals' && parts[1]) {
+      var c = CHANGES.filter(function (x) { return x.id === parts[1]; })[0]; if (!c) { location.hash = 'approvals'; return; }
+      html = pageChange(c);
+    } else {
+      top = { reviews: 1, products: 1, parameters: 1, approvals: 1, audit: 1 }[top] ? top : 'reviews';
+      html = { reviews: pageReviews, products: pageProducts, parameters: pageParameters, approvals: pageApprovals, audit: pageAudit }[top]();
+    }
+    renderNav(top);
+    var pg = $('page'), keep = moveFocus === false ? $('content').scrollTop : 0;
+    pg.innerHTML = html;
+    if (moveFocus !== false) { pg.classList.remove('enter'); void pg.offsetWidth; pg.classList.add('enter'); $('content').scrollTop = 0; $('content').focus({ preventScroll: true }); }
+    else $('content').scrollTop = keep;
+    document.title = ($('crumbs').textContent || 'Console') + ' · Raiffy Console';
+    icons();
+    if (ui.pendingEdit && top === 'products') { var pe = ui.pendingEdit; ui.pendingEdit = null; openEditor(pe.entity, pe.id, pe.key, pe.from); }
+    if (ui.pendingEdit && top === 'parameters') { var pe2 = ui.pendingEdit; ui.pendingEdit = null; openEditor(pe2.entity, pe2.id, pe2.key, pe2.from); }
+  }
+  window.addEventListener('hashchange', function () { closeSide(); render(true); });
+
+  /* ═══════════════════════ Review decisions ═══════════════════════ */
+  function closeReview(r, status) { r.status = status; r.reviewer = me().name; r.closedAt = liso(NOW).slice(0, 16); }
+  function confirmAnswer(r) {
+    closeReview(r, 'confirmed');
+    audit('Confirmed ' + (r.plan ? 'plan' : 'answer'), r.id);
+    writeVerdict(r, { level: 'confirmed', reviewer: { name: me().name, role: me().role.split(' · ')[0] }, reviewedAt: hm(r.closedAt) });
+    toast((r.plan ? 'Plan signed' : 'Answer confirmed') + '. The customer sees it in the chat.', 'badge-check');
+    render(false);
+  }
+  function makeEval(r, expected, reason) {
+    var e = { id: 'EV-' + (481 + EVALS.length), source: 'review', reviewId: r.id, pattern: r.plan ? 'Plan summary' : r.answer.pattern,
+      input: r.convo.filter(function (m) { return m.role === 'user'; })[0].text.replace(/\{\{\w+:[^}]+\}\}/g, '[masked]'), expected: expected, reason: reason, status: 'draft', safety: false,
+      cause: r.cause ? r.cause.label : '' };
+    EVALS.push(e);
+    audit('Draft eval case', e.id + ' from ' + r.id, { reason: reason });
+    return e;
+  }
+  function sendEdit(r) {
+    var ed = ui.editing[r.id];
+    r.edited = { paras: ed.paras.slice(), reason: ed.reason.trim() };
+    closeReview(r, 'edited');
+    var changed = r.answer.paras.map(function (p, i) { return p === ed.paras[i] ? null : ed.paras[i]; }).filter(Boolean).join(' ');
+    makeEval(r, changed, ed.reason.trim());
+    audit('Edited answer', r.id, { diff: 'Text edited, ' + ed.paras.filter(function (p, i) { return p !== r.answer.paras[i]; }).length + ' paragraph(s)', reason: ed.reason.trim() });
+    writeVerdict(r, { level: 'edited', reviewer: { name: me().name, role: me().role.split(' · ')[0] }, reviewedAt: hm(r.closedAt), paras: ed.paras.slice(), diff: r.answer.paras.map(function (p, i) { return wordDiff(p, ed.paras[i]); }) });
+    delete ui.editing[r.id];
+    toast('Edited version sent. A draft eval case was created.', 'flask-conical');
+    render(false);
+  }
+  function sendPlanEdit(r) {
+    var ed = ui.editing[r.id];
+    r.edited = { note: ed.note.trim(), reason: ed.reason.trim() };
+    closeReview(r, 'edited');
+    makeEval(r, 'The plan should say: ' + ed.note.trim(), ed.reason.trim());
+    audit('Edited plan', r.id, { diff: 'Added a specialist note', reason: ed.reason.trim() });
+    writeVerdict(r, { level: 'edited', reviewer: { name: me().name, role: me().role.split(' · ')[0] }, reviewedAt: hm(r.closedAt), note: ed.note.trim() });
+    delete ui.editing[r.id];
+    toast('Plan signed with your correction. A draft eval case was created.', 'flask-conical');
+    render(false);
+  }
+  function decideCounter(r) {
+    var st = coState(r);
+    if (st.mode === 'decline') {
+      if (!st.reason.trim()) { var t = document.querySelector('[data-co-reason]'); t.setAttribute('aria-invalid', 'true'); t.focus(); announce('Add a reason to decline.'); return; }
+      closeReview(r, 'declined'); r.declineReason = st.reason.trim();
+      CO_STATS.decided++; CO_STATS.declined++;
+      audit('Declined counter-offer', r.id, { reason: r.declineReason });
+      writeVerdict(r, { level: 'declined' });
+      toast('Declined. The chat shows the best offer inside the band.', 'x');
+    } else {
+      if (coErr(r)) { announce('Check the rate.'); return; }
+      var q = coQuote(r, st.rate), valid = liso(new Date(+NOW + r.co.band.validityDays * 864e5)).slice(0, 10);
+      closeReview(r, 'approved');
+      r.offer = { rate: st.rate, monthly: q.monthly, total: q.total, validUntil: valid, by: me().sign, conditions: st.mode === 'conditions' && st.salary ? ['salary paid into Raiffeisen'] : [] };
+      CO_STATS.decided++; CO_STATS.specialist++;
+      audit('Approved counter-offer', r.id, { diff: pct(r.co.list.rate) + ' → ' + pct(st.rate) + ', fee waived', reason: 'Matches ' + r.co.competitor.bank + ' total cost (client SECCI)' });
+      toast('Offer approved, valid until ' + day(valid) + '. Logged for the win rate.', 'badge-check');
+    }
+    render(false);
+  }
+
+  /* ═══════════════════════ Events ═══════════════════════ */
+  document.addEventListener('click', function (e) {
+    var t = e.target, el;
+    if ((el = t.closest('[data-role]'))) return setRole(el.dataset.role);
+    if ((el = t.closest('tr.rowlink')) && !t.closest('a, button')) { if (el.dataset.href) location.hash = el.dataset.href; return; }
+    if ((el = t.closest('[data-revtype]'))) { ui.revType = el.dataset.revtype; return render(false); }
+    if ((el = t.closest('[data-revstatus]'))) { ui.revStatus = el.dataset.revstatus; return render(false); }
+    if ((el = t.closest('[data-prodf]'))) { ui.prodFilter = el.dataset.prodf; return render(false); }
+    if ((el = t.closest('[data-auditk]'))) { ui.auditKind = el.dataset.auditk; return render(false); }
+    if ((el = t.closest('[data-jump]'))) { e.preventDefault(); var s = $(el.dataset.jump); if (s) s.scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth', block: 'start' });
+      document.querySelectorAll('.secnav a').forEach(function (a) { a.classList.toggle('on', a === el); }); return; }
+    if ((el = t.closest('[data-close-sheet]'))) { $('sheet').close(); return; }
+    if ((el = t.closest('[data-unmask]'))) {
+      var key = el.dataset.unmask, kind = el.dataset.kind, rid = key.split(':')[0];
+      return ask('Unmask ' + kind, 'Reason (logged with your name)', 'Unmask', 'For example: the customer asked which account their salary goes into', function (reason, choice) {
+        UNMASKED[key] = 1; audit('Unmasked data', rid + ' · ' + kind, { reason: choice + (reason ? ': ' + reason : '') }); toast('Unmasked. The reason is in the audit log.', 'eye'); render(false);
+      }, ['Needed to answer the customer’s question', 'Checking for fraud', 'Complaint handling']);
+    }
+    if ((el = t.closest('[data-confirm]'))) return confirmAnswer(review(el.dataset.confirm));
+    if ((el = t.closest('[data-confirm-plan]'))) return confirmAnswer(review(el.dataset.confirmPlan));
+    if ((el = t.closest('[data-edit]'))) { var r1 = review(el.dataset.edit); ui.editing[r1.id] = { paras: r1.answer.paras.slice(), reason: '' }; render(false); var f = document.querySelector('[data-edit-para]'); if (f) f.focus(); return; }
+    if ((el = t.closest('[data-edit-plan]'))) { ui.editing[el.dataset.editPlan] = { note: '', reason: '' }; render(false); $('pnote').focus(); return; }
+    if ((el = t.closest('[data-cancel-edit]'))) { delete ui.editing[el.dataset.cancelEdit]; return render(false); }
+    if ((el = t.closest('[data-send-edit]'))) return sendEdit(review(el.dataset.sendEdit));
+    if ((el = t.closest('[data-send-plan-edit]'))) return sendPlanEdit(review(el.dataset.sendPlanEdit));
+    if ((el = t.closest('[data-sched]'))) { ui.showSched[el.dataset.sched] = !ui.showSched[el.dataset.sched]; return render(false); }
+    if ((el = t.closest('[data-return]'))) {
+      var r2 = review(el.dataset.return);
+      return ask('Return the plan', 'Note to the customer', 'Return to the chat', 'For example: rates changed since this plan, so Raiffy will rebuild it with today’s figures', function (note) {
+        if (!note) return false;
+        r2.returnNote = note; closeReview(r2, 'returned'); audit('Returned plan', r2.id, { reason: note });
+        writeVerdict(r2, { level: 'returned', note: note }); toast('Returned to the customer with your note.', 'undo-2'); render(false);
+      });
+    }
+    if ((el = t.closest('[data-pass]'))) { var r3 = review(el.dataset.pass); r3.passedTo = 'Cristina B., branch manager, Floreasca'; audit('Passed counter-offer', r3.id, { reason: 'Needs ' + LEVELS[r3.approvalLevel] }); toast('Passed to Cristina B.', 'forward'); return render(false); }
+    if ((el = t.closest('[data-open-cause]'))) {
+      var r4 = review(el.dataset.openCause), card = el.closest('.card'), kind = card.querySelector('[data-cause-kind]').value;
+      var val = card.querySelector('[data-cause-value]').value;
+      if (kind === 'parameter') { ui.pendingEdit = { entity: 'parameter', id: '', key: val, from: r4.id }; location.hash = 'parameters'; }
+      else { var pid = card.querySelector('[data-cause-product]').value; ui.pendingEdit = { entity: 'product', id: pid, key: val, from: r4.id }; location.hash = 'products/' + pid; }
+      return;
+    }
+    if ((el = t.closest('[data-edit-value]'))) { var a = el.dataset.editValue.split('|'); return openEditor(a[0], a[1], a[2]); }
+    if ((el = t.closest('[data-rollback]'))) {
+      var p = product(el.dataset.rollback), h = p.history[0];
+      return openEditor('product', p.id, h.key, null, { value: h.from, rollback: true, source: 'Rollback of v' + h.version, note: 'Restores the value before v' + h.version + '.' });
+    }
+    if ((el = t.closest('[data-approve]'))) {
+      var c = CHANGES.filter(function (x) { return x.id === el.dataset.approve; })[0];
+      var res = applyChange(c, me().name);
+      audit(res.scheduled ? 'Approved and scheduled' : 'Approved change', targetName(c), { diff: fv(target(c.entity, c.entityId, c.key), c.from) + ' → ' + fv(target(c.entity, c.entityId, c.key), c.to) });
+      toast('Approved. ' + publishMsg(res)); return render(false);
+    }
+    if ((el = t.closest('[data-reject]'))) {
+      var c2 = CHANGES.filter(function (x) { return x.id === el.dataset.reject; })[0];
+      return ask('Reject ' + c2.id, 'Reason, sent to ' + c2.by, 'Reject', 'For example: the source is a draft, use the signed ALCO minutes', function (reason) {
+        if (!reason) return false;
+        c2.status = 'rejected'; c2.rejectedBy = me().name; c2.rejectReason = reason; audit('Rejected change', targetName(c2), { reason: reason }); toast('Rejected. ' + c2.by + ' sees your reason.', 'x'); render(false);
+      });
+    }
+    if (t.closest('#export')) {
+      var csv = 'when,who,action,what,diff,why\n' + AUDIT.map(function (a) { return [a.at, a.user, a.action, a.entity, a.diff, a.reason].map(function (x) { return '"' + String(x || '').replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+      var link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = 'raiffy-audit-log.csv'; link.click();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      audit('Exported audit log', AUDIT.length + ' entries'); return;
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    var t = e.target, r;
+    if (t.matches('[data-edit-para]')) { r = review(location.hash.split('/')[1]); ui.editing[r.id].paras[+t.dataset.editPara] = t.value; document.querySelector('[data-edit-live]').innerHTML = editLive(r); icons(); return; }
+    if (t.matches('[data-edit-reason]')) { r = review(t.dataset.editReason); ui.editing[r.id].reason = t.value; document.querySelector('[data-edit-live]').innerHTML = editLive(r); icons(); return; }
+    if (t.matches('[data-plan-note]')) { r = review(t.dataset.planNote); ui.editing[r.id].note = t.value; document.querySelector('[data-plan-live]').innerHTML = planLive(r); icons(); return; }
+    if (t.matches('[data-plan-reason]')) { r = review(t.dataset.planReason); ui.editing[r.id].reason = t.value; document.querySelector('[data-plan-live]').innerHTML = planLive(r); icons(); return; }
+    if (t.matches('[data-co-rate]')) { r = review(t.dataset.coRate); coState(r).rate = parseFloat(t.value.replace(',', '.')); t.setAttribute('aria-invalid', coErr(r)); document.querySelector('[data-co-live]').innerHTML = coLive(r); return; }
+    if (t.matches('[data-co-reason]')) { coState(review(t.dataset.coReason)).reason = t.value; t.removeAttribute('aria-invalid'); return; }
+    if (t.id === 'ed-val' || t.id === 'ed-from') { $('ed-err').hidden = true; return refreshImpact(); }
+    if (t.id === 'audit-q') { ui.auditQ = t.value; var pos = t.selectionStart; render(false); var q = $('audit-q'); q.focus(); q.setSelectionRange(pos, pos); return; }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.matches('[data-co-mode]')) { coState(review(t.dataset.coMode)).mode = t.value; render(false); var x = document.querySelector('[data-co-mode][value="' + t.value + '"]'); if (x) x.focus(); return; }
+    if (t.matches('[data-co-salary]')) { coState(review(t.dataset.coSalary)).salary = t.checked; return; }
+    if (t.matches('[data-cause-kind]')) {
+      var card = t.closest('.card'), sel = card.querySelector('[data-cause-value]');
+      card.querySelector('[data-cause-prod]').hidden = t.value === 'parameter';
+      sel.innerHTML = t.value === 'parameter' ? paramOptions() : valueOptions(product(card.querySelector('[data-cause-product]').value));
+      return;
+    }
+    if (t.matches('[data-cause-product]')) { t.closest('.card').querySelector('[data-cause-value]').innerHTML = valueOptions(product(t.value)); return; }
+  });
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.id === 'ed-form') { e.preventDefault(); return submitEditor(); }
+    if (f.id === 'ask-form') {
+      e.preventDefault();
+      var txt = $('ask-t').value.trim(), ch = f.querySelector('[name="ask-c"]:checked');
+      var res = askCtx(txt, ch ? ch.value : '');
+      if (res === false) { $('ask-err').hidden = false; $('ask-t').setAttribute('aria-invalid', 'true'); $('ask-t').focus(); return; }
+      $('sheet').close(); askCtx = null; return;
+    }
+    if (f.matches('[data-co-form]')) { e.preventDefault(); return decideCounter(review(f.dataset.coForm)); }
+  });
+  $('sheet').addEventListener('close', function () { editorCtx = null; askCtx = null; });
+  $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) $('sheet').close(); });
+
+  /* Sidebar drawer */
+  function closeSide() { $('app').classList.remove('side-open'); $('scrim').hidden = true; $('open-side').setAttribute('aria-expanded', 'false'); document.querySelector('.main').inert = false; }
+  $('open-side').addEventListener('click', function () {
+    $('app').classList.add('side-open'); $('scrim').hidden = false; $('open-side').setAttribute('aria-expanded', 'true'); document.querySelector('.main').inert = true;
+    setTimeout(function () { var a = document.querySelector('.nav a'); if (a) a.focus(); }, 30);
+  });
+  $('scrim').addEventListener('click', function () { closeSide(); $('open-side').focus(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('app').classList.contains('side-open')) { closeSide(); $('open-side').focus(); } });
+  narrow.addEventListener('change', closeSide);
+
+  /* ═══════════════════════ Start ═══════════════════════ */
+  seedReviews();
+  importRequests();
+  icons();
+  render(false);
+})();
+</script>
+</body>
+</html>

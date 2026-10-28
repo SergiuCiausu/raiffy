@@ -1,0 +1,1797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Mobile prototype</title>
+<meta name="description" content="Prototype of the Smart Mobile app with Raiffy inside: launch context, deep links to official flows, and status events back.">
+<!--
+  Smart Mobile prototype with Raiffy inside. Front end only: mock data, scripted replies, nothing leaves the page.
+  Spec: raiffy-spec/docs/shared/smart-mobile.md. One design system: DESIGN.md tokens, Daylight only.
+  Layout: mobile-first. Full screen on a phone; a centred 390×844 frame on desktop, with a demo panel and a bridge log beside it (≥ 960px).
+  Routes (hash): #home #accounts #transaction/:id #payments #products #overdraft #offer #loans #card #more #inbox #inbox/:id
+                 #raiffy (sheet over the last screen) #apply (official flow) #repay (official flow)
+  The customer is already signed in to Smart Mobile; Raiffy gets its session from the app (simulated).
+  Bridge: the app opens Raiffy with an AppContext (a reference, never data); Raiffy opens official screens with a DeepLink;
+          official screens send HandoffEvents back. Raiffy never carries out an action itself.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ───────────── Tokens (shared with raiffy.html and chat.html) ───────────── */
+:root {
+  --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --text-h3: 20px; --text-body: 15px; --text-sm: 14px; --text-xs: 13px;
+
+  --radius-card: 20px; --radius-btn: 10px;
+  --accent-a: #FFD23F; --accent-b: #FF9A3D;
+  --ink: #1A1A1A;
+  --halo: 0 0 0 4px rgba(255,210,63,.35);
+
+  --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0;
+  --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12);
+  --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
+  --ok: #2E7D4F;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.04); --shadow-float: 0 8px 30px rgba(20,20,40,.08);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+@media (max-width: 640px) { :root { --text-h3: 18px; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; color: var(--text-1); background: var(--surface-2);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.micro { font-size: 11px; color: var(--text-3); }
+.eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 8px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 13px; }
+.skip:focus { top: 12px; }
+kbd { font: 500 10px/1 var(--font-mono); color: var(--text-3); padding: 2px 5px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--surface); }
+
+/* ───────────── Stage: desktop frame + side panels ───────────── */
+.stage { min-height: 100%; display: grid; place-items: center; padding: 32px 24px; gap: 40px; position: relative; overflow: hidden; }
+.stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: 760px; height: 760px; translate: -50% -50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,210,63,.32), rgba(255,170,61,.14) 45%, rgba(255,154,61,.05) 70%, transparent); }
+@media (min-width: 960px) { .stage { grid-template-columns: minmax(0, 280px) 390px minmax(0, 300px); justify-content: center; align-items: center; } }
+.side { position: relative; display: none; align-self: center; font-size: 13px; color: var(--text-2); }
+@media (min-width: 960px) { .side { display: grid; gap: 16px; } }
+.side h1 { font-size: 20px; letter-spacing: -.02em; line-height: 1.3; color: var(--text-1); }
+.side .lead { font-size: 13.5px; line-height: 1.55; }
+.panel { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,.72); padding: 14px; display: grid; gap: 10px; }
+.panel .eyebrow { display: flex; align-items: center; gap: 8px; }
+.demo-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: s; }
+.demo-steps li { counter-increment: s; display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 5px 0; font-size: 12.5px; line-height: 1.45; }
+.demo-steps li::before { content: counter(s); font: 500 10.5px/18px var(--font-mono); color: var(--text-3); text-align: center; border: 1px solid var(--border-strong); border-radius: 50%; height: 18px; }
+.demo-steps li.done { color: var(--text-3); }
+.demo-steps li.done::before { content: "✓"; color: var(--ok); border-color: rgba(46,125,79,.3); }
+.side .btn { justify-self: start; }
+.side .proto { justify-self: start; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 430px; overflow-y: auto; font: 400 11px/1.45 var(--font-mono); color: var(--text-3); }
+.log li { display: grid; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.log li:last-child { border-bottom: 0; }
+.log b { font-weight: 500; color: var(--text-1); }
+.log .k { display: inline-block; width: fit-content; padding: 0 6px; border-radius: 999px; font-size: 10px; background: var(--surface-2); color: var(--text-2); }
+.log .k.dl { background: #FFF3C4; color: #7A5A00; }
+.log .empty { border: 0; }
+
+/* The phone */
+.device { position: relative; width: 390px; height: 844px; max-height: calc(100dvh - 64px); border-radius: 46px; background: var(--bg); overflow: hidden;
+  border: 1px solid var(--border-strong); box-shadow: 0 0 0 7px #fff, 0 0 0 8px var(--border-strong), var(--shadow-float); isolation: isolate; }
+@media (max-width: 520px) {
+  body { background: var(--bg); }
+  .stage { display: block; padding: 0; min-height: 0; height: 100%; }
+  .stage::before { display: none; }
+  .device { width: 100%; height: 100dvh; max-height: none; border-radius: 0; border: 0; box-shadow: none; }
+  .screen-in { padding-top: max(12px, env(safe-area-inset-top)); }
+  .statusbar { display: none !important; }
+}
+.app { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.statusbar { flex: none; height: 44px; padding: 0 30px 0 34px; display: flex; align-items: center; justify-content: space-between; font: 600 14px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+.statusbar .sys { display: flex; gap: 6px; align-items: center; }
+.statusbar svg { width: 15px; height: 15px; stroke-width: 2.2; }
+.screen { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.screen::-webkit-scrollbar { display: none; }
+.screen-in { padding: max(8px, env(safe-area-inset-top)) 16px 24px; display: grid; gap: 16px; align-content: start; }
+
+/* App top bar */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.topbar h1 { font-size: var(--text-h3); letter-spacing: -.02em; line-height: 1.3; }
+.topbar .sub { font-size: 12.5px; color: var(--text-3); }
+.back { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 8px 0 2px; margin-left: -6px; border: 0; background: none; cursor: pointer; font-size: 14px; color: var(--text-2); border-radius: 10px; }
+.back svg { width: 20px; height: 20px; }
+.icon-btn { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--text-1); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn .count { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--ink); color: #fff; font: 600 10.5px/18px var(--font-sans); text-align: center; box-shadow: 0 0 0 2px var(--bg); }
+.hello { display: flex; align-items: center; gap: 10px; }
+.me { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.hello b { display: block; font-size: 15px; font-weight: 600; line-height: 1.25; }
+.hello span { font-size: 12px; color: var(--text-3); }
+.proto { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; border: 1px dashed var(--border-strong); font-size: 10.5px; font-weight: 500; color: var(--text-3); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: var(--radius-btn);
+  border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease; }
+.btn:active { transform: scale(.97); }
+.btn svg { width: 16px; height: 16px; }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-ghost { background: var(--surface); border-color: var(--border-strong); color: var(--text-1); }
+.btn-block { width: 100%; }
+.btn-sm { height: 36px; font-size: 13px; padding: 0 12px; }
+.btn[disabled] { opacity: .4; cursor: not-allowed; transform: none; }
+@media (hover: hover) and (pointer: fine) { .btn-dark:not([disabled]):hover { background: #2B2B2B; } .btn-ghost:hover { border-color: rgba(20,20,20,.26); } }
+.link-btn { border: 0; background: none; padding: 0; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+
+/* Cards and rows */
+.card { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
+.card-pad { padding: 16px; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 2px -6px; }
+.sec-h h2 { font-size: 15px; letter-spacing: -.01em; }
+.sec-h a, .sec-h button { font-size: 12.5px; color: var(--text-2); border: 0; background: none; cursor: pointer; padding: 0; }
+.rows { display: grid; }
+.row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; cursor: pointer; }
+.row:first-child { border-top: 0; }
+.row .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; color: var(--text-2); }
+.row .ic svg { width: 17px; height: 17px; }
+.row .t { font-size: 14px; font-weight: 500; line-height: 1.35; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .d { font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.row .amt { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.row .amt.in { color: var(--ok); }
+.row .chev { width: 16px; height: 16px; color: var(--text-3); }
+@media (hover: hover) and (pointer: fine) { button.row:hover { background: #FCFBF9; } }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--text-2); padding: 9px 0; border-top: 1px solid var(--border); }
+.kv:first-child { border-top: 0; }
+.kv b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; background: var(--surface-2); color: var(--text-2); width: fit-content; }
+.pill svg { width: 11px; height: 11px; }
+.pill.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+.pill.warm { background: #FFF3C4; color: #7A5A00; }
+
+/* Balance card */
+.balance { position: relative; overflow: hidden; padding: 18px; display: grid; gap: 14px; }
+.balance .bloom { position: absolute; right: -90px; top: -110px; width: 260px; height: 260px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,210,63,.42), rgba(255,170,61,.18) 50%, rgba(255,154,61,.05) 75%, transparent); }
+.balance .lbl { position: relative; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--text-2); }
+.balance .val { position: relative; font: 600 30px/1.1 var(--font-sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.balance .val small { font-size: 15px; font-weight: 500; color: var(--text-2); letter-spacing: 0; margin-left: 4px; }
+.meter { position: relative; display: grid; gap: 6px; font-size: 12px; color: var(--text-2); }
+.meter .bar { height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.meter .bar span { display: block; height: 100%; border-radius: inherit; background: var(--ink); }
+.meter .m-row { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quick button { display: grid; justify-items: center; gap: 6px; padding: 10px 0 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 11.5px; color: var(--text-2); transition: transform 160ms var(--ease-out); }
+.quick button:active { transform: scale(.97); }
+.quick svg { width: 18px; height: 18px; color: var(--text-1); }
+
+/* Raiffy entry points */
+.ava-raiffy { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 14px; height: 14px; stroke-width: 2.2; }
+.insight { position: relative; overflow: hidden; display: grid; gap: 10px; padding: 16px; border-color: rgba(200,150,20,.22); background: #FFFDF7; }
+.insight .bloom { position: absolute; left: -80px; bottom: -120px; width: 240px; height: 240px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,210,63,.3), rgba(255,170,61,.1) 55%, transparent); }
+.insight-h { position: relative; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-2); }
+.insight-h .ava-raiffy { width: 22px; height: 22px; }
+.insight-h .ava-raiffy svg { width: 11px; height: 11px; }
+.insight-h .nav { margin-left: auto; margin-right: -8px; display: flex; align-items: center; gap: 0; }
+.insight-h .counter { font: 500 11px/1 var(--font-mono); color: var(--text-3); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.insight-h .nb { width: 32px; height: 32px; border: 0; background: none; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--text-2); }
+.insight-h .nb[disabled] { opacity: .3; cursor: default; }
+.insight-h .nb svg { width: 16px; height: 16px; }
+.insight-h .nb.x { color: var(--text-3); }
+.insight-h .nb.x svg { width: 15px; height: 15px; }
+.insight .rec-ttl { position: relative; font-size: 12px; font-weight: 500; color: var(--text-3); margin-bottom: -6px; }
+.insight .back-note { position: relative; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.insight .back-note svg { width: 13px; height: 13px; }
+.insight .foot .btns { display: flex; gap: 8px; flex: none; }
+.insight.swap { animation: none; }
+/* Routes card: a recommendation's options, one recommended */
+.routes { display: grid; gap: 8px; }
+.route { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.route.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
+.route .rec-badge { grid-column: 1 / -1; margin-bottom: 6px; }
+.route .nm { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.route .ds { font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.route .fig { grid-row: span 2; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.route.rec .fig { grid-row: 2 / span 2; grid-column: 2; }
+.subs-total { display: flex; justify-content: space-between; padding-top: 10px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kv .up { margin-left: 6px; }
+.choice { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 12px 14px; border: 1px solid var(--border-strong); border-radius: 12px; cursor: pointer; font-size: 14px; }
+.choice input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
+.choice span small { display: block; font-size: 12px; color: var(--text-3); }
+.choice:has(input:checked) { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.insight p { position: relative; font-size: 14px; line-height: 1.5; }
+.insight p b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.insight .foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.insight .src-line { font-size: 11px; color: var(--text-3); }
+.ask-bar { flex: none; margin: 0 12px 8px; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 8px 0 10px; border-radius: 16px; border: 1px solid var(--border-strong);
+  background: var(--surface); box-shadow: var(--shadow-float); cursor: pointer; text-align: left; font-size: 14px; color: var(--text-3); width: calc(100% - 24px); }
+.ask-bar .ava-raiffy { box-shadow: 0 0 0 4px rgba(255,210,63,.22); }
+.ask-bar span:nth-child(2) { flex: 1; }
+.ask-bar .go { width: 32px; height: 32px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; color: var(--text-2); }
+.ask-bar .go svg { width: 16px; height: 16px; }
+.ask-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 1px solid rgba(200,150,20,.22); border-radius: 14px; background: #FFFDF7; cursor: pointer; text-align: left; transition: transform 160ms var(--ease-out); }
+.ask-link:active { transform: scale(.98); }
+.ask-link .ava-raiffy { width: 24px; height: 24px; }
+.ask-link .ava-raiffy svg { width: 12px; height: 12px; }
+.ask-link b { display: block; font-size: 13.5px; font-weight: 500; line-height: 1.35; }
+.ask-link span.q { display: block; font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.ask-link .chev { margin-left: auto; width: 16px; height: 16px; color: var(--text-3); flex: none; }
+
+/* Tab bar */
+.tabbar { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px 6px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: rgba(250,249,247,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.tabbar a { display: grid; justify-items: center; gap: 3px; padding: 6px 0 2px; font-size: 10.5px; font-weight: 500; color: var(--text-3); border-radius: 10px; }
+.tabbar a svg { width: 20px; height: 20px; }
+.tabbar a[aria-current="page"] { color: var(--ink); }
+.tabbar a[aria-current="page"]::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); margin-top: -1px; }
+
+/* Switches */
+.sw-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.sw-row:first-child { border-top: 0; }
+.sw-row b { display: block; font-size: 14px; font-weight: 500; line-height: 1.35; }
+.sw-row span.d { display: block; font-size: 12px; color: var(--text-3); line-height: 1.4; }
+.switch { position: relative; width: 44px; height: 26px; border-radius: 999px; border: 0; background: #E2DFD8; cursor: pointer; flex: none; transition: background-color 160ms ease; }
+.switch::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18); transition: transform 180ms var(--ease-out); }
+.switch[aria-checked="true"] { background: var(--ink); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+/* ───────────── Raiffy sheet ───────────── */
+.scrim { position: absolute; inset: 0; z-index: 20; background: rgba(20,20,20,.28); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 52px; z-index: 21; display: flex; flex-direction: column; background: var(--bg); border-radius: 24px 24px 0 0;
+  box-shadow: 0 -1px 0 var(--border), 0 -8px 30px rgba(20,20,40,.08); transform: translateY(104%); transition: transform 320ms var(--ease-out); visibility: hidden; }
+.sheet.on { transform: none; visibility: visible; }
+@media (max-width: 520px) { .sheet { top: 12px; } }
+.grab { flex: none; width: 36px; height: 4px; border-radius: 4px; background: var(--border-strong); margin: 8px auto 0; }
+.r-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.r-head .ava-raiffy { width: 30px; height: 30px; box-shadow: 0 0 0 4px rgba(255,210,63,.22); }
+.r-head .ttl { flex: 1; min-width: 0; }
+.r-head .ttl b { display: block; font-size: 15px; font-weight: 600; line-height: 1.25; }
+.r-head .ttl span { display: block; font-size: 11.5px; color: var(--text-3); }
+.r-head .icon-btn { width: 36px; height: 36px; border-radius: 10px; border-color: transparent; background: transparent; color: var(--text-2); }
+.ctx-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(200,150,20,.3); background: #FFF8DC; font-size: 12px; color: var(--text-1); }
+.ctx-chip svg { width: 13px; height: 13px; color: var(--text-2); flex: none; }
+.ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-thread { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; display: grid; gap: 18px; align-content: start; scrollbar-width: none; }
+.r-thread::-webkit-scrollbar { display: none; }
+.divider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-3); }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.msg-user { justify-self: end; max-width: 84%; padding: 10px 14px; border-radius: 18px 18px 6px 18px; background: var(--ink); color: #fff; font-size: 14.5px; line-height: 1.5; }
+.msg-raiffy { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; }
+.msg-raiffy > .ava-raiffy { width: 24px; height: 24px; margin-top: 2px; }
+.msg-raiffy > .ava-raiffy svg { width: 12px; height: 12px; }
+.raiffy-body { display: grid; gap: 12px; min-width: 0; }
+.raiffy-text { display: grid; gap: 10px; font-size: 14.5px; line-height: 1.55; }
+.caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--ink); opacity: .7; }
+.dots { display: inline-flex; gap: 2px; }
+.dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--accent-b); opacity: .5; }
+.think { border: 1px solid var(--border); border-radius: 12px; background: #FBFAF8; font: 400 12px/1.45 var(--font-mono); color: var(--text-3); }
+.think summary { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; cursor: pointer; list-style: none; border-radius: 12px; }
+.think summary::-webkit-details-marker { display: none; }
+.think summary svg { width: 13px; height: 13px; transition: transform 160ms var(--ease-out); }
+.think[open] summary svg { transform: rotate(90deg); }
+.think-lines { list-style: none; margin: 0; padding: 0 12px 10px; display: grid; gap: 6px; }
+.think-live .think-lines { padding-top: 10px; }
+.think-line { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: center; }
+.think-line::before { content: ""; justify-self: center; width: 7px; height: 4px; margin-top: -3px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.think-line.on { color: var(--text-2); }
+.think-line.on::before { display: none; }
+.think-line .dots { justify-self: center; }
+.gfoot { display: flex; flex-wrap: wrap; gap: 6px; }
+.src { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 11.5px; color: var(--text-2); }
+.src svg { width: 12px; height: 12px; }
+
+/* Answer cards */
+.gcard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.gc-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
+.gc-h > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.gc-h svg { width: 14px; height: 14px; color: var(--text-2); }
+.gc-h .micro { font-weight: 400; font-family: var(--font-mono); }
+.gc-b { padding: 14px; }
+.gc-note { padding: 10px 14px; border-top: 1px solid var(--border); background: #FBFAF8; font-size: 11.5px; color: var(--text-3); }
+/* Compare on mobile: one option per column, swiped; the recommended one first */
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 10px; padding: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 14px; scrollbar-width: none; }
+.cols::-webkit-scrollbar { display: none; }
+.col { scroll-snap-align: start; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px 6px; display: grid; gap: 2px; align-content: start; }
+.col.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
+.col-h { display: grid; gap: 2px; font-size: 13.5px; font-weight: 600; padding-bottom: 8px; }
+.col-h .micro { font-weight: 400; }
+.col-h .rec-badge { margin-bottom: 6px; }
+.col-h .rec-badge[hidden] { display: inline-flex; visibility: hidden; }
+.col .kv { font-size: 12.5px; }
+.col .kv.on { margin: 0 -14px; padding: 9px 14px; background: #FFF8DC; }
+.col.rec .kv.on { background: #FFF3C4; }
+.swipe-hint { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px 12px; font-size: 11px; color: var(--text-3); }
+.swipe-hint i { width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong); }
+.swipe-hint i.on { background: var(--ink); }
+.rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; padding: 0 8px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .01em; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+.rec-badge svg { width: 11px; height: 11px; stroke-width: 2.4; }
+.rec-why { display: grid; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); background: #FBFAF6; }
+.rec-why-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.rec-why-h .ava-raiffy { width: 20px; height: 20px; }
+.rec-why-h .ava-raiffy svg { width: 10px; height: 10px; }
+.rec-why ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; line-height: 1.5; }
+.rec-why li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+.rec-why li svg { width: 13px; height: 13px; margin-top: 4px; color: var(--text-2); stroke-width: 2.4; }
+.rec-alt { font-size: 12px; color: var(--text-3); }
+/* Simulator */
+.sim-b { display: grid; gap: 16px; }
+.ctrl { display: grid; gap: 8px; }
+.ctrl-top { display: flex; justify-content: space-between; align-items: baseline; }
+.ctrl label, .label { font-size: 13px; color: var(--text-2); }
+.ctrl output { font: 600 15px/1 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.range { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; margin: 0; cursor: pointer; touch-action: pan-y; }
+.range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--ink) 0 var(--p, 30%), #E9E6DE var(--p, 30%)); }
+.range::-moz-range-track { height: 4px; border-radius: 4px; background: #E9E6DE; }
+.range::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--ink); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -10px; border-radius: 50%; background: #fff; border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); transition: box-shadow 150ms ease; }
+.range::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+.range:active::-webkit-slider-thumb { box-shadow: 0 2px 6px rgba(0,0,0,.12), 0 0 0 6px rgba(255,210,63,.4); }
+.range:focus-visible { outline: none; }
+.range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+.terms { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.terms button { height: 44px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.terms button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.opts { display: grid; gap: 8px; }
+.opt { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: end; transition: opacity 200ms ease; }
+.opt.na { opacity: .55; }
+.opt.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
+.opt-h { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
+.opt-h .rec-badge { margin-bottom: 4px; }
+.opt-h .rec-badge[hidden] { display: none; }
+.opt-h .micro { font-weight: 400; }
+.big { font: 600 18px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-align: right; }
+.big small { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
+.opt-note { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-3); }
+.sim-say { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 12px; border-radius: 12px; background: #FBFAF6; border: 1px solid rgba(200,150,20,.18); font-size: 13px; line-height: 1.5; }
+.sim-say .ava-raiffy { width: 20px; height: 20px; }
+.sim-say .ava-raiffy svg { width: 10px; height: 10px; }
+.sim-say .alt { display: block; margin-top: 4px; font-size: 12px; color: var(--text-3); }
+/* Handoff: Raiffy opens the official screen, the customer acts there */
+.handoff { display: grid; gap: 10px; padding: 14px; border-top: 1px solid var(--border); }
+.handoff .hf-sum { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; color: var(--text-2); }
+.handoff .hf-sum b { color: var(--text-1); font-weight: 600; font-variant-numeric: tabular-nums; }
+.handoff .hf-m { white-space: nowrap; }
+.handoff .hf-note { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.45; color: var(--text-3); }
+.handoff .hf-note svg { width: 13px; height: 13px; flex: none; margin-top: 2px; }
+.handoff .btns { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.sent { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.sent svg { width: 13px; height: 13px; color: var(--ok); }
+/* One-time allow */
+.allow { display: grid; gap: 12px; padding: 14px; }
+.allow p { font-size: 14px; line-height: 1.5; }
+.allow .obj { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: #FBFAF8; }
+.allow .obj .ic { width: 32px; height: 32px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-2); }
+.allow .obj .ic svg { width: 15px; height: 15px; }
+.allow .obj b { display: block; font-size: 13px; font-weight: 500; }
+.allow .obj span { font-size: 11.5px; color: var(--text-3); }
+.allow .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.allow .fine { font-size: 11.5px; color: var(--text-3); }
+.resolved { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.resolved svg { width: 13px; height: 13px; }
+/* Status from the official flow */
+.status-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.status-steps li { position: relative; display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; font-size: 13px; color: var(--text-3); }
+.status-steps li .dot { width: 10px; height: 10px; justify-self: center; border-radius: 50%; border: 1.5px solid var(--border-strong); background: var(--surface); }
+.status-steps li.done { color: var(--text-1); }
+.status-steps li.done .dot { background: var(--ink); border-color: var(--ink); }
+.status-steps li.now .dot { border-color: var(--accent-b); box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+.status-steps li time { font: 400 11px/1 var(--font-mono); color: var(--text-3); }
+.callout { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
+.callout svg { width: 16px; height: 16px; margin-top: 2px; color: var(--text-2); }
+
+/* Composer */
+.r-foot { flex: none; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--bg); display: grid; gap: 8px; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 12.5px; color: var(--text-1); transition: transform 160ms var(--ease-out); }
+.chip:active { transform: scale(.97); }
+.chip .tab-kbd { margin-left: 8px; vertical-align: 1px; }
+@media (pointer: coarse) { .chip .tab-kbd { display: none; } }
+.composer { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 14px; border-radius: 16px; border: 1px solid var(--border-strong); background: var(--surface); }
+.composer:focus-within { box-shadow: var(--halo); border-color: rgba(200,150,20,.45); }
+.composer input { flex: 1; min-width: 0; height: 40px; border: 0; outline: 0; background: transparent; font-size: 15px; }
+.composer input::placeholder { color: var(--text-3); }
+.send { width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--ink); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+.send svg { width: 17px; height: 17px; }
+.send[disabled] { opacity: .35; cursor: not-allowed; }
+.disc { font-size: 10.5px; color: var(--text-3); text-align: center; }
+
+/* Bottom sheets inside the device (What Raiffy can see, confirm dialogs) */
+.mini-scrim { position: absolute; inset: 0; z-index: 40; background: rgba(20,20,20,.3); opacity: 0; pointer-events: none; transition: opacity 200ms ease; }
+.mini-scrim.on { opacity: 1; pointer-events: auto; }
+.mini { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 41; max-height: 80%; overflow-y: auto; border-radius: 24px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-float); padding: 8px 18px 18px; transform: translateY(110%); visibility: hidden; transition: transform 280ms var(--ease-out); }
+.mini.on { transform: none; visibility: visible; }
+.mini h2 { font-size: 17px; letter-spacing: -.015em; margin: 10px 0 4px; }
+.mini .lead { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+.mini .btns { display: grid; gap: 8px; margin-top: 14px; }
+
+/* Official flow: plainer, no Raiffy, no blooms */
+.official { background: var(--surface); }
+.official .screen-in { gap: 14px; }
+.off-bar { display: flex; align-items: center; gap: 8px; min-height: 48px; border-bottom: 1px solid var(--border); margin: 0 -16px; padding: 0 16px; }
+.off-bar .back { margin-right: 2px; }
+.off-bar b { flex: 1; font-size: 15px; font-weight: 600; }
+.off-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-3); }
+.off-tag svg { width: 12px; height: 12px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.steps i { height: 3px; border-radius: 3px; background: var(--surface-2); }
+.steps i.on { background: var(--ink); }
+.off-h { font-size: var(--text-h3); letter-spacing: -.02em; line-height: 1.3; }
+.off-p { font-size: 14px; color: var(--text-2); line-height: 1.55; }
+.box { border: 1px solid var(--border-strong); border-radius: 12px; padding: 4px 14px; }
+.stepper { display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center; }
+.stepper button { height: 44px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.stepper button svg { width: 16px; height: 16px; }
+.stepper output { text-align: center; font: 600 22px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.seg button { height: 44px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.note { display: grid; grid-template-columns: 16px 1fr; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+.note svg { width: 15px; height: 15px; margin-top: 2px; }
+.check { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: 14px; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--ink); }
+.otp { width: 100%; height: 56px; border-radius: 12px; border: 1px solid var(--border-strong); text-align: center; font: 500 24px/1 var(--font-mono); letter-spacing: .4em; padding-left: .4em; background: var(--surface); }
+.otp:focus { outline: 0; border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.done-mark { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); margin-top: 24px; }
+.done-mark svg { width: 26px; height: 26px; stroke-width: 2.4; }
+.off-foot { position: sticky; bottom: 0; margin: 0 -16px -24px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); display: grid; gap: 8px; }
+
+/* Schedule table */
+.sched { display: grid; grid-template-columns: auto 1fr 1fr 1fr; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sched > div { padding: 8px 0; border-top: 1px solid var(--border); text-align: right; }
+.sched > div:nth-child(4n+1) { text-align: left; color: var(--text-3); }
+.sched .th { border-top: 0; font-weight: 500; color: var(--text-3); font-size: 11px; }
+
+/* Card controls */
+.bankcard { position: relative; overflow: hidden; height: 188px; border-radius: 18px; padding: 18px; background: var(--ink); color: #F4F4F6; display: grid; align-content: space-between; }
+.bankcard .bloom { position: absolute; right: -60px; top: -90px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,210,63,.4), rgba(255,154,61,.12) 60%, transparent); }
+.bankcard .chip-ic { position: relative; width: 34px; height: 24px; border-radius: 6px; background: linear-gradient(135deg, #E9D9A6, #C9B47A); opacity: .85; }
+.bankcard .no { position: relative; font: 500 16px/1 var(--font-mono); letter-spacing: .12em; }
+.bankcard .meta { position: relative; display: flex; justify-content: space-between; font-size: 12px; color: rgba(244,244,246,.66); }
+.bankcard.frozen { background: #3A3A3E; }
+.bankcard.frozen::after { content: "Frozen"; position: absolute; right: 16px; top: 16px; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(255,255,255,.14); font: 500 11px/22px var(--font-sans); color: #fff; }
+
+/* Inbox */
+.mail .row .t { white-space: normal; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.doc { display: grid; gap: 12px; }
+.doc .label-ind { padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--border-strong); font-size: 12.5px; color: var(--text-2); }
+
+/* Toast */
+.toast { position: absolute; left: 50%; bottom: 96px; z-index: 60; translate: -50% 12px; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 13px; line-height: 1.4;
+  opacity: 0; pointer-events: none; transition: opacity 180ms ease, translate 220ms var(--ease-out); }
+.toast.on { opacity: 1; translate: -50% 0; }
+
+/* Motion */
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .mini, .scrim, .mini-scrim, .toast { transition: opacity 150ms ease; }
+  .sheet:not(.on), .mini:not(.on) { opacity: 0; }
+  .sheet, .mini { transform: none !important; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .caret { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .think-line.on .dots i { animation: pulse 1s ease-in-out infinite; }
+  .think-line.on .dots i:nth-child(2) { animation-delay: .15s; }
+  .think-line.on .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes pulse { 50% { opacity: 1; } }
+  .enter { animation: rise 320ms var(--ease-out) backwards; }
+  .insight.swap-in { animation: rise 260ms var(--ease-out) backwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .screen-in.anim > * { animation: rise 360ms var(--ease-out) backwards; }
+  .screen-in.anim > *:nth-child(2) { animation-delay: 40ms; }
+  .screen-in.anim > *:nth-child(3) { animation-delay: 80ms; }
+  .screen-in.anim > *:nth-child(4) { animation-delay: 120ms; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#device">Skip to the app</a>
+
+<main class="stage">
+  <aside class="side" aria-label="About this prototype">
+    <span class="proto">Prototype · mock data</span>
+    <h1>Raiffy inside Smart Mobile</h1>
+    <p class="lead">The app opens Raiffy with a reference to what you're looking at. Raiffy explains and compares, then opens the app's own screens, where you review and confirm.</p>
+    <div class="panel">
+      <span class="eyebrow">Demo path</span>
+      <ol class="demo-steps" id="demo-steps">
+        <li data-step="card">Find the overdraft card among the From Raiffy cards on Home</li>
+        <li data-step="compare">Raiffy compares and recommends</li>
+        <li data-step="sim">Ask for a lower monthly payment</li>
+        <li data-step="apply">Apply in Smart Mobile, pre-filled</li>
+        <li data-step="sign">Read the SECCI and sign with the SMS code</li>
+        <li data-step="status">See the status back in Raiffy</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <span class="eyebrow">From Raiffy cards</span>
+      <p class="micro" id="rec-note" style="margin-top:-4px"></p>
+    </div>
+    <p class="micro">Also try: tap a card, then close Raiffy without acting (it comes back once, then rests). A transaction (Raiffy asks to see it), a lost card, or the pre-approved offer.</p>
+    <button class="btn btn-ghost btn-sm" type="button" id="reset"><i data-lucide="rotate-ccw"></i>Reset the demo</button>
+  </aside>
+
+  <div class="device" id="device" role="application" aria-label="Smart Mobile app prototype">
+    <div class="app">
+      <div class="statusbar" aria-hidden="true"><span>14:32</span><span class="sys"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+      <div class="screen" id="screen"></div>
+      <div id="askbar-slot"></div>
+      <nav class="tabbar" id="tabbar" aria-label="Smart Mobile">
+        <a href="#home" data-tab="home"><i data-lucide="house"></i>Home</a>
+        <a href="#accounts" data-tab="accounts"><i data-lucide="wallet"></i>Accounts</a>
+        <a href="#payments" data-tab="payments"><i data-lucide="arrow-left-right"></i>Payments</a>
+        <a href="#products" data-tab="products"><i data-lucide="layout-grid"></i>Products</a>
+        <a href="#more" data-tab="more"><i data-lucide="menu"></i>More</a>
+      </nav>
+    </div>
+
+    <!-- Raiffy sheet -->
+    <div class="scrim" id="scrim"></div>
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="r-title" aria-hidden="true">
+      <div class="grab" aria-hidden="true"></div>
+      <header class="r-head">
+        <span class="ava-raiffy" aria-hidden="true"><i data-lucide="compass"></i></span>
+        <div class="ttl"><b id="r-title">Raiffy</b><span>Signed in through Smart Mobile</span></div>
+        <button class="icon-btn" type="button" id="r-see" aria-label="What Raiffy can see"><i data-lucide="eye"></i></button>
+        <button class="icon-btn" type="button" id="r-share" aria-label="Share this chat"><i data-lucide="share"></i></button>
+        <button class="icon-btn" type="button" id="r-close" aria-label="Close Raiffy"><i data-lucide="chevron-down"></i></button>
+      </header>
+      <div class="r-thread" id="r-thread" aria-live="off"></div>
+      <div class="r-foot">
+        <div class="chips" id="chips" role="group" aria-label="Suggested replies"></div>
+        <form class="composer" id="composer">
+          <label class="sr-only" for="r-input">Message Raiffy</label>
+          <input id="r-input" type="text" autocomplete="off" placeholder="Ask Raiffy, or press Tab for a suggestion">
+          <button class="send" type="submit" id="r-send" aria-label="Send" disabled><i data-lucide="arrow-up"></i></button>
+        </form>
+        <p class="disc">Raiffy recommends an option and shows why. The choice is always yours.</p>
+      </div>
+    </section>
+
+    <!-- Bottom sheets -->
+    <div class="mini-scrim" id="mini-scrim"></div>
+    <section class="mini" id="mini" role="dialog" aria-modal="true" aria-labelledby="mini-title" aria-hidden="true"></section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <p class="sr-only" id="announcer" aria-live="polite"></p>
+  </div>
+
+  <aside class="side" aria-label="Bridge log">
+    <div class="panel">
+      <span class="eyebrow"><i data-lucide="cable" style="width:13px;height:13px"></i>Bridge log</span>
+      <p class="micro" style="margin-top:-4px">What passes between the app and Raiffy. References and figures only, never raw data.</p>
+      <ol class="log" id="log"><li class="empty">Nothing yet. Open Raiffy from the app.</li></ol>
+    </div>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ───────────── Helpers ───────────── */
+  function icons() { if (window.lucide) lucide.createIcons(); }
+  function ic(n) { return '<i data-lucide="' + n + '"></i>'; }
+  function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function fmt2(n) { var s = Math.abs(n).toFixed(2).split('.'); return (n < 0 ? '−' : '') + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + s[1]; }
+  function lei(n) { return fmt(n) + ' lei'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function $(s, r) { return (r || document).querySelector(s); }
+  function now() { return '14:' + String(32 + Math.min(27, clock++)).padStart(2, '0'); }
+  var clock = 0, uidN = 0;
+  function uid(p) { return (p || 'u') + (++uidN); }
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  /* ───────────── Mock data (shapes from docs/shared/smart-mobile.md) ───────────── */
+  /* The signed-in Smart Mobile customer. In the POC this comes from the bank's systems, never typed here. */
+  var CUSTOMER = { name: 'Ioana Marin', initials: 'IM' };
+  var ACCOUNT = { ref: 'acc_4821', name: 'Current account', mask: '••4821', available: 2000, balance: -8000,
+                  overdraft: { limit: 10000, used: 8000, rate: .115, interestOct: 8000 * .115 / 12, renews: '12 Aug 2027', since: 'August' } };
+  var TXNS = [
+    { id: 't1', name: 'Mega Image Floreasca', kind: 'Card payment', date: '27 Oct', amount: -142.30, icon: 'shopping-basket' },
+    { id: 't2', name: 'ATM withdrawal fee', kind: 'Another bank’s ATM', date: '22 Oct', amount: -5.00, icon: 'receipt' },
+    { id: 't3', name: 'Salary · Nordwave SRL', kind: 'Incoming transfer', date: '10 Oct', amount: 6240.00, icon: 'arrow-down-left' },
+    { id: 't4', name: 'Overdraft interest', kind: 'Monthly · October', date: '1 Oct', amount: -76.67, icon: 'percent' },
+    { id: 't5', name: 'Enel Energie', kind: 'Direct debit', date: '28 Sep', amount: -214.90, icon: 'zap' },
+    { id: 't6', name: 'Account package', kind: 'Monthly', date: '1 Oct', amount: -9.00, icon: 'package' }
+  ];
+  var CARD = { ref: 'card_4821', mask: '•••• 4821', kind: 'Debit card', expires: '09/29' };
+  var OFFER = { productId: 'personal-loan', max: 30000, rate: .079, fee: 249, validUntil: '30 Nov', termMin: 6, termMax: 60 };
+  var LIST_RATE = .094; // standard published rate, used when offer access is off
+
+  /** @type {{ account: boolean, transactions: boolean, offers: boolean, loans: boolean, cards: boolean }} "What Raiffy can see" */
+  var PERM_DEFAULT = { account: true, transactions: false, savings: true, offers: true, loans: true, cards: false };
+  var PERM_LABELS = {
+    account: ['Accounts and overdraft', 'Balances, limits and interest'],
+    transactions: ['Transactions', 'What you paid and received'],
+    savings: ['Savings and deposits', 'Balances, rates and maturity dates'],
+    offers: ['Pre-approved offers', 'Your personal rates'],
+    loans: ['Loans', 'Balances and repayment schedules'],
+    cards: ['Cards', 'Card numbers stay masked']
+  };
+
+  /** @typedef {{ screen: string, objectRef?: string, suggestedQuestion?: string, proactiveCardId?: string }} AppContext */
+  /** @typedef {{ kind: 'apply', productId: string, amount: number, termMonths: number, quoteId: string } | { kind: 'cardFreeze', cardRef?: string } | { kind: 'earlyRepayment', loanRef: string } | { kind: 'inbox', messageId: string }} DeepLink */
+  /** @typedef {{ quoteId?: string, deepLink: string, status: string, at: string }} HandoffEvent */
+  /** @type {{ id: string, kind: 'overdraftCost', figures: Record<string, number>, source: string, period: string }} */
+  /* The 10 "From Raiffy" cards (raiffy-spec/docs/shared/raiffy-recommendations/). Demo figures; in the POC each is computed
+     by a tool from allowed data, and only cards whose trigger is true for this customer are eligible.
+     @type {{ id: string, kind: string, n: string, title: string, needs: string[], deadline?: number, stake: number,
+              text: string, source: string, cta: string, q: string, flow: string }[]} */
+  var RECS = [
+    { id: 'rc01', kind: 'overdraftCost', n: '01', title: 'Overdraft cost', needs: ['account'], stake: 920,
+      text: 'Your overdraft cost <b>77 lei</b> in interest in October. You’ve used about 8,000 lei of it since August.', source: 'From your October statement',
+      cta: 'See cheaper ways', q: 'My overdraft cost 77 lei last month. Is there a cheaper way?', flow: 'compare' },
+    { id: 'rc02', kind: 'atmFees', n: '02', title: 'Other banks’ ATM fees', needs: ['transactions'], stake: 180,
+      text: 'You paid <b>15 lei</b> in ATM fees in October: 3 withdrawals at other banks’ ATMs.', source: 'From your October transactions',
+      cta: 'See how to avoid them', q: 'Why did I pay 15 lei in ATM fees?', flow: 'recAtm' },
+    { id: 'rc03', kind: 'fxCardFees', n: '03', title: 'Card payments in other currencies', needs: ['transactions', 'cards'], stake: 372,
+      text: 'You paid about <b>31 lei</b> to convert currency on card payments in October, on 1,240 lei spent in euros.', source: 'From your October transactions',
+      cta: 'See what it cost', q: 'How much do I pay to use my card in another currency?', flow: 'recFx' },
+    { id: 'rc04', kind: 'idleCash', n: '04', title: 'Money sitting idle', needs: ['account', 'transactions'], stake: 414,
+      text: 'About <b>12,000 lei</b> has stayed in your current account for 3 months, earning 0.05%.', source: 'From your August to October statements',
+      cta: 'See where it could earn more', q: 'I have about 12,000 lei I’m not using. Where could it earn more?', flow: 'recIdle' },
+    { id: 'rc05', kind: 'depositMaturing', n: '05', title: 'Term deposit about to renew', needs: ['savings'], deadline: 20261104, stake: 75,
+      text: 'Your <b>15,000 lei</b> deposit renews on <b>4 Nov</b> at today’s rate, 5.1%. You opened it at 5.6%.', source: 'From your deposit · rates as of 28 Oct',
+      cta: 'Compare before it renews', q: 'My deposit renews on 4 Nov. Should I renew it or move it?', flow: 'recDeposit' },
+    { id: 'rc06', kind: 'fixedPeriodEnding', n: '06', title: 'Fixed-rate period ending', needs: ['loans'], deadline: 20270315, stake: 4600,
+      text: 'Your mortgage’s fixed rate ends in <b>March 2027</b>. At today’s rates, your payment would go from 1,957 lei to about <b>2,340 lei</b>.', source: 'From your mortgage · IRCC as of 28 Oct',
+      cta: 'See what your payment could become', q: 'My fixed rate ends in March. What happens to my payment?', flow: 'recFixed' },
+    { id: 'rc07', kind: 'packageFit', n: '07', title: 'Account package fit', needs: ['account', 'transactions'], stake: 120,
+      text: 'Your account package costs <b>19 lei</b> a month. For how you’ve used it since May, a 9 lei package would have covered everything: <b>120 lei</b> less a year.', source: 'From your May to October statements',
+      cta: 'Check your package', q: 'Is my account package still the right one for me?', flow: 'recPackage' },
+    { id: 'rc08', kind: 'earlyRepaymentFree', n: '08', title: 'Early repayment becomes free', needs: ['loans', 'savings'], deadline: 20261215, stake: 217,
+      text: 'From <b>15 Dec</b>, repaying your personal loan early has no fee. Repaying the <b>4,200 lei</b> left would save about <b>217 lei</b> in interest.', source: 'From your loan and repayment schedule',
+      cta: 'See what repaying early saves', q: 'Should I repay my loan early from 15 Dec?', flow: 'recEarly' },
+    { id: 'rc09', kind: 'subscriptions', n: '09', title: 'Card subscriptions', needs: ['transactions', 'cards'], stake: 120,
+      text: 'You pay <b>6 subscriptions</b> with your card, <b>186 lei</b> a month. One went up this month, from 49 to 59 lei.', source: 'From your card payments, May to October',
+      cta: 'Review my subscriptions', q: 'Which subscriptions am I paying for?', flow: 'recSubs' },
+    { id: 'rc10', kind: 'creditCardFee', n: '10', title: 'Credit card annual fee', needs: ['cards', 'transactions'], deadline: 20261201, stake: 150,
+      text: 'Your credit card’s <b>150 lei</b> annual fee is due on <b>1 Dec</b>. You’ve used it twice this year.', source: 'From your card and card payments',
+      cta: 'Keep it or close it?', q: 'Is my credit card worth its 150 lei fee?', flow: 'recCard' }
+  ];
+  function recById(id) { return RECS.filter(function (r) { return r.id === id; })[0]; }
+
+  /* Official Smart Mobile screens the cards' answers can open (#official/<action>) */
+  var OFFICIAL = {
+    depositRenewal: { title: 'Term deposit', h: 'How should your deposit renew?', rows: [['Deposit', '15,000 lei · 6 months'], ['Matures', '4 Nov 2026'], ['Interest so far', '420 lei, before tax']],
+      choices: [['Renew for 6 months', '5.1% fixed, until 4 May 2027'], ['Pay it into my current account', 'On 4 Nov, to ••4821']], confirm: 'Confirm', done: 'Your renewal choice is saved.' },
+    refix: { title: 'Mortgage', h: 'Ask for a new fixed rate', rows: [['Mortgage', '270,000 lei left · 18 years'], ['Fixed rate ends', '15 Mar 2027'], ['New fixed rate', '6.6% for 5 years, indicative'], ['Payment', 'about 2,139 lei / month']],
+      note: 'A specialist confirms the rate before anything changes. Nothing is signed here.', confirm: 'Send the request', done: 'Your request is with the bank. A specialist will confirm the rate.' },
+    loanEarlyRepay: { title: 'Personal loan', h: 'Schedule an early repayment', rows: [['Balance', '4,200 lei'], ['Date', '15 Dec 2026'], ['Early repayment fee', '0 lei'], ['From', 'Savings account ••2207']],
+      choices: [['Repay in full', '4,200 lei'], ['Repay half', '2,100 lei']], confirm: 'Schedule it', done: 'Scheduled for 15 Dec. You can cancel it until 14 Dec.' },
+    eurAccount: { title: 'New account', h: 'Open a euro account', rows: [['Currency', 'EUR'], ['Card', 'Your debit card ••4821 can pay from it'], ['Fees', 'As in the fee schedule 2026']], confirm: 'Open the account', done: 'Your euro account is open.' },
+    savingsAccount: { title: 'New account', h: 'Open a savings account', rows: [['Interest', '3.5% variable'], ['Withdrawals', 'Anytime, no penalty'], ['Move now', '12,000 lei from ••4821']], confirm: 'Open and move the money', done: 'Your savings account is open, with 12,000 lei in it.' },
+    packageChange: { title: 'Account package', h: 'Change your package', rows: [['Now', 'Current package · 19 lei / month'], ['New', 'Basic package · 9 lei / month'], ['From', '1 Dec 2026']],
+      note: 'Basic covers transfers, card payments and Raiffeisen ATMs. Other banks’ ATMs cost 5 lei each.', confirm: 'Change package', done: 'From 1 Dec you’re on the Basic package.' },
+    closeCard: { title: 'Credit card', h: 'Close your credit card', rows: [['Card', 'Credit card ••9917'], ['Balance', '0 lei'], ['Annual fee', '150 lei, not charged if closed before 1 Dec']], confirm: 'Close the card', done: 'Your credit card is closed. The 150 lei fee won’t be charged.' }
+  };
+
+  var S; // app state
+  function fresh() {
+    return {
+      route: 'home', param: null, under: 'home',
+      perms: Object.assign({}, PERM_DEFAULT),
+      allows: [],            // OneTimeAllow[]
+      proactiveOff: false,
+      recs: {}, recIdx: 0, recOpen: null, recTarget: null,   // RecommendationInstance per card, by id
+      official: null,
+      thread: [],            // Raiffy conversation (one history per user)
+      ctx: null, lastCtxKey: null,
+      quotes: {}, apply: null, application: null, loan: null,
+      cardFrozen: false, cardConfirm: false, repay: null,
+      inbox: [
+        { id: 'm1', from: 'Raiffeisen Bank', title: 'Your October statement is ready', d: 'Current account ••4821', date: '1 Nov', read: true, type: 'statement' }
+      ],
+      demo: {}, chips: []
+    };
+  }
+
+  /* ───────────── Calculations (match lib/ at conversion) ───────────── */
+  function annuity(P, n, rate) { var r = rate / 12; return P * r / (1 - Math.pow(1 + r, -n)); }
+  function simCalc(P, n, rate) {
+    var pm = annuity(P, n, rate), oi = P * ACCOUNT.overdraft.rate * (n + 1) / 2 / 12;
+    return { loan: { monthly: pm, cost: pm * n - P + OFFER.fee }, od: { ok: n <= 12 && P <= 15000, monthly: (P + oi + 9) / n, cost: oi + 9 } };
+  }
+  /* DAE: the annual rate at which what you receive (amount minus the fee) equals the instalments */
+  function dae(P, n, rate) {
+    var pm = annuity(P, n, rate), net = P - OFFER.fee, lo = 0, hi = 1;
+    for (var k = 0; k < 60; k++) { var m = (lo + hi) / 2, pv = pm * (1 - Math.pow(1 + m, -n)) / m; if (pv > net) lo = m; else hi = m; }
+    return Math.pow(1 + (lo + hi) / 2, 12) - 1;
+  }
+  function schedule(P, n, rate, rows) {
+    var r = rate / 12, pm = annuity(P, n, rate), bal = P, out = [], months = ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+    for (var i = 0; i < rows; i++) { var int = bal * r, pr = pm - int; bal -= pr; out.push({ date: '15 ' + months[i], principal: pr, interest: int, balance: bal }); }
+    return out;
+  }
+  /* Recommendation rule (same as chat.html): the cheapest option that fits; a near-tie under 40 lei goes to the fixed-rate loan */
+  function recommend(s, P, n) {
+    var d = Math.abs(s.loan.cost - s.od.cost);
+    if (!s.od.ok) return { k: 'loan', name: 'the personal loan', reasons: [
+        P > 15000 ? 'Overdrafts go up to 15,000 lei, so it’s the only option for ' + lei(P) + '.' : 'Overdrafts renew every 12 months, so it’s the only option over ' + n + ' months.',
+        'Its rate is fixed, so your ' + lei(s.loan.monthly) + ' payment never changes.'],
+      alt: P <= 15000 ? 'Over 12 months or less, keeping the overdraft becomes an option too.' : 'A shorter term lowers the total cost.' };
+    if (d < 40) return { k: 'loan', name: 'the personal loan', reasons: [
+        'Both cost almost the same: ' + lei(d) + ' apart in total.', 'Its rate is fixed, so your payment can’t go up if rates rise.'],
+      alt: 'Keeping the overdraft is the better pick if you want to repay whenever you like, with no fee.' };
+    if (s.od.cost < s.loan.cost) return { k: 'od', name: 'keeping the overdraft', reasons: [
+        'It costs ' + lei(d) + ' less in total, because the loan adds a one-off 249 lei fee.', 'You can repay any amount, anytime, for free.'],
+      alt: 'The loan is the better pick if you’d rather have a fixed rate and the same payment every month.' };
+    return { k: 'loan', name: 'the personal loan', reasons: ['It costs ' + lei(d) + ' less in total.', 'Its rate is fixed, so your payment can’t go up.'],
+      alt: 'Keeping the overdraft is the better pick if you want to repay early with no fee.' };
+  }
+  function rate() { return S.perms.offers ? OFFER.rate : LIST_RATE; }
+  function makeQuote(P, n, r) {
+    r = r || rate(); var pm = annuity(P, n, r), q = { id: 'q_' + (Object.keys(S.quotes).length + 1041), productId: 'personal-loan', amount: P, termMonths: n, rate: r,
+      monthly: pm, fee: OFFER.fee, total: pm * n + OFFER.fee, dae: dae(P, n, r), priceVersion: '2026-10-28', personal: S.perms.offers };
+    S.quotes[q.id] = q; return q;
+  }
+
+  /* ───────────── Bridge log ───────────── */
+  function log(kind, title, body) {
+    var el = $('#log'), e = el.querySelector('.empty'); if (e) e.remove();
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="k' + (kind === 'DeepLink' ? ' dl' : '') + '">' + kind + '</span><b>' + esc(title) + '</b><span>' + esc(body) + '</span>';
+    el.insertBefore(li, el.firstChild);
+  }
+  function demo(step) {
+    S.demo[step] = true;
+    var li = document.querySelector('#demo-steps [data-step="' + step + '"]'); if (li) li.classList.add('done');
+  }
+  function event(ev) { // HandoffEvent from an official screen back to Raiffy
+    ev.at = now();
+    log('HandoffEvent', ev.deepLink + ' · ' + ev.status, (ev.quoteId ? 'quoteId ' + ev.quoteId + ' · ' : '') + ev.at);
+    onEvent(ev);
+  }
+
+  var toastT;
+  function toast(t) { var el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('on'); }, 2400); }
+  function announce(t) { var a = $('#announcer'); a.textContent = ''; setTimeout(function () { a.textContent = t; }, 30); }
+
+  /* ───────────── Screens ───────────── */
+  function topbar(title, sub, backTo) {
+    return '<div class="topbar"><div>' + (backTo ? '<button class="back" type="button" data-go="' + backTo + '">' + ic('chevron-left') + 'Back</button>' : '') +
+      '<h1>' + title + '</h1>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div></div>';
+  }
+  function askLink(label, q, ctx) {
+    return '<button class="ask-link" type="button" data-ask=\'' + esc(JSON.stringify(ctx)) + '\'><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>' +
+      '<span><b>' + label + '</b><span class="q">“' + esc(q) + '”</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>';
+  }
+  function txRow(t) {
+    return '<button class="row" type="button" data-go="transaction/' + t.id + '"><span class="ic">' + ic(t.icon) + '</span><span style="min-width:0"><span class="t" style="display:block">' + t.name + '</span><span class="d">' + t.kind + ' · ' + t.date + '</span></span>' +
+      '<span class="amt' + (t.amount > 0 ? ' in' : '') + '">' + (t.amount > 0 ? '+' : '') + fmt2(t.amount) + '</span></button>';
+  }
+  function unread() { return S.inbox.filter(function (m) { return !m.read; }).length; }
+
+  var SCREENS = {
+    home: function () {
+      var od = ACCOUNT.overdraft, n = unread();
+      var card = recCardHTML();
+      return '<div class="screen-in">' +
+        '<div class="topbar"><div class="hello"><span class="me" aria-hidden="true">' + CUSTOMER.initials + '</span><div><b>Good afternoon, Ioana</b><span>Smart Mobile <span class="proto" style="margin-left:4px;height:18px">Prototype</span></span></div></div>' +
+        '<button class="icon-btn" type="button" data-go="inbox" aria-label="Inbox' + (n ? ', ' + n + ' unread' : '') + '">' + ic('bell') + (n ? '<span class="count">' + n + '</span>' : '') + '</button></div>' +
+        '<button class="card balance" type="button" data-go="accounts" style="text-align:left;cursor:pointer;width:100%"><span class="bloom" aria-hidden="true"></span>' +
+          '<span class="lbl"><span>' + ACCOUNT.name + ' ' + ACCOUNT.mask + '</span>' + ic('chevron-right').replace('<i ', '<i style="width:16px;height:16px" ') + '</span>' +
+          '<span class="val">' + fmt2(ACCOUNT.available) + '<small>lei available</small></span>' +
+          '<span class="meter"><span class="m-row"><span>Overdraft used</span><span>' + fmt(od.used) + ' of ' + fmt(od.limit) + ' lei</span></span><span class="bar"><span style="width:' + (od.used / od.limit * 100) + '%"></span></span></span></button>' +
+        '<div class="quick"><button type="button" data-go="payments">' + ic('send') + 'Transfer</button><button type="button" data-go="payments">' + ic('file-text') + 'Pay bills</button><button type="button" data-go="card">' + ic('credit-card') + 'Card</button><button type="button" data-go="products">' + ic('sparkles') + 'Offers</button></div>' +
+        card +
+        '<div class="sec-h"><h2>Recent</h2><button type="button" data-go="accounts">See all</button></div>' +
+        '<div class="card rows">' + TXNS.slice(0, 4).map(txRow).join('') + '</div>' +
+        '</div>';
+    },
+    accounts: function () {
+      var od = ACCOUNT.overdraft;
+      return '<div class="screen-in">' + topbar('Accounts', CUSTOMER.name) +
+        '<div class="card card-pad"><div class="kv"><span>' + ACCOUNT.name + ' ' + ACCOUNT.mask + '</span><b>' + fmt2(ACCOUNT.balance) + ' lei</b></div>' +
+        '<div class="kv"><span>Available, with overdraft</span><b>' + fmt2(ACCOUNT.available) + ' lei</b></div>' +
+        '<div class="kv"><span>Overdraft</span><b><button class="link-btn" type="button" data-go="overdraft">' + fmt(od.used) + ' of ' + fmt(od.limit) + ' lei used</button></b></div></div>' +
+        '<div class="sec-h"><h2>Transactions</h2><span class="micro">October</span></div>' +
+        '<div class="card rows">' + TXNS.map(txRow).join('') + '</div></div>';
+    },
+    transaction: function (id) {
+      var t = TXNS.filter(function (x) { return x.id === id; })[0] || TXNS[1];
+      var q = t.id === 't2' ? 'Why was I charged this fee?' : t.id === 't4' ? 'Why do I pay this interest?' : 'What is this payment?';
+      return '<div class="screen-in">' + topbar('Transaction', '', 'accounts') +
+        '<div class="card card-pad" style="display:grid;gap:4px;text-align:center;padding:24px 16px">' +
+          '<span style="justify-self:center;width:48px;height:48px;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;color:var(--text-2)">' + ic(t.icon) + '</span>' +
+          '<b style="font-size:15px;margin-top:8px">' + t.name + '</b><span style="font:600 26px/1.2 var(--font-sans);letter-spacing:-.02em" class="num">' + (t.amount > 0 ? '+' : '') + fmt2(t.amount) + ' lei</span><span class="micro">' + t.kind + ' · ' + t.date + ' 2026</span></div>' +
+        '<div class="card card-pad"><div class="kv"><span>Account</span><b>' + ACCOUNT.mask + '</b></div><div class="kv"><span>Status</span><b>Booked</b></div><div class="kv"><span>Reference</span><b class="mono" style="font-size:12px">RZB' + t.id.toUpperCase() + '26102</b></div></div>' +
+        askLink('Ask Raiffy about this', q, { screen: 'transaction', objectRef: t.id, suggestedQuestion: q }) + '</div>';
+    },
+    payments: function () {
+      return '<div class="screen-in">' + topbar('Payments', 'From ' + ACCOUNT.name + ' ' + ACCOUNT.mask) +
+        '<div class="card rows"><button class="row" type="button" data-toast="Prototype: payments aren’t part of this demo">' + '<span class="ic">' + ic('send') + '</span><span class="t">New transfer</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-toast="Prototype: payments aren’t part of this demo"><span class="ic">' + ic('file-text') + '</span><span class="t">Pay a bill</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-toast="Prototype: payments aren’t part of this demo"><span class="ic">' + ic('repeat') + '</span><span class="t">Standing orders</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div>' +
+        '<div class="sec-h"><h2>Saved</h2></div><div class="card rows">' +
+        '<button class="row" type="button" data-toast="Prototype: payments aren’t part of this demo"><span class="ic" style="font-size:12px;font-weight:600">AM</span><span><span class="t" style="display:block">Andrei Marin</span><span class="d">RO49 •••• 7710</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-toast="Prototype: payments aren’t part of this demo"><span class="ic">' + ic('home') + '</span><span><span class="t" style="display:block">Rent · Str. Dorobanți</span><span class="d">Monthly · 1st</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div>' +
+        '<p class="micro" style="padding:0 4px">Raiffy never makes payments. You pay here, in Smart Mobile.</p></div>';
+    },
+    products: function () {
+      var loanRow = S.loan
+        ? '<button class="row" type="button" data-go="loans"><span class="ic">' + ic('landmark') + '</span><span><span class="t" style="display:block">Personal loan</span><span class="d">' + lei(S.loan.amount) + ' · ' + S.loan.termMonths + ' months</span></span><span class="pill ok">Active</span></button>'
+        : S.application ? '<button class="row" type="button" data-go="loans"><span class="ic">' + ic('landmark') + '</span><span><span class="t" style="display:block">Loan application</span><span class="d">' + lei(S.application.amount) + ' · ' + S.application.termMonths + ' months</span></span><span class="pill">In review</span></button>' : '';
+      return '<div class="screen-in">' + topbar('Products', 'What you have, and what’s on offer') +
+        '<div class="card rows">' +
+        '<button class="row" type="button" data-go="accounts"><span class="ic">' + ic('wallet') + '</span><span><span class="t" style="display:block">' + ACCOUNT.name + '</span><span class="d">' + ACCOUNT.mask + '</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-go="overdraft"><span class="ic">' + ic('gauge') + '</span><span><span class="t" style="display:block">Overdraft</span><span class="d">' + fmt(ACCOUNT.overdraft.used) + ' of ' + fmt(ACCOUNT.overdraft.limit) + ' lei used</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-go="card"><span class="ic">' + ic('credit-card') + '</span><span><span class="t" style="display:block">' + CARD.kind + '</span><span class="d">' + CARD.mask + (S.cardFrozen ? ' · frozen' : '') + '</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        loanRow + '</div>' +
+        '<div class="sec-h"><h2>For you</h2></div>' +
+        '<button class="card row" type="button" data-go="offer" style="border:1px solid var(--border);border-radius:var(--radius-card)"><span class="ic">' + ic('file-badge') + '</span><span><span class="t" style="display:block">Pre-approved personal loan</span><span class="d">Up to 30,000 lei · 7.9% fixed · until ' + OFFER.validUntil + '</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div>';
+    },
+    overdraft: function () {
+      var od = ACCOUNT.overdraft;
+      return '<div class="screen-in">' + topbar('Overdraft', ACCOUNT.name + ' ' + ACCOUNT.mask, 'products') +
+        '<div class="card card-pad" style="display:grid;gap:14px"><div class="meter"><span class="m-row"><span>Used</span><span><b style="color:var(--text-1);font-size:20px;font-weight:600">' + fmt(od.used) + '</b> of ' + fmt(od.limit) + ' lei</span></span><span class="bar"><span style="width:' + (od.used / od.limit * 100) + '%"></span></span></div>' +
+        '<div><div class="kv"><span>Interest rate</span><b>11.5% variable</b></div><div class="kv"><span>Interest in October</span><b>' + fmt2(od.interestOct) + ' lei</b></div><div class="kv"><span>Renews</span><b>' + od.renews + '</b></div><div class="kv"><span>Repay</span><b>Any amount, anytime</b></div></div></div>' +
+        askLink('Ask Raiffy about this', 'Is there a cheaper way to cover my overdraft?', { screen: 'overdraft', objectRef: 'od_4821', suggestedQuestion: 'Is there a cheaper way to cover my overdraft?' }) + '</div>';
+    },
+    offer: function () {
+      return '<div class="screen-in">' + topbar('Pre-approved loan', 'Valid until ' + OFFER.validUntil, 'products') +
+        '<div class="card card-pad" style="display:grid;gap:12px;position:relative;overflow:hidden"><span class="pill warm">' + ic('file-badge') + 'Pre-approved for you</span>' +
+        '<div style="font:600 28px/1.1 var(--font-sans);letter-spacing:-.03em" class="num">Up to 30,000 lei</div>' +
+        '<div><div class="kv"><span>Interest rate</span><b>7.9% fixed</b></div><div class="kv"><span>Term</span><b>6 to 60 months</b></div><div class="kv"><span>Origination fee</span><b>249 lei</b></div><div class="kv"><span>Early repayment</span><b>0.5% of the amount</b></div></div>' +
+        '<p class="micro">Indicative, subject to the bank’s final assessment. The official SECCI is issued when you apply.</p></div>' +
+        askLink('Ask Raiffy about this', 'Is this offer a good deal for me?', { screen: 'offer', objectRef: 'offer_pl_1', suggestedQuestion: 'Is this offer a good deal for me?' }) + '</div>';
+    },
+    loans: function () {
+      if (!S.loan && !S.application) return '<div class="screen-in">' + topbar('Loans', '', 'products') + '<div class="card card-pad"><p class="off-p">You have no loans with Raiffeisen.</p></div></div>';
+      if (!S.loan) return '<div class="screen-in">' + topbar('Loan application', 'Submitted ' + S.application.at, 'products') +
+        '<div class="card card-pad"><div class="kv"><span>Amount</span><b>' + lei(S.application.amount) + '</b></div><div class="kv"><span>Term</span><b>' + S.application.termMonths + ' months</b></div><div class="kv"><span>Status</span><b>In review</b></div></div>' +
+        '<p class="micro" style="padding:0 4px">Most decisions take a few minutes. We’ll tell you in your Inbox.</p></div>';
+      var L = S.loan, rows = schedule(L.amount, L.termMonths, L.rate, 4);
+      return '<div class="screen-in">' + topbar('Personal loan', 'Approved ' + L.at + ' · ' + ACCOUNT.mask, 'products') +
+        '<div class="card card-pad" style="display:grid;gap:12px"><div class="meter"><span class="m-row"><span>Left to repay</span><span><b style="color:var(--text-1);font-size:20px;font-weight:600">' + fmt(L.amount) + '</b> lei</span></span><span class="bar"><span style="width:0%"></span></span></div>' +
+        '<div><div class="kv"><span>Monthly payment</span><b>' + fmt2(L.monthly) + ' lei</b></div><div class="kv"><span>Next payment</span><b>15 Dec</b></div><div class="kv"><span>Rate</span><b>' + (L.rate * 100).toFixed(1) + '% fixed</b></div><div class="kv"><span>Instalments</span><b>0 of ' + L.termMonths + ' paid</b></div></div></div>' +
+        '<div class="sec-h"><h2>Repayment schedule</h2><span class="micro">first 4 of ' + L.termMonths + '</span></div>' +
+        '<div class="card card-pad"><div class="sched"><div class="th">Date</div><div class="th">Principal</div><div class="th">Interest</div><div class="th">Balance</div>' +
+        rows.map(function (r) { return '<div>' + r.date + '</div><div>' + fmt2(r.principal) + '</div><div>' + fmt2(r.interest) + '</div><div>' + fmt2(r.balance) + '</div>'; }).join('') + '</div></div>' +
+        askLink('Ask Raiffy about this', 'Can I repay early?', { screen: 'loanDashboard', objectRef: L.ref, suggestedQuestion: 'Can I repay early?' }) + '</div>';
+    },
+    card: function () {
+      return '<div class="screen-in">' + topbar('Card', CARD.kind, 'products') +
+        '<div class="bankcard' + (S.cardFrozen ? ' frozen' : '') + '" aria-label="' + CARD.kind + ' ' + CARD.mask + (S.cardFrozen ? ', frozen' : '') + '"><span class="bloom" aria-hidden="true"></span><span class="chip-ic" aria-hidden="true"></span><span class="no">' + CARD.mask + '</span><span class="meta"><span>' + CUSTOMER.name + '</span><span>' + CARD.expires + '</span></span></div>' +
+        '<div class="card card-pad"><div class="sw-row"><span><b>Freeze card</b><span class="d">Blocks all payments and withdrawals until you unfreeze it</span></span><button class="switch" type="button" role="switch" id="freeze" aria-checked="' + S.cardFrozen + '" aria-label="Freeze card"></button></div>' +
+        '<div class="sw-row"><span><b>Online payments</b><span class="d">Shops and subscriptions</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Online payments" data-toggle></button></div>' +
+        '<div class="sw-row"><span><b>Contactless</b><span class="d">Tap to pay</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Contactless" data-toggle></button></div></div>' +
+        '<div class="card rows"><button class="row" type="button" data-toast="Prototype: call 021 302 10 20 or report it here"><span class="ic">' + ic('shield-alert') + '</span><span class="t">Report lost or stolen</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div></div>';
+    },
+    more: function () {
+      return '<div class="screen-in">' + topbar('More', CUSTOMER.name) +
+        '<div class="card rows"><button class="row" type="button" data-ask=\'' + esc(JSON.stringify({ screen: 'home' })) + '\'><span class="ava-raiffy" aria-hidden="true" style="width:36px;height:36px">' + ic('compass') + '</span><span><span class="t" style="display:block">Raiffy</span><span class="d">Ask about your money</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" id="more-see"><span class="ic">' + ic('eye') + '</span><span><span class="t" style="display:block">What Raiffy can see</span><span class="d">' + Object.keys(S.perms).filter(function (k) { return S.perms[k]; }).length + ' of ' + Object.keys(S.perms).length + ' on</span></span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div>' +
+        '<div class="card card-pad"><div class="sw-row"><span><b>Raiffy cards on Home</b><span class="d">Notes about your own products and costs</span></span><button class="switch" type="button" role="switch" id="pc-switch" aria-checked="' + !S.proactiveOff + '" aria-label="Raiffy cards on Home"></button></div></div>' +
+        '<div class="card rows"><button class="row" type="button" data-go="inbox"><span class="ic">' + ic('inbox') + '</span><span class="t">Inbox</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button>' +
+        '<button class="row" type="button" data-toast="Prototype: settings aren’t part of this demo"><span class="ic">' + ic('settings') + '</span><span class="t">Settings</span>' + ic('chevron-right').replace('<i ', '<i class="chev" ') + '</button></div>' +
+        '<p class="micro" style="padding:0 4px">Prototype. All rates and figures are illustrative.</p></div>';
+    },
+    inbox: function (id) {
+      if (id) {
+        var m = S.inbox.filter(function (x) { return x.id === id; })[0];
+        if (m) { m.read = true; return inboxDetail(m); }
+      }
+      return '<div class="screen-in mail">' + topbar('Inbox', 'Messages from Raiffeisen', 'home') +
+        '<div class="card rows">' + S.inbox.map(function (m) {
+          return '<button class="row" type="button" data-go="inbox/' + m.id + '"><span class="ic">' + ic(m.type === 'summary' ? 'file-text' : m.type === 'loan' ? 'landmark' : 'mail') + '</span><span><span class="t" style="display:block">' + m.title + '</span><span class="d">' + m.from + ' · ' + m.date + '</span></span>' + (m.read ? '' : '<span class="unread-dot" aria-label="Unread"></span>') + '</button>';
+        }).join('') + '</div></div>';
+    }
+  };
+
+  /* ───────────── From Raiffy cards ───────────── */
+  function recSt(id) { return S.recs[id] || (S.recs[id] = { status: 'eligible', timesShown: 0, returns: 0 }); }
+  function recBlocked(r) { return r.needs.filter(function (k) { return !S.perms[k]; }); }
+  /* Eligible set: needs every switch on, not resting, retired or not wanted, and not already in progress */
+  function visibleRecs() {
+    if (S.proactiveOff) return [];
+    var list = RECS.filter(function (r) {
+      var st = recSt(r.id);
+      if (recBlocked(r).length) return false;
+      if (/^(retired|resting|notInterested)$/.test(st.status)) return false;
+      if (r.kind === 'overdraftCost' && S.application) return false;
+      return true;
+    });
+    /* Deadline cards first, soonest first; then by yearly amount at stake; a card that has come back goes last */
+    list.sort(function (a, b) {
+      var ra = recSt(a.id).status === 'returned', rb = recSt(b.id).status === 'returned';
+      if (ra !== rb) return ra ? 1 : -1;
+      if (!!a.deadline !== !!b.deadline) return a.deadline ? -1 : 1;
+      if (a.deadline) return a.deadline - b.deadline;
+      return b.stake - a.stake;
+    });
+    return list;
+  }
+  function recCardHTML() {
+    var list = visibleRecs();
+    recNote(list);
+    if (!list.length) return '';
+    if (S.recIdx >= list.length) S.recIdx = list.length - 1;
+    var r = list[S.recIdx], st = recSt(r.id), back = st.status === 'returned';
+    if (!st.shownLogged) { st.shownLogged = true; st.timesShown++; if (st.status === 'eligible') st.status = 'shown'; }
+    return '<article class="card insight" id="rec-card" aria-roledescription="carousel" aria-label="From Raiffy"><span class="bloom" aria-hidden="true"></span>' +
+      '<div class="insight-h"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>From Raiffy' +
+        '<span class="nav"><span class="counter" aria-live="polite" aria-atomic="true"><span class="sr-only">Card </span>' + (S.recIdx + 1) + ' of ' + list.length + '<span class="sr-only">, ' + r.title + '</span></span>' +
+        '<button class="nb" type="button" id="rec-prev" aria-label="Previous Raiffy card"' + (S.recIdx === 0 ? ' disabled' : '') + '>' + ic('chevron-left') + '</button>' +
+        '<button class="nb" type="button" id="rec-next" aria-label="Next Raiffy card"' + (S.recIdx === list.length - 1 ? ' disabled' : '') + '>' + ic('chevron-right') + '</button>' +
+        '<button class="nb x" type="button" id="rec-x" aria-label="Hide this card">' + ic('x') + '</button></span></div>' +
+      '<div class="rec-ttl">' + r.title + '</div>' +
+      (back ? '<p class="back-note">' + ic('bookmark') + 'You looked at this on 28 Oct. Your figures are saved.</p>' : '') +
+      '<p>' + r.text + '</p>' +
+      '<div class="foot"><span class="src-line">' + r.source + '</span>' +
+      (back ? '<span class="btns"><button class="btn btn-ghost btn-sm" type="button" id="rec-no">Not interested</button><button class="btn btn-dark btn-sm" type="button" id="rec-go">Continue</button></span>'
+            : '<button class="btn btn-dark btn-sm" type="button" id="rec-go">' + r.cta + '</button>') + '</div></article>';
+  }
+  function recNote(list) {
+    var el = document.getElementById('rec-note'); if (!el) return;
+    if (S.proactiveOff) { el.textContent = 'Raiffy cards are off (More → Raiffy cards on Home).'; return; }
+    var blocked = RECS.filter(function (r) { return recBlocked(r).length; }), off = {};
+    blocked.forEach(function (r) { recBlocked(r).forEach(function (k) { off[PERM_LABELS[k][0].toLowerCase()] = 1; }); });
+    var rest = RECS.filter(function (r) { return /^(resting|notInterested|retired)$/.test(recSt(r.id).status); }).length;
+    el.textContent = 'Home shows ' + list.length + ' of 10. ' +
+      (blocked.length ? blocked.length + ' need a switch that’s off (' + Object.keys(off).join(', ') + '), so they aren’t computed. ' : '') +
+      (rest ? rest + ' resting, retired or not wanted. ' : '') + 'Figures are samples, so some cards don’t match Ioana’s accounts.';
+  }
+  function recLog(r, what, body) { log('Recommendation', r.kind + ' · ' + what, body + ' · ' + now()); }
+  function recOpen(r) {
+    var st = recSt(r.id), resume = st.status === 'returned';
+    st.status = 'opened'; S.recOpen = r.id; S.recTarget = null;
+    recLog(r, resume ? 'continued' : 'opened', resume ? 'same thread, no new question' : 'opened Raiffy with its question');
+    if (r.kind === 'overdraftCost') demo('card');
+    if (resume) openRaiffy({ screen: 'home', proactiveCardId: r.id, resume: true });
+    else openRaiffy({ screen: 'home', proactiveCardId: r.id, suggestedQuestion: r.q });
+  }
+  /* The customer stopped without acting: the card comes back once, then rests for 30 days. Nothing is sent to them. */
+  function recLeft(outcome) {
+    var r = S.recOpen && recById(S.recOpen); if (!r) return;
+    var st = recSt(r.id); st.outcome = outcome; S.recOpen = null; S.recTarget = null;
+    if (st.returns === 0) { st.status = 'returned'; st.returns = 1; recLog(r, outcome, 'comes back once, at the end of the Home cards · no notification'); }
+    else { st.status = 'resting'; st.restingUntil = '27 Nov'; recLog(r, outcome, 'resting until 27 Nov (30 days) · no notification'); }
+  }
+  function recActed() {
+    var r = S.recOpen && recById(S.recOpen); if (!r) return;
+    var st = recSt(r.id); st.status = 'retired'; st.outcome = 'acted'; S.recOpen = null; S.recTarget = null;
+    recLog(r, 'acted', 'retired: the customer acted on it');
+  }
+  function recHandoff(target) {
+    var r = S.recOpen && recById(S.recOpen); if (!r) return;
+    recSt(r.id).status = 'handoffOpened'; S.recTarget = target;
+  }
+  /* Called on every navigation: detects leaving the chat or the official screen without acting */
+  function recAfterNav(r, wasOpen) {
+    var id = S.recOpen; if (!id) return;
+    var st = recSt(id);
+    if (wasOpen && r.name !== 'raiffy' && /^(opened|answered)$/.test(st.status)) return recLeft('ignoredInChat');
+    if (st.status === 'handoffOpened' && S.recTarget && r.name !== 'raiffy' && r.name !== S.recTarget) recLeft('leftOfficialFlow');
+  }
+  function recMenu() {
+    var list = visibleRecs(), r = list[S.recIdx]; if (!r) return;
+    openMini('<h2 id="mini-title">' + r.title + '</h2><p class="lead">Raiffy cards are notes about your own products and costs. You choose what you see.</p>' +
+      '<div class="btns"><button class="btn btn-ghost btn-block" type="button" id="rm-no">Not interested in this</button><button class="btn btn-ghost btn-block" type="button" id="rm-off">Don’t show these</button><button class="btn btn-dark btn-block" type="button" id="rm-cancel">Cancel</button></div>', function (m) {
+      $('#rm-no', m).onclick = function () { recNotInterested(r); closeMini(); };
+      $('#rm-off', m).onclick = function () { S.proactiveOff = true; log('Recommendation', 'all cards · off', 'Don’t show these · ' + now()); closeMini(); render(); toast('Raiffy cards are off. Turn them back on in More.'); };
+      $('#rm-cancel', m).onclick = closeMini;
+    });
+  }
+  function recNotInterested(r) {
+    var st = recSt(r.id); st.status = 'notInterested'; st.restingUntil = '26 Jan';
+    if (S.recOpen === r.id) S.recOpen = null;
+    recLog(r, 'not interested', 'this kind rests for 90 days, until 26 Jan');
+    render(); toast('Got it. You won’t see this one for 90 days.');
+  }
+  function recMove(d) {
+    var list = visibleRecs(), n = S.recIdx + d;
+    if (n < 0 || n >= list.length) return;
+    S.recIdx = n; var r = list[n]; recSt(r.id).shownLogged = false;
+    var el = $('#rec-card'), tmp = document.createElement('div'); tmp.innerHTML = recCardHTML();
+    el.parentNode.replaceChild(tmp.firstChild, el); icons(); bindRec(); $('#rec-card').classList.add('swap-in');
+    var b = $(d > 0 ? '#rec-next' : '#rec-prev'); if (b && !b.disabled) b.focus(); else $('#rec-go').focus();
+  }
+  function bindRec() {
+    var card = $('#rec-card'); if (!card) return;
+    var list = visibleRecs(), r = list[S.recIdx];
+    $('#rec-prev').onclick = function () { recMove(-1); };
+    $('#rec-next').onclick = function () { recMove(1); };
+    $('#rec-x').onclick = recMenu;
+    $('#rec-go').onclick = function () { recOpen(r); };
+    var no = $('#rec-no'); if (no) no.onclick = function () { recNotInterested(r); };
+    var x0 = null, y0 = null;
+    card.addEventListener('pointerdown', function (e) { if (e.target.closest('button')) return; x0 = e.clientX; y0 = e.clientY; });
+    card.addEventListener('pointerup', function (e) {
+      if (x0 === null) return; var dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) recMove(dx < 0 ? 1 : -1);
+    });
+  }
+
+  function officialScreen(action) {
+    var o = OFFICIAL[action], st = S.official || {};
+    if (st.done) return '<div class="screen-in"><div class="off-bar"><b>' + o.title + '</b><span class="off-tag">' + ic('lock') + 'Smart Mobile</span></div>' +
+      '<div style="display:grid;justify-items:center;text-align:center;gap:10px"><span class="done-mark">' + ic('check') + '</span><h2 class="off-h">Done</h2><p class="off-p">' + o.done + '</p></div>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="of-raiffy">Back to Raiffy</button><button class="btn btn-ghost btn-block" type="button" data-go="home">Home</button></div></div>';
+    return '<div class="screen-in"><div class="off-bar"><button class="back" type="button" id="of-back" aria-label="Leave without changing anything">' + ic('chevron-left') + '</button><b>' + o.title + '</b><span class="off-tag">' + ic('lock') + 'Smart Mobile</span></div>' +
+      '<h2 class="off-h">' + o.h + '</h2><p class="off-p">Filled in from your Raiffy chat. Check it, then confirm.</p>' +
+      '<div class="box">' + o.rows.map(function (rw) { return '<div class="kv"><span>' + rw[0] + '</span><b>' + rw[1] + '</b></div>'; }).join('') + '</div>' +
+      (o.choices ? '<fieldset style="border:0;padding:0;margin:0;display:grid;gap:8px"><legend class="sr-only">Choose</legend>' + o.choices.map(function (c, i) { return '<label class="choice"><input type="radio" name="of-choice"' + (i === 0 ? ' checked' : '') + '><span>' + c[0] + '<small>' + c[1] + '</small></span></label>'; }).join('') + '</fieldset>' : '') +
+      (o.note ? '<div class="note">' + ic('info') + '<span>' + o.note + '</span></div>' : '') +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="of-ok">' + o.confirm + '</button><button class="btn btn-ghost btn-block" type="button" id="of-no">Not now</button></div></div>';
+  }
+
+  function inboxDetail(m) {
+    var body;
+    if (m.type === 'summary') {
+      var q = S.quotes[m.quoteId], rows = schedule(q.amount, q.termMonths, q.rate, 3);
+      body = '<div class="card card-pad doc"><div class="label-ind">Indicative simulation: not a firm credit offer. The official SECCI and contract are issued when you apply.</div>' +
+        '<div><div class="kv"><span>Personal loan</span><b>' + (q.rate * 100).toFixed(1) + '% fixed</b></div><div class="kv"><span>Amount</span><b>' + lei(q.amount) + '</b></div><div class="kv"><span>Term</span><b>' + q.termMonths + ' months</b></div>' +
+        '<div class="kv"><span>Monthly payment</span><b>' + fmt2(q.monthly) + ' lei</b></div><div class="kv"><span>Origination fee</span><b>249 lei</b></div><div class="kv"><span>Total amount payable</span><b>' + fmt2(q.total) + ' lei</b></div><div class="kv"><span>DAE</span><b>' + (q.dae * 100).toFixed(2) + '%</b></div></div>' +
+        '<div class="sched"><div class="th">Date</div><div class="th">Principal</div><div class="th">Interest</div><div class="th">Balance</div>' + rows.map(function (r) { return '<div>' + r.date + '</div><div>' + fmt2(r.principal) + '</div><div>' + fmt2(r.interest) + '</div><div>' + fmt2(r.balance) + '</div>'; }).join('') + '</div>' +
+        '<p class="micro">From your Raiffy chat · quote ' + q.id + ' · rates as of 28 Oct. Sent because you asked for it.</p></div>';
+    } else if (m.type === 'loan') {
+      body = '<div class="card card-pad"><p class="off-p">' + m.text + '</p></div><button class="btn btn-ghost btn-block" type="button" data-go="loans">See your loan</button>';
+    } else body = '<div class="card card-pad"><p class="off-p">' + (m.text || 'Your statement for October is available as a PDF in Accounts.') + '</p></div>';
+    return '<div class="screen-in">' + topbar(m.title, m.from + ' · ' + m.date, 'inbox') + body + '</div>';
+  }
+
+  /* ───────────── Official flows (no Raiffy here) ───────────── */
+  function applyScreen() {
+    var a = S.apply, q = a.quote, P = a.amount, n = a.term, r = q.rate, pm = annuity(P, n, r), D = dae(P, n, r), tot = pm * n + OFFER.fee;
+    var edited = P !== q.amount || n !== q.termMonths;
+    var bar = '<div class="off-bar"><button class="back" type="button" id="ap-back" aria-label="' + (a.step === 1 ? 'Leave the application' : 'Previous step') + '">' + ic('chevron-left') + '</button><b>Personal loan</b><span class="off-tag">' + ic('lock') + 'Smart Mobile</span></div>' +
+      (a.step <= 4 ? '<div class="steps" aria-label="Step ' + a.step + ' of 4">' + [1, 2, 3, 4].map(function (i) { return '<i' + (i <= a.step ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' : '');
+    var c = '';
+    if (a.step === 1) c = '<h2 class="off-h">Check your loan</h2><p class="off-p">Filled in from your Raiffy chat. You can change anything.</p>' +
+      '<div class="ctrl"><span class="label" id="ap-amt-l">Amount</span><div class="stepper" role="group" aria-labelledby="ap-amt-l"><button type="button" id="ap-minus" aria-label="500 lei less">' + ic('minus') + '</button><output id="ap-amt">' + lei(P) + '</output><button type="button" id="ap-plus" aria-label="500 lei more">' + ic('plus') + '</button></div></div>' +
+      '<div class="ctrl"><span class="label" id="ap-term-l">Term</span><div class="seg" role="group" aria-labelledby="ap-term-l">' + [12, 24, 36, 48, 60].map(function (t) { return '<button type="button" data-t="' + t + '" aria-pressed="' + (t === n) + '">' + t + '</button>'; }).join('') + '</div></div>' +
+      '<div class="box"><div class="kv"><span>Monthly payment</span><b>' + fmt2(pm) + ' lei</b></div><div class="kv"><span>Interest rate</span><b>' + (r * 100).toFixed(1) + '% fixed</b></div><div class="kv"><span>Origination fee</span><b>249 lei</b></div><div class="kv"><span>Total amount payable</span><b>' + fmt2(tot) + ' lei</b></div><div class="kv"><span>DAE</span><b>' + (D * 100).toFixed(2) + '%</b></div><div class="kv"><span>Paid into</span><b>' + ACCOUNT.name + ' ' + ACCOUNT.mask + '</b></div></div>' +
+      (edited ? '<div class="note">' + ic('info') + '<span>Changed from your Raiffy quote (' + lei(q.amount) + ' · ' + q.termMonths + ' months). The SECCI uses your new figures.</span></div>' : '<div class="note">' + ic('link') + '<span>Matches Raiffy quote ' + q.id + ' to the cent.</span></div>') +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-next">Continue</button></div>';
+    if (a.step === 2) c = '<h2 class="off-h">Your SECCI</h2><p class="off-p">The Standard European Consumer Credit Information, issued by the bank for these exact figures.</p>' +
+      '<div class="box"><div class="kv"><span>Type of credit</span><b>Personal loan, fixed rate</b></div><div class="kv"><span>Total amount of credit</span><b>' + fmt2(P) + ' lei</b></div><div class="kv"><span>Duration</span><b>' + n + ' months</b></div><div class="kv"><span>Instalments</span><b>' + n + ' × ' + fmt2(pm) + ' lei</b></div><div class="kv"><span>Borrowing rate</span><b>' + (r * 100).toFixed(2) + '% fixed</b></div><div class="kv"><span>DAE</span><b>' + (D * 100).toFixed(2) + '%</b></div><div class="kv"><span>Total amount payable</span><b>' + fmt2(tot) + ' lei</b></div><div class="kv"><span>Early repayment</span><b>0.5%, none in the last 12 months</b></div></div>' +
+      '<button class="btn btn-ghost btn-block" type="button" data-toast="Prototype: the real SECCI is a PDF from the bank’s systems">' + ic('download') + 'Download SECCI (PDF)</button>' +
+      '<label class="check"><input type="checkbox" id="ap-read"' + (a.read ? ' checked' : '') + '><span>I’ve read the SECCI</span></label>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-next"' + (a.read ? '' : ' disabled') + '>Continue</button></div>';
+    if (a.step === 3) c = '<h2 class="off-h">Take your time</h2><p class="off-p">This offer stays valid for 15 days, so you don’t have to sign today. Once you sign, you can still withdraw from the contract within 14 days without giving a reason.</p>' +
+      '<div class="box"><div class="kv"><span>Offer valid until</span><b>12 Nov 2026</b></div><div class="kv"><span>Monthly payment</span><b>' + fmt2(pm) + ' lei</b></div></div>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-next">Sign now</button><button class="btn btn-ghost btn-block" type="button" id="ap-later">Decide later</button></div>';
+    if (a.step === 4) c = '<h2 class="off-h">Sign with your SMS code</h2><p class="off-p">We sent a 6-digit code to +40 7•• ••• 412. Entering it signs the contract with a qualified electronic signature.</p>' +
+      '<label class="sr-only" for="ap-otp">SMS code</label><input class="otp" id="ap-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">' +
+      '<p class="micro">Prototype: any 6 digits work. Raiffy never sees or asks for this code.</p>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-next" disabled>Sign the contract</button></div>';
+    if (a.step === 5) c = '<div style="display:grid;justify-items:center;text-align:center;gap:10px"><span class="done-mark">' + ic('check') + '</span><h2 class="off-h">Application submitted</h2>' +
+      '<p class="off-p">' + lei(P) + ' over ' + n + ' months. Most decisions take a few minutes, and we’ll tell you in your Inbox.</p></div>' +
+      '<div class="box"><div class="kv"><span>Reference</span><b class="mono" style="font-size:12px">PL-2026-10-48213</b></div><div class="kv"><span>Monthly payment</span><b>' + fmt2(pm) + ' lei</b></div></div>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-raiffy">Back to Raiffy</button><button class="btn btn-ghost btn-block" type="button" data-go="home">Home</button></div>';
+    return '<div class="screen-in">' + bar + c + '</div>';
+  }
+  function repayScreen() {
+    var L = S.loan, fee = L.amount * .005;
+    if (S.repay && S.repay.done) return '<div class="screen-in"><div class="off-bar"><b>Early repayment</b><span class="off-tag">' + ic('lock') + 'Smart Mobile</span></div>' +
+      '<div style="display:grid;justify-items:center;text-align:center;gap:10px"><span class="done-mark">' + ic('check') + '</span><h2 class="off-h">Request received</h2><p class="off-p">We’ll take the amount from ' + ACCOUNT.mask + ' on 15 Nov.</p></div>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="ap-raiffy">Back to Raiffy</button></div></div>';
+    return '<div class="screen-in"><div class="off-bar"><button class="back" type="button" data-go="loans" aria-label="Back">' + ic('chevron-left') + '</button><b>Early repayment</b><span class="off-tag">' + ic('lock') + 'Smart Mobile</span></div>' +
+      '<h2 class="off-h">Repay in full</h2><p class="off-p">Check the figures, then confirm.</p>' +
+      '<div class="box"><div class="kv"><span>Balance</span><b>' + fmt2(L.amount) + ' lei</b></div><div class="kv"><span>Early repayment fee (0.5%)</span><b>' + fmt2(fee) + ' lei</b></div><div class="kv"><span>Total</span><b>' + fmt2(L.amount + fee) + ' lei</b></div><div class="kv"><span>From</span><b>' + ACCOUNT.mask + '</b></div></div>' +
+      '<div class="note">' + ic('info') + '<span>Your available balance is ' + fmt2(ACCOUNT.available) + ' lei, so the payment needs money in the account first.</span></div>' +
+      '<div class="off-foot"><button class="btn btn-dark btn-block" type="button" id="rp-ok">Confirm repayment</button><button class="btn btn-ghost btn-block" type="button" data-go="loans">Cancel</button></div></div>';
+  }
+
+  /* ───────────── Router ───────────── */
+  var TAB_OF = { home: 'home', accounts: 'accounts', transaction: 'accounts', payments: 'payments', products: 'products', overdraft: 'products', offer: 'products', loans: 'products', card: 'products', more: 'more', inbox: 'home' };
+  function parse() {
+    var h = (location.hash || '#home').slice(1).split('/');
+    return { name: h[0] || 'home', param: h[1] || null };
+  }
+  var lastKey = null;
+  function renderScreen(r) {
+    if (r.name === 'apply' && !S.apply) r = { name: 'home' };
+    if (r.name === 'repay' && !S.loan) r = { name: 'loans' };
+    if (r.name === 'official' && !OFFICIAL[r.param]) r = { name: 'home' };
+    var official = r.name === 'apply' || r.name === 'repay' || r.name === 'official', scr = $('#screen');
+    var html = r.name === 'apply' ? applyScreen() : r.name === 'repay' ? repayScreen() : r.name === 'official' ? officialScreen(r.param) : (SCREENS[r.name] || SCREENS.home)(r.param);
+    var key = r.name + '/' + (r.param || '') + (r.name === 'apply' ? '#' + S.apply.step : '');
+    scr.innerHTML = html;
+    if (key !== lastKey) { scr.firstChild.classList.add('anim'); scr.scrollTop = 0; }
+    lastKey = key;
+    $('#device .app').classList.toggle('official', official);
+    $('#tabbar').hidden = official;
+    var tab = TAB_OF[r.name];
+    document.querySelectorAll('#tabbar a').forEach(function (a) { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    $('#askbar-slot').innerHTML = r.name === 'home' ? '<button class="ask-bar" type="button" id="askbar"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span>Ask Raiffy about your money</span><span class="go" aria-hidden="true">' + ic('arrow-up-right') + '</span></button>' : '';
+    icons(); bindScreen(r); recNote(visibleRecs());
+    if (r.name === 'card' && S.cardConfirm) { S.cardConfirm = false; confirmFreeze(); }
+  }
+  function split(h) { var x = h.split('/'); return { name: x[0] || 'home', param: x[1] || null }; }
+  function render() {
+    var r = parse();
+    var wasOpen = sheetOpen;
+    recAfterNav(r, wasOpen);
+    if (r.name === 'raiffy') { renderScreen(split(S.under)); openSheet(); return; }
+    closeSheet(); S.under = r.name + (r.param ? '/' + r.param : '');
+    renderScreen(r);
+  }
+  function go(h) { if (location.hash === '#' + h) render(); else location.hash = h; }
+
+  function bindScreen(r) {
+    var scr = $('#screen');
+    var ab = $('#askbar'); if (ab) ab.onclick = function () { openRaiffy({ screen: 'home' }); };
+    bindRec();
+    if (r.name === 'official') {
+      var of = OFFICIAL[r.param], leave = function () { event({ deepLink: r.param, status: 'abandoned' }); S.official = null; go(S.raiffyFrom || 'home'); };
+      var ob = $('#of-back', scr); if (ob) ob.onclick = leave;
+      var on = $('#of-no', scr); if (on) on.onclick = leave;
+      var ok = $('#of-ok', scr); if (ok) ok.onclick = function () { S.official = { done: true }; event({ deepLink: r.param, status: 'completed' }); render(); };
+      var orf = $('#of-raiffy', scr); if (orf) orf.onclick = function () { S.official = null; S.under = S.raiffyFrom || 'home'; go('raiffy'); };
+    }
+    var ms = $('#more-see', scr); if (ms) ms.onclick = openSee;
+    var ps = $('#pc-switch', scr); if (ps) ps.onclick = function () { S.proactiveOff = !S.proactiveOff; ps.setAttribute('aria-checked', String(!S.proactiveOff)); toast(S.proactiveOff ? 'Raiffy cards are off' : 'Raiffy cards are on'); };
+    var fz = $('#freeze', scr); if (fz) fz.onclick = function () { if (S.cardFrozen) { S.cardFrozen = false; render(); toast('Card unfrozen'); } else confirmFreeze(); };
+    scr.querySelectorAll('[data-toggle]').forEach(function (b) { b.onclick = function () {
+      b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'));
+      if (S.recTarget === 'card') event({ deepLink: 'cardControls', status: 'completed' });
+    }; });
+    if (r.name === 'apply') bindApply();
+    if (r.name === 'repay') {
+      var ok = $('#rp-ok', scr); if (ok) ok.onclick = function () { S.repay = { done: true }; event({ deepLink: 'earlyRepayment', status: 'completed' }); render(); };
+      var br = $('#ap-raiffy', scr); if (br) br.onclick = function () { S.under = S.raiffyFrom || 'loans'; go('raiffy'); };
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var g = e.target.closest('[data-go]'); if (g && $('#device').contains(g)) { e.preventDefault(); go(g.dataset.go); return; }
+    var a = e.target.closest('[data-ask]'); if (a) { openRaiffy(JSON.parse(a.dataset.ask)); return; }
+    var t = e.target.closest('[data-toast]'); if (t) toast(t.dataset.toast);
+  });
+
+  function bindApply() {
+    var a = S.apply, scr = $('#screen');
+    $('#ap-back', scr).onclick = function () {
+      if (a.step === 1 || a.step === 5) { if (a.step === 1) event({ quoteId: a.quote.id, deepLink: 'apply', status: 'abandoned' }); S.apply = a.step === 5 ? S.apply : null; go(a.step === 5 ? 'home' : S.backFromApply || 'home'); }
+      else { a.step--; render(); }
+    };
+    var nx = $('#ap-next', scr);
+    if (a.step === 1) {
+      $('#ap-minus', scr).onclick = function () { a.amount = Math.max(1000, a.amount - 500); render(); };
+      $('#ap-plus', scr).onclick = function () { a.amount = Math.min(OFFER.max, a.amount + 500); render(); };
+      scr.querySelectorAll('[data-t]').forEach(function (b) { b.onclick = function () { a.term = +b.dataset.t; render(); }; });
+      nx.onclick = function () { a.step = 2; event({ quoteId: a.quote.id, deepLink: 'apply', status: 'started' }); render(); };
+    }
+    if (a.step === 2) {
+      var cb = $('#ap-read', scr); cb.onchange = function () { a.read = cb.checked; nx.disabled = !cb.checked; };
+      nx.onclick = function () { a.step = 3; render(); };
+    }
+    if (a.step === 3) {
+      nx.onclick = function () { a.step = 4; render(); setTimeout(function () { var o = $('#ap-otp'); if (o) o.focus(); }, 60); };
+      $('#ap-later', scr).onclick = function () { S.apply = null; recLeft('decideLater'); toast('Saved. The offer stays valid until 12 Nov.'); go('home'); };
+    }
+    if (a.step === 4) {
+      var o = $('#ap-otp', scr);
+      o.oninput = function () { o.value = o.value.replace(/\D/g, '').slice(0, 6); nx.disabled = o.value.length !== 6; };
+      nx.onclick = function () { a.step = 5; demo('sign'); submitApplication(); render(); };
+    }
+    if (a.step === 5) $('#ap-raiffy', scr).onclick = function () { S.under = S.raiffyFrom || 'home'; go('raiffy'); };
+  }
+  function submitApplication() {
+    var a = S.apply, r = a.quote.rate;
+    S.application = { quoteId: a.quote.id, amount: a.amount, termMonths: a.term, rate: r, monthly: annuity(a.amount, a.term, r), at: now() };
+    S.inbox.unshift({ id: 'm_app', from: 'Raiffeisen Bank', title: 'We received your loan application', date: 'Today', read: false, type: 'loan', text: 'Your application for a ' + lei(a.amount) + ' personal loan over ' + a.term + ' months is in review. Reference PL-2026-10-48213.' });
+    event({ quoteId: a.quote.id, deepLink: 'apply', status: 'submitted' });
+    setTimeout(function () {
+      if (!S.application) return;
+      S.loan = Object.assign({ ref: 'loan_48213' }, S.application, { at: now() });
+      S.inbox.unshift({ id: 'm_ok', from: 'Raiffeisen Bank', title: 'Your loan is approved', date: 'Today', read: false, type: 'loan', text: lei(S.loan.amount) + ' is now in your current account ' + ACCOUNT.mask + '. Your first payment of ' + fmt2(S.loan.monthly) + ' lei is due on 15 Dec.' });
+      event({ quoteId: a.quote.id, deepLink: 'apply', status: 'approved' });
+      if (parse().name !== 'apply') render();
+    }, 6000);
+  }
+
+  /* ───────────── Bottom sheets ───────────── */
+  function openMini(html, onBind) {
+    var m = $('#mini'); m.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html; icons();
+    m.classList.add('on'); m.setAttribute('aria-hidden', 'false'); $('#mini-scrim').classList.add('on');
+    m._ret = document.activeElement; if (onBind) onBind(m);
+    var f = m.querySelector('button, input'); if (f) f.focus();
+  }
+  function closeMini() {
+    var m = $('#mini'); if (!m.classList.contains('on')) return;
+    m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); $('#mini-scrim').classList.remove('on');
+    if (m._ret && m._ret.focus) m._ret.focus();
+  }
+  $('#mini-scrim').onclick = closeMini;
+
+  function openSee() {
+    var html = '<h2 id="mini-title">What Raiffy can see</h2><p class="lead">Raiffy reads only what’s on. You can change this anytime, and it applies to your next question.</p>' +
+      Object.keys(PERM_LABELS).map(function (k) {
+        return '<div class="sw-row"><span><b>' + PERM_LABELS[k][0] + '</b><span class="d">' + PERM_LABELS[k][1] + '</span></span><button class="switch" type="button" role="switch" data-perm="' + k + '" aria-checked="' + S.perms[k] + '" aria-label="' + PERM_LABELS[k][0] + '"></button></div>';
+      }).join('') +
+      (S.allows.length ? '<p class="micro" style="margin-top:10px">Allowed once in this chat: ' + S.allows.map(function (a) { return a.label; }).join(', ') + '</p>' : '') +
+      '<div class="btns"><button class="btn btn-dark btn-block" type="button" id="see-done">Done</button></div>';
+    openMini(html, function (m) {
+      m.querySelectorAll('[data-perm]').forEach(function (b) { b.onclick = function () { var k = b.dataset.perm; S.perms[k] = !S.perms[k]; b.setAttribute('aria-checked', String(S.perms[k])); log('Consent', PERM_LABELS[k][0] + ' · ' + (S.perms[k] ? 'on' : 'off'), 'applies to new questions · ' + now()); }; });
+      $('#see-done', m).onclick = function () { closeMini(); if (parse().name === 'more') render(); };
+    });
+  }
+  function confirmFreeze() {
+    openMini('<h2 id="mini-title">Freeze card ' + CARD.mask + '?</h2><p class="lead">Payments and withdrawals stop straight away. You can unfreeze it here anytime.</p>' +
+      '<div class="btns"><button class="btn btn-dark btn-block" type="button" id="fz-ok">Freeze card</button><button class="btn btn-ghost btn-block" type="button" id="fz-no">Cancel</button></div>', function (m) {
+      $('#fz-ok', m).onclick = function () { S.cardFrozen = true; closeMini(); event({ deepLink: 'cardFreeze', status: 'completed' }); render(); toast('Card frozen'); };
+      $('#fz-no', m).onclick = closeMini;
+    });
+  }
+
+  /* ───────────── Raiffy ───────────── */
+  var CTX_LABEL = {
+    home: function (c) { var r = c.proactiveCardId && recById(c.proactiveCardId); return r ? [c.resume ? 'bookmark' : 'sparkles', (c.resume ? 'Back from your Raiffy card · ' : 'From: ') + r.title] : null; },
+    transaction: function (c) { var t = TXNS.filter(function (x) { return x.id === c.objectRef; })[0]; return ['receipt', 'From: ' + t.name + ' · ' + t.date]; },
+    overdraft: function () { return ['gauge', 'From: Overdraft · 8,000 lei used']; },
+    offer: function () { return ['file-badge', 'From: Pre-approved loan']; },
+    loanDashboard: function () { return ['landmark', 'From: Personal loan · ' + lei(S.loan.amount)]; }
+  };
+  function openRaiffy(ctx) {
+    /** @type {AppContext} */
+    S.ctx = ctx; S.raiffyFrom = S.under;
+    log('AppContext', 'open Raiffy · ' + ctx.screen, (ctx.objectRef ? 'objectRef ' + ctx.objectRef : ctx.proactiveCardId ? 'proactiveCardId ' + ctx.proactiveCardId : 'no object') + ' · ' + now());
+    var lab = CTX_LABEL[ctx.screen] && CTX_LABEL[ctx.screen](ctx);
+    if (lab) S.thread.push({ role: 'ctx', icon: lab[0], text: lab[1] });
+    else if (!S.thread.length) S.thread.push({ role: 'welcome' });
+    go('raiffy');
+    renderThread();
+    if (ctx.resume) { var rs = recSt(ctx.proactiveCardId); setChips(rs.chips || [recById(ctx.proactiveCardId).q]); }
+    else if (ctx.suggestedQuestion) setTimeout(function () { send(ctx.suggestedQuestion, ctx); }, reduce.matches ? 50 : 380);
+    else setChips(S.thread.length > 1 ? S.chips : ['Is there a cheaper way to cover my overdraft?', 'I think I lost my card', 'Is my pre-approved offer a good deal?']);
+  }
+  var sheetOpen = false;
+  function openSheet() {
+    if (sheetOpen) return; sheetOpen = true;
+    var sh = $('#sheet'); sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('on');
+    if (!S.thread.length) { S.thread.push({ role: 'welcome' }); setChips(['Is there a cheaper way to cover my overdraft?', 'I think I lost my card', 'Is my pre-approved offer a good deal?']); }
+    renderThread();
+    setTimeout(function () { $('#r-input').focus({ preventScroll: true }); }, 340);
+  }
+  function closeSheet() {
+    if (!sheetOpen) return; sheetOpen = false;
+    var sh = $('#sheet'); sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true'); $('#scrim').classList.remove('on');
+  }
+  $('#r-close').onclick = function () { go(S.under); };
+  $('#scrim').onclick = function () { go(S.under); };
+  $('#r-see').onclick = openSee;
+  $('#r-share').onclick = function () { toast('Prototype: opens the share sheet for a shared chat link'); };
+
+  /* Thread rendering */
+  var thread = $('#r-thread');
+  function follow() { thread.scrollTop = thread.scrollHeight; }
+  function srcPills(list) {
+    var SRC = { offer: ['file-badge', 'Your pre-approved offer'], public: ['globe', 'Standard published rates'], rates: ['calendar', 'Rates as of 28 Oct'], fees: ['receipt', 'Fee schedule 2026'],
+      statement: ['file-text', 'October statement'], txn: ['receipt', 'This transaction, allowed once'], loan: ['landmark', 'Your loan, ' + (S.loan ? S.loan.ref : '')], app: ['smartphone', 'Smart Mobile status'] };
+    return list && list.length ? '<div class="gfoot">' + list.map(function (k) { var v = typeof k === 'string' ? SRC[k] : k; return '<span class="src">' + ic(v[0]) + v[1] + '</span>'; }).join('') + '</div>' : '';
+  }
+  function thinkLines(lines, live) {
+    return lines.map(function (t, i) { var on = live && i === lines.length - 1; return '<li class="think-line' + (on ? ' on' : '') + '">' + (on ? '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>' : '') + esc(t) + '</li>'; }).join('');
+  }
+  function thinkHTML(lines) {
+    var d = document.createElement('details'); d.className = 'think';
+    d.innerHTML = '<summary>' + ic('chevron-right') + 'How I worked this out · ' + lines.length + ' step' + (lines.length > 1 ? 's' : '') + '</summary><ol class="think-lines">' + thinkLines(lines, false) + '</ol>';
+    return d;
+  }
+  function msgEl(m) {
+    var el = document.createElement('div');
+    if (m.role === 'user') { el.className = 'msg-user'; el.textContent = m.text; return el; }
+    if (m.role === 'ctx') { el.className = 'divider'; el.innerHTML = '<span class="ctx-chip">' + ic(m.icon) + '<span>' + esc(m.text) + '</span></span>'; return el; }
+    if (m.role === 'welcome') {
+      el.className = 'msg-raiffy'; el.innerHTML = '<span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><div class="raiffy-body"><div class="raiffy-text"><p>Hi Ioana. I can compare your options, explain a fee or a payment, and take you to the right screen in Smart Mobile when you want to act. I only see what you’ve allowed.</p></div></div>';
+      return el;
+    }
+    el.className = 'msg-raiffy';
+    el.innerHTML = '<span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><div class="raiffy-body"><div class="raiffy-text"></div></div>';
+    var body = el.querySelector('.raiffy-body'), txt = el.querySelector('.raiffy-text');
+    if (m.thinking && m.thinking.length) body.insertBefore(thinkHTML(m.thinking), txt);
+    (m.paras || []).forEach(function (p) { var e = document.createElement('p'); e.textContent = p; txt.appendChild(e); });
+    if (m.card) { var w = document.createElement('div'); w.innerHTML = cardHTML(m.card, m); while (w.firstChild) body.appendChild(w.firstChild); }
+    if (m.sources) body.insertAdjacentHTML('beforeend', srcPills(m.sources));
+    bindCard(el, m);
+    return el;
+  }
+  function renderThread() {
+    thread.innerHTML = '';
+    S.thread.forEach(function (m) { thread.appendChild(msgEl(m)); });
+    icons(); follow();
+  }
+
+  /* Cards */
+  function recBadge(hide) { return '<span class="rec-badge"' + (hide ? ' hidden' : '') + '>' + ic('sparkles') + 'Recommended</span>'; }
+  function handoffHTML(c) {
+    return '<div class="handoff"><div class="hf-sum"><span>Personal loan · <b class="hf-a">' + lei(c.amount) + '</b> · <b class="hf-t">' + c.term + '</b> months</span><b class="hf-m">' + lei(annuity(c.amount, c.term, c.rate)) + '/mo</b></div>' +
+      '<div class="btns"><button class="btn btn-dark btn-block" type="button" data-apply>' + ic('arrow-up-right') + 'Apply in Smart Mobile</button><button class="btn btn-ghost btn-block" type="button" data-summary>' + ic('inbox') + 'Send me a plan summary</button></div>' +
+      '<div class="sent" data-sent hidden>' + ic('check') + 'Summary sent to your Inbox</div>' +
+      '<p class="hf-note">' + ic('lock') + '<span>Opens the official application in Smart Mobile, filled in with these figures. You read the SECCI and sign there. Raiffy never signs or submits for you.</span></p></div>';
+  }
+  function cardHTML(c, m) {
+    if (c.type === 'compare') {
+      var s = simCalc(c.amount, c.term, c.rate), rec = recommend(s, c.amount, c.term), r = (c.rate * 100).toFixed(1) + '%';
+      var loan = '<div class="col' + (rec.k === 'loan' ? ' rec' : '') + '" role="group" aria-label="Personal loan"><div class="col-h">' + recBadge(rec.k !== 'loan') + 'Personal loan<span class="micro">' + r + ' fixed · 249 lei fee</span></div>' +
+        '<div class="kv"><span>Monthly</span><b>' + lei(s.loan.monthly) + '</b></div><div class="kv on"><span>Total cost</span><b>' + lei(s.loan.cost) + '</b></div><div class="kv"><span>Your rate</span><b>Never changes</b></div><div class="kv"><span>Early repayment</span><b>0.5% fee</b></div></div>';
+      var od = '<div class="col' + (rec.k === 'od' ? ' rec' : '') + '" role="group" aria-label="Keep the overdraft"><div class="col-h">' + recBadge(rec.k !== 'od') + 'Keep the overdraft<span class="micro">11.5% variable · no fee</span></div>' +
+        '<div class="kv"><span>Monthly</span><b>' + lei(s.od.monthly) + '</b></div><div class="kv on"><span>Total cost</span><b>' + lei(s.od.cost) + '</b></div><div class="kv"><span>Your rate</span><b>Can change monthly</b></div><div class="kv"><span>Early repayment</span><b>Anytime, free</b></div></div>';
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('scale') + 'Overdraft or a loan</span><span class="micro">' + lei(c.amount) + ' · ' + c.term + ' mo</span></div>' +
+        '<div class="cols" data-cols>' + (rec.k === 'od' ? od + loan : loan + od) + '</div><div class="swipe-hint" aria-hidden="true"><i class="on"></i><i></i>Swipe to compare</div>' +
+        '<div class="rec-why"><div class="rec-why-h"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>Why I recommend ' + rec.name + '</div><ul>' +
+        rec.reasons.map(function (t) { return '<li>' + ic('check') + '<span>' + t + '</span></li>'; }).join('') + '</ul><p class="rec-alt">' + rec.alt + ' Both stay open, and the choice is yours.</p></div></div>';
+    }
+    if (c.type === 'sim') {
+      var id = uid('amt'), tl = uid('term');
+      return '<div class="gcard sim"><div class="gc-h"><span>' + ic('calculator') + 'Repayment simulation</span><span class="micro">illustrative</span></div>' +
+        '<div class="gc-b sim-b"><div class="ctrl"><div class="ctrl-top"><label for="' + id + '">Amount</label><output class="o-amt"></output></div><input class="range sim-amt" id="' + id + '" type="range" min="1000" max="15000" step="500" value="' + c.amount + '"></div>' +
+        '<div class="ctrl"><span class="label" id="' + tl + '">Term</span><div class="terms" role="group" aria-labelledby="' + tl + '">' + [6, 12, 24, 36, 60].map(function (t) { return '<button type="button" data-term="' + t + '" aria-pressed="' + (t === c.term) + '">' + t + ' mo</button>'; }).join('') + '</div></div>' +
+        '<div class="opts"><div class="opt" data-k="loan"><div class="opt-h">' + recBadge(true) + 'Personal loan<span class="micro">' + (c.rate * 100).toFixed(1) + '% fixed</span></div><div class="big"></div></div>' +
+        '<div class="opt" data-k="od"><div class="opt-h">' + recBadge(true) + 'Keep the overdraft<span class="micro">11.5% variable</span></div><div class="big"></div><p class="opt-note" hidden></p></div></div>' +
+        '<p class="sim-say"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div>' + handoffHTML(c) + '</div>';
+    }
+    if (c.type === 'allow') {
+      var t = TXNS.filter(function (x) { return x.id === c.ref; })[0];
+      if (m.resolved) return '<p class="resolved">' + ic(m.resolved === 'once' ? 'check' : 'eye-off') + (m.resolved === 'once' ? 'Allowed once: ' + t.name : 'Not shared') + '</p>';
+      return '<div class="gcard allow"><p>You’ve turned off transactions for Raiffy. Let Raiffy see this one?</p>' +
+        '<div class="obj"><span class="ic">' + ic(t.icon) + '</span><span><b>' + t.name + '</b><span>' + t.kind + ' · ' + t.date + '</span></span><b class="num">' + fmt2(t.amount) + '</b></div>' +
+        '<div class="btns"><button class="btn btn-dark" type="button" data-allow="once">Allow once</button><button class="btn btn-ghost" type="button" data-allow="no">Not now</button></div>' +
+        '<p class="fine">Only this transaction, only in this chat. Your other transactions stay off.</p></div>';
+    }
+    if (c.type === 'fee') {
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('receipt') + 'ATM withdrawal fee</span><span class="micro">22 Oct · 5.00 lei</span></div>' +
+        '<div class="callout">' + ic('circle-help') + '<span><b style="font-weight:500">Why:</b> your account package covers Raiffeisen ATMs only. Another bank’s ATM costs 5 lei per withdrawal.</span></div>' +
+        '<div class="callout" style="border-top:1px solid var(--border)">' + ic('map-pin') + '<span><b style="font-weight:500">Next time:</b> the Raiffeisen ATM at Calea Floreasca 246 is 400 m from where you withdrew.</span></div></div>';
+    }
+    if (c.type === 'freeze') {
+      return '<div class="gcard"><div class="callout">' + ic('shield-alert') + '<span>Freeze the card first. It’s instant, it stops every payment and withdrawal, and you can unfreeze it if you find it.</span></div>' +
+        '<div class="handoff"><div class="btns"><button class="btn btn-dark btn-block" type="button" data-freeze>' + ic('arrow-up-right') + 'Freeze a card in Smart Mobile</button></div>' +
+        '<p class="hf-note">' + ic('lock') + '<span>' + (S.perms.cards ? 'Opens card ' + CARD.mask + '. You confirm the freeze there.' : 'I can’t see your cards, because that access is off, so Smart Mobile will show your cards. You confirm the freeze there.') + '</span></p></div></div>';
+    }
+    if (c.type === 'early') {
+      var L = S.loan, fee = L.amount * .005, left = annuity(L.amount, L.termMonths, L.rate) * L.termMonths - L.amount;
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('landmark') + 'Repaying in full today</span><span class="micro">' + L.ref + '</span></div><div class="gc-b">' +
+        '<div class="kv"><span>Balance</span><b>' + lei(L.amount) + '</b></div><div class="kv"><span>Early repayment fee (0.5%)</span><b>' + lei(fee) + '</b></div><div class="kv"><span>Interest you’d no longer pay</span><b>' + lei(left) + '</b></div></div>' +
+        '<div class="handoff"><div class="btns"><button class="btn btn-ghost btn-block" type="button" data-repay>' + ic('arrow-up-right') + 'Repay early in Smart Mobile</button></div><p class="hf-note">' + ic('lock') + '<span>Opens the official early repayment screen. You confirm there.</span></p></div></div>';
+    }
+    if (c.type === 'routes') {
+      var recItem = c.items.filter(function (x) { return x.rec; })[0];
+      return '<div class="gcard"><div class="gc-h"><span>' + ic(c.icon || 'list') + c.title + '</span><span class="micro">' + c.meta + '</span></div><div class="gc-b"><div class="routes">' +
+        c.items.map(function (x) { return '<div class="route' + (x.rec ? ' rec' : '') + '">' + (x.rec ? recBadge() : '') + '<span class="nm">' + x.n + '</span><span class="fig">' + x.f + '</span><span class="ds">' + x.d + '</span></div>'; }).join('') +
+        '</div></div>' + (c.why ? '<div class="rec-why"><div class="rec-why-h"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>Why I recommend ' + (c.recName || recItem.n) + '</div><ul>' +
+        c.why.map(function (t) { return '<li>' + ic('check') + '<span>' + t + '</span></li>'; }).join('') + '</ul><p class="rec-alt">' + c.alt + ' Every option stays open, and the choice is yours.</p></div>' : '') +
+        (c.handoff ? '<div class="handoff"><div class="btns"><button class="btn btn-dark btn-block" type="button" data-official="' + c.handoff.action + '">' + ic('arrow-up-right') + c.handoff.label + '</button></div>' +
+          '<p class="hf-note">' + ic('lock') + '<span>Opens the official screen in Smart Mobile, filled in. You check and confirm there. Raiffy never changes anything for you.</span></p></div>' : '') + '</div>';
+    }
+    if (c.type === 'subs') {
+      var SUBS = [['Streaming service', '59.00', 'up from 49 lei on 12 Oct'], ['Fitness club', '69.00', 'since March'], ['Music streaming', '25.00', 'since 2023'], ['News site', '13.00', 'since June'], ['Cloud storage', '10.00', 'since 2024'], ['Phone insurance', '10.00', 'since May']];
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('repeat') + 'Your card subscriptions</span><span class="micro">May–Oct</span></div><div class="gc-b">' +
+        SUBS.map(function (x, i) { return '<div class="kv"><span>' + x[0] + '<span class="micro" style="display:block">' + x[2] + '</span></span><b>' + x[1] + ' lei' + (i === 0 ? '<span class="pill warm up">+10</span>' : '') + '</b></div>'; }).join('') +
+        '<div class="subs-total"><span>Every month</span><span>186.00 lei</span></div><div class="subs-total" style="font-weight:400;color:var(--text-2);padding-top:4px"><span>Every year</span><span>2,232 lei</span></div></div>' +
+        '<div class="handoff"><div class="btns"><button class="btn btn-ghost btn-block" type="button" data-cardctl>' + ic('arrow-up-right') + 'Open card controls in Smart Mobile</button></div>' +
+        '<p class="hf-note">' + ic('info') + '<span>Blocking a merchant on your card stops the payments, but doesn’t cancel your contract with them. Cancel with the merchant too.</span></p></div></div>';
+    }
+    if (c.type === 'status') return statusHTML(c);
+    return '';
+  }
+  function statusHTML(c) {
+    var app = c.kind === 'apply';
+    var steps = app ? [['opened', 'Opened the application'], ['started', 'Checked the figures'], ['submitted', 'Signed and submitted'], ['approved', 'Approved, money paid in']]
+                    : c.kind === 'cardFreeze' ? [['completed', 'Card frozen in Smart Mobile']] : c.kind === 'cardControls' ? [['completed', 'Card controls changed']]
+                    : OFFICIAL[c.kind] ? [['completed', OFFICIAL[c.kind].h]] : [['completed', 'Early repayment requested']];
+    var idx = -1; steps.forEach(function (s, i) { if (c.times[s[0]]) idx = i; });
+    return '<div class="gcard"><div class="gc-h"><span>' + ic('smartphone') + (app ? 'Your application' : 'Done in Smart Mobile') + '</span><span class="micro">' + (app ? lei(c.amount) + ' · ' + c.term + ' mo' : '') + '</span></div><div class="gc-b"><ol class="status-steps">' +
+      steps.map(function (s, i) { return '<li class="' + (i <= idx ? 'done' : i === idx + 1 ? 'now' : '') + '"><span class="dot" aria-hidden="true"></span><span>' + s[1] + '</span><time>' + (c.times[s[0]] || '') + '</time></li>'; }).join('') +
+      '</ol></div>' + (app && c.times.abandoned && !c.times.submitted ? '<div class="gc-note">You left the application before signing. Your quote stays valid for 7 days.</div>' : '') + '</div>';
+  }
+
+  function bindCard(el, m) {
+    var sim = el.querySelector('.sim'); if (sim) bindSim(sim, m);
+    var cols = el.querySelector('[data-cols]');
+    if (cols) cols.addEventListener('scroll', function () { var i = Math.round(cols.scrollLeft / (cols.scrollWidth - cols.clientWidth || 1)); el.querySelectorAll('.swipe-hint i').forEach(function (d, k) { d.classList.toggle('on', k === i); }); }, { passive: true });
+    el.querySelectorAll('[data-allow]').forEach(function (b) { b.onclick = function () { resolveAllow(m, b.dataset.allow); }; });
+    var fz = el.querySelector('[data-freeze]'); if (fz) fz.onclick = function () {
+      /** @type {DeepLink} */ var dl = S.perms.cards ? { kind: 'cardFreeze', cardRef: CARD.ref } : { kind: 'cardFreeze' };
+      log('DeepLink', 'cardFreeze', dl.cardRef ? 'cardRef ' + dl.cardRef : 'no card ref (cards access off)'); S.cardConfirm = true; go('card');
+    };
+    el.querySelectorAll('[data-official]').forEach(function (b) { b.onclick = function () {
+      var a = b.dataset.official; log('DeepLink', a, 'filled from the chat · no data sent beyond the figures shown');
+      S.official = null; recHandoff('official'); go('official/' + a); event({ deepLink: a, status: 'opened' });
+    }; });
+    var cc = el.querySelector('[data-cardctl]'); if (cc) cc.onclick = function () { log('DeepLink', 'cardControls', 'cardRef ' + CARD.ref); recHandoff('card'); go('card'); };
+    var rp = el.querySelector('[data-repay]'); if (rp) rp.onclick = function () { log('DeepLink', 'earlyRepayment', 'loanRef ' + S.loan.ref); S.repay = null; go('repay'); };
+    var ap = el.querySelector('[data-apply]'); if (ap) ap.onclick = function () {
+      var c = m.card, q = makeQuote(c.amount, c.term, c.rate);
+      /** @type {DeepLink} */ var dl = { kind: 'apply', productId: q.productId, amount: q.amount, termMonths: q.termMonths, quoteId: q.id };
+      log('DeepLink', 'apply · ' + q.productId, 'amount ' + q.amount + ' · termMonths ' + q.termMonths + ' · quoteId ' + q.id);
+      S.apply = { quote: q, amount: q.amount, term: q.termMonths, step: 1, read: false };
+      S.backFromApply = 'raiffy';
+      recHandoff('apply');
+      demo('apply'); go('apply');
+      event({ quoteId: q.id, deepLink: 'apply', status: 'opened' });
+    };
+    var sm = el.querySelector('[data-summary]'); if (sm) sm.onclick = function () {
+      var c = m.card, q = makeQuote(c.amount, c.term, c.rate);
+      S.inbox.unshift({ id: 'm_sum_' + q.id, from: 'Raiffy', title: 'Your plan summary: ' + lei(q.amount) + ' over ' + q.termMonths + ' months', date: 'Today', read: false, type: 'summary', quoteId: q.id });
+      log('DeepLink', 'inbox · plan summary', 'messageId m_sum_' + q.id + ' · service message');
+      m.sentFor = c.amount + '/' + c.term; sm.disabled = true; el.querySelector('[data-sent]').hidden = false; toast('Sent to your Inbox');
+    };
+  }
+  function bindSim(card, m) {
+    var c = m.card, amt = card.querySelector('.sim-amt'), out = card.querySelector('.o-amt');
+    function update() {
+      var P = c.amount, n = c.term, s = simCalc(P, n, c.rate), rec = recommend(s, P, n);
+      amt.style.setProperty('--p', ((P - 1000) / 14000 * 100) + '%'); out.textContent = lei(P);
+      var L = card.querySelector('[data-k="loan"]'), O = card.querySelector('[data-k="od"]');
+      L.querySelector('.big').innerHTML = lei(s.loan.monthly) + '<small>' + lei(s.loan.cost) + ' total cost</small>';
+      O.classList.toggle('na', !s.od.ok);
+      O.querySelector('.big').innerHTML = s.od.ok ? lei(s.od.monthly) + '<small>' + lei(s.od.cost) + ' total cost</small>' : '—';
+      var note = O.querySelector('.opt-note'); note.hidden = s.od.ok; note.textContent = 'Overdrafts renew every 12 months, so this term doesn’t fit.';
+      [['loan', L], ['od', O]].forEach(function (p) { var on = rec.k === p[0]; p[1].classList.toggle('rec', on); p[1].querySelector('.rec-badge').hidden = !on; });
+      card.querySelector('.say').innerHTML = 'I recommend ' + rec.name + '. ' + rec.reasons[0] + '<span class="alt">' + rec.alt + '</span>';
+      card.querySelector('.hf-a').textContent = lei(P); card.querySelector('.hf-t').textContent = n; card.querySelector('.hf-m').textContent = lei(s.loan.monthly) + '/mo';
+      var apb = card.querySelector('[data-apply]'); if (S.application) { apb.disabled = true; apb.lastChild.nodeValue = 'Application submitted'; }
+      var sent = m.sentFor === P + '/' + n; card.parentNode.querySelector('[data-summary]').disabled = sent; card.parentNode.querySelector('[data-sent]').hidden = !sent;
+    }
+    amt.oninput = function () { c.amount = +amt.value; update(); };
+    card.querySelectorAll('[data-term]').forEach(function (b) { b.onclick = function () { c.term = +b.dataset.term; card.querySelectorAll('[data-term]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); update(); }; });
+    update();
+  }
+  function resolveAllow(m, how) {
+    m.resolved = how;
+    if (how === 'once') {
+      S.allows.push({ conversationId: 'conv_ioana', objectRef: m.card.ref, label: TXNS.filter(function (x) { return x.id === m.card.ref; })[0].name, grantedAt: now() });
+      log('Consent', 'allow once · ' + m.card.ref, 'this object, this conversation · ' + now());
+    }
+    renderThread();
+    respond(how === 'once' ? 'fee' : 'feeGeneral');
+  }
+
+  /* Scripted replies. Each returns { thinking, paras, card, sources, chips } */
+  var FLOWS = {
+    compare: function () {
+      var own = S.perms.offers, r = rate(), s = simCalc(8000, 12, r), rec = recommend(s, 8000, 12);
+      var acc = S.perms.account;
+      demo('compare');
+      return {
+        thinking: [acc ? 'Reading your overdraft: 8,000 lei used at 11.5%…' : 'Overdraft access is off, so assuming 8,000 lei…', own ? 'Reading your pre-approved offer…' : 'Checking standard published rates…', 'Comparing both over 12 months…'],
+        paras: [(acc ? 'You’re using 8,000 lei of your overdraft. ' : '') + 'If you plan to clear it within a year, I recommend ' + rec.name + '. ' + rec.reasons[0],
+                (own ? '' : 'I can’t see your pre-approved offer, so I’ve used the standard published rate; yours may be better. ') + 'A personal loan only makes sense if you want a fixed payment, or more time. Here they are side by side, same amount, same term:'],
+        card: { type: 'compare', rate: r, amount: 8000, term: 12 },
+        sources: [acc ? 'statement' : 'rates', own ? 'offer' : 'public', 'fees'],
+        chips: ['I can only pay about 400 lei a month', 'Can I repay the loan early?', 'What does the 249 lei fee cover?']
+      };
+    },
+    sim: function () {
+      var r = rate(), s = simCalc(8000, 24, r);
+      demo('sim');
+      return {
+        thinking: ['Checking what fits 400 lei a month…', 'Running the loan over 24 months…'],
+        paras: ['At about 400 lei a month, the overdraft would take more than a year to clear, and overdrafts renew every 12 months. Over 24 months, the personal loan is ' + lei(s.loan.monthly) + ' a month, so I recommend it, though you’d pay more interest overall: ' + lei(s.loan.cost) + ' in total cost.',
+                'Move the amount or the term and I’ll update the recommendation. When you’re ready, I’ll open the application in Smart Mobile with these figures:'],
+        card: { type: 'sim', rate: r, amount: 8000, term: 24 },
+        sources: [S.perms.offers ? 'offer' : 'public', 'fees'],
+        chips: ['Can I repay the loan early?', 'What does the 249 lei fee cover?']
+      };
+    },
+    detail: function () {
+      var own = S.perms.offers;
+      return {
+        thinking: [own ? 'Reading your pre-approved offer…' : 'Checking standard published rates…', 'Checking the fee schedule…'],
+        paras: [own ? 'Your pre-approved personal loan is up to 30,000 lei at 7.9% fixed, for 6 to 60 months, with a one-off 249 lei origination fee. It’s valid until 30 Nov and stays indicative until the bank issues the SECCI.' : 'I can’t see your pre-approved offer, because that access is off. The standard published personal loan rate is 9.4% fixed, with a 249 lei fee; your own offer may be lower.',
+                'A fixed rate means your payment never changes. Early repayment costs 0.5% of the amount you repay, and nothing in the last 12 months.',
+                'You’re using 8,000 lei of your overdraft at 11.5% variable. Want to see whether moving it to this loan would cost you less?'],
+        card: null, sources: [own ? 'offer' : 'public', 'fees'],
+        chips: ['Compare it with keeping my overdraft', 'What does the 249 lei fee cover?']
+      };
+    },
+    early: function () {
+      if (S.loan && S.perms.loans) return {
+        thinking: ['Reading your loan ' + S.loan.ref + '…', 'Checking the early repayment terms…'],
+        paras: ['Yes, anytime, in part or in full. While more than 12 months are left, the fee is 0.5% of what you repay early; in the last 12 months, there’s no fee.',
+                'Repaying everything today would cost ' + lei(S.loan.amount * .005) + ' in fees and save the interest you haven’t paid yet:'],
+        card: { type: 'early' }, sources: ['loan', 'fees'], chips: ['What does the 249 lei fee cover?']
+      };
+      return {
+        thinking: ['Checking the early repayment terms…'],
+        paras: ['Yes. You can repay a personal loan early at any time, in part or in full. The fee is 0.5% of the amount you repay early, and there’s no fee in the last 12 months of the loan.', 'An overdraft has no early repayment fee: you can top it up whenever you like.'],
+        card: null, sources: ['fees'], chips: ['I can only pay about 400 lei a month', 'What does the 249 lei fee cover?']
+      };
+    },
+    fee249: function () {
+      return {
+        thinking: ['Checking the fee schedule…'],
+        paras: ['It’s a one-off origination fee for setting up the loan, charged when the money is paid in. It’s already in every total cost and DAE I’ve shown you, so nothing is hidden.', 'An overdraft you already have doesn’t charge it, which is why it can cost less over a short time.'],
+        card: null, sources: ['fees'], chips: ['I can only pay about 400 lei a month', 'Can I repay the loan early?']
+      };
+    },
+    fee: function () {
+      return {
+        thinking: ['Reading the transaction you allowed…', 'Checking your account package…'],
+        paras: ['This 5 lei is another bank’s ATM fee. Your account package covers Raiffeisen ATMs only, so each withdrawal elsewhere costs 5 lei.'],
+        card: { type: 'fee' }, sources: ['txn', 'fees'], chips: ['Which package covers all ATMs?', 'Is there a cheaper way to cover my overdraft?']
+      };
+    },
+    feeGeneral: function () {
+      return {
+        thinking: ['Checking the fee schedule…'],
+        paras: ['No problem, I won’t look at it. In general, a 5 lei charge on your statement is usually another bank’s ATM fee: your package covers Raiffeisen ATMs only.', 'If you’d like me to check this one, turn on transactions in What Raiffy can see, or open it again and allow it once.'],
+        card: null, sources: ['fees'], chips: ['Is there a cheaper way to cover my overdraft?']
+      };
+    },
+    lost: function () {
+      return {
+        thinking: ['Checking how to protect your card…'],
+        paras: ['Let’s stop anyone using it first.'],
+        card: { type: 'freeze' }, sources: [], chips: ['I found it, how do I unfreeze?', 'How do I get a new card?']
+      };
+    },
+    recAtm: function () {
+      return { thinking: ['Reading your October transactions…', 'Checking your account package…'],
+        paras: ['Those 15 lei are three 5 lei fees for withdrawals at other banks’ ATMs, on 22, 25 and 29 Oct. Your package covers Raiffeisen ATMs only.',
+                'The Raiffeisen ATM at Calea Floreasca 246 is 400 m from where you withdrew. At three withdrawals a month, a package that covers every ATM only pays off if it costs less than 15 lei more a month.',
+                'Do you usually need cash near work, or near home?'],
+        card: { type: 'routes', icon: 'banknote', title: 'Ways to stop paying it', recName: 'Raiffeisen ATMs', meta: 'Oct', items: [
+          { n: 'Use Raiffeisen ATMs', d: 'Calea Floreasca 246, 400 m away', f: '0 lei', rec: true },
+          { n: 'Withdraw once a month', d: 'One larger withdrawal', f: '5 lei / mo' },
+          { n: 'A package covering every ATM', d: 'Only if it costs under 15 lei more', f: 'compare first' }],
+          why: ['It costs nothing and needs no change to your account.', 'There’s one close to where you withdrew.'], alt: 'A bigger package is the better pick only if you withdraw at other banks’ ATMs most weeks.' },
+        sources: [['receipt', 'October transactions'], 'fees'], chips: ['Is my account package still the right one for me?'] };
+    },
+    recFx: function () {
+      return { thinking: ['Reading your card payments in euros…', 'Checking the conversion terms…'],
+        paras: ['You spent 1,240 lei in euros by card in October, mostly in Vienna from 14 to 17 Oct, and paid about 31 lei for the currency conversion.',
+                'When a shop or ATM abroad offers to charge you in lei, choose euros instead. Their own conversion rate is usually worse than the bank’s.',
+                'Do you pay in euros often, or was this one trip?'],
+        card: { type: 'routes', icon: 'euro', title: 'Paying in euros', recName: 'paying in euros', meta: 'Oct', items: [
+          { n: 'Pay in euros, not lei', d: 'At shops and ATMs abroad', f: 'avoids the markup', rec: true },
+          { n: 'A euro account', d: 'Worth it if you spend in euros monthly', f: '≈ 31 lei / mo' },
+          { n: 'Keep it as it is', d: 'Fine for one trip a year', f: '31 lei' }],
+          why: ['It costs nothing and works with the card you have.', 'It avoids the shop’s rate, the most expensive part.'], alt: 'A euro account is the better pick if you pay in euros every month.',
+          handoff: { action: 'eurAccount', label: 'Open a euro account in Smart Mobile' } },
+        sources: [['receipt', 'October card payments'], 'fees'], chips: ['Which subscriptions am I paying for?'] };
+    },
+    recIdle: function () {
+      return { thinking: ['Reading your balances since August…', 'Leaving out a month of your usual spending…', 'Checking savings rates…'],
+        paras: ['About 12,000 lei has stayed in your current account since August, on top of what you usually spend in a month. At 0.05%, it earns almost nothing.',
+                'Here’s what it could earn, before the 10% tax on interest. I recommend the savings account, because you can still take the money out anytime:'],
+        card: { type: 'routes', icon: 'piggy-bank', title: 'Where 12,000 lei could go', recName: 'the savings account', meta: 'rates 28 Oct', items: [
+          { n: 'Savings account', d: '3.5% · withdraw anytime', f: '420 lei / yr', rec: true },
+          { n: 'Term deposit · 6 months', d: '5.6% · locked until April', f: '336 lei / 6 mo' },
+          { n: 'Government bonds · 1 year', d: '6.2% · early sale at market price', f: '744 lei / yr' }],
+          why: ['It earns 70 times more than the current account.', 'You can still use it as an emergency buffer.'], alt: 'The deposit or bonds pay more if you’re sure you won’t need the money for 6 to 12 months.',
+          handoff: { action: 'savingsAccount', label: 'Open a savings account in Smart Mobile' } },
+        sources: [['file-text', 'Statements, Aug to Oct'], ['calendar', 'Savings rates as of 28 Oct']], chips: ['My deposit renews on 4 Nov. Should I renew it or move it?'] };
+    },
+    recDeposit: function () {
+      return { thinking: ['Reading your deposit…', 'Checking today’s savings and deposit rates…'],
+        paras: ['Your 15,000 lei deposit matures on 4 Nov and renews by itself for 6 months at today’s 5.1%, down from the 5.6% you opened it at.',
+                'If you won’t need the money before May, I recommend letting it renew. Here are your options, before the 10% tax on interest:'],
+        card: { type: 'routes', icon: 'lock', title: 'Options for 15,000 lei', recName: 'letting it renew', meta: 'rates 28 Oct', items: [
+          { n: 'Renew for 6 months', d: '5.1% · locked until 4 May', f: '382.50 lei', rec: true },
+          { n: 'Savings account', d: '3.5% · withdraw anytime', f: '262.50 lei / 6 mo' },
+          { n: 'Government bonds · 1 year', d: '6.2% · early sale at market price', f: '930 lei / yr' }],
+          why: ['It earns more than a savings account over the same 6 months.', 'Nothing to do: it renews by itself on 4 Nov.'], alt: 'The savings account fits better if you might need the money before May. Bonds pay more if you can leave it for a full year.',
+          handoff: { action: 'depositRenewal', label: 'Change the renewal in Smart Mobile' } },
+        sources: [['lock', 'Your term deposit'], ['calendar', 'Rates as of 28 Oct']], chips: ['I have about 12,000 lei I’m not using. Where could it earn more?', 'Should I repay my loan early from 15 Dec?'] };
+    },
+    recFixed: function () {
+      return { thinking: ['Reading your mortgage…', 'Checking IRCC and today’s fixed rates…', 'Working out each payment…', 'Checking the new payment against your income…'],
+        paras: ['Your 5.4% fixed rate ends on 15 Mar 2027. After that, your mortgage moves to IRCC plus your 2.2% margin, 7.86% today, so your payment would go from 1,957 lei to about 2,340 lei. IRCC changes every quarter, so treat that as a range, not a promise.',
+                'Even the highest payment stays under 40% of your income. On today’s rates, I recommend fixing again:'],
+        card: { type: 'routes', icon: 'house', title: 'After 15 Mar 2027', recName: 'fixing again', meta: '270,000 lei · 18 yrs', items: [
+          { n: 'Fix again for 5 years', d: '6.6% fixed · indicative', f: '2,139 lei / mo', rec: true },
+          { n: 'Repay 20,000 lei, then variable', d: '7.86% today · changes quarterly', f: '2,166 lei / mo' },
+          { n: 'Move to the variable rate', d: 'IRCC 5.66% + 2.2% margin', f: '2,340 lei / mo' }],
+          why: ['It’s the lowest payment of the three on today’s rates.', 'It stays the same for 5 years, whatever IRCC does.'], alt: 'The partial repayment is the better pick if you have savings to spare, because it lowers what you owe for good.',
+          handoff: { action: 'refix', label: 'Ask for a new fixed rate in Smart Mobile' } },
+        sources: [['house', 'Your mortgage'], ['calendar', 'IRCC as of 28 Oct']], chips: ['Should I repay my loan early from 15 Dec?'] };
+    },
+    recPackage: function () {
+      return { thinking: ['Reading your statements since May…', 'Matching what you used to each package…'],
+        paras: ['Since May you’ve used transfers, card payments and Raiffeisen ATMs, about once a week. The Basic package covers all of that for 9 lei a month.',
+                'Here are the two side by side. I recommend Basic:'],
+        card: { type: 'routes', icon: 'package', title: 'Your package or Basic', recName: 'the Basic package', meta: 'May–Oct use', items: [
+          { n: 'Basic package', d: 'Transfers, card, Raiffeisen ATMs', f: '108 lei / yr', rec: true },
+          { n: 'Your current package', d: 'Adds other banks’ ATMs and travel insurance', f: '228 lei / yr' }],
+          why: ['It covers everything you used since May.', 'It costs 120 lei less a year.'], alt: 'Keep yours if you start using other banks’ ATMs often, or travel with its insurance.',
+          handoff: { action: 'packageChange', label: 'Change package in Smart Mobile' } },
+        sources: [['file-text', 'Statements, May to Oct'], 'fees'], chips: ['Why did I pay 15 lei in ATM fees?'] };
+    },
+    recEarly: function () {
+      return { thinking: ['Reading your loan and repayment schedule…', 'Checking your savings…'],
+        paras: ['From 15 Dec your personal loan is in its last 12 months, so repaying early has no fee. Repaying the 4,200 lei left would save about 217 lei in interest and leave 16,800 lei in savings, well above 3 months of your usual spending.',
+                'I recommend repaying in full, but every option is fine:'],
+        card: { type: 'routes', icon: 'landmark', title: 'Repaying from 15 Dec', recName: 'repaying in full', meta: '9.4% · 12 left', items: [
+          { n: 'Repay in full', d: '4,200 lei from savings', f: 'saves 217 lei', rec: true },
+          { n: 'Repay half', d: '2,100 lei from savings', f: 'saves 108 lei' },
+          { n: 'Keep paying as planned', d: '12 × 368 lei', f: '0 lei' }],
+          why: ['It saves the most, with no fee from 15 Dec.', 'Your savings still cover more than 3 months of spending.'], alt: 'Repaying half is the better pick if you’re saving for something soon.',
+          handoff: { action: 'loanEarlyRepay', label: 'Schedule the repayment in Smart Mobile' } },
+        sources: [['landmark', 'Your loan schedule'], ['piggy-bank', 'Your savings']], chips: ['My fixed rate ends in March. What happens to my payment?'] };
+    },
+    recSubs: function () {
+      return { thinking: ['Finding recurring card payments since May…'],
+        paras: ['You pay 6 subscriptions by card: 186 lei a month, 2,232 lei a year. The streaming one went up from 49 to 59 lei on 12 Oct.',
+                'I won’t judge which are worth it. Which one would you like to look at closer?'],
+        card: { type: 'subs' }, sources: [['credit-card', 'Card payments, May to Oct']], chips: ['Is my credit card worth its 150 lei fee?'] };
+    },
+    recCard: function () {
+      return { thinking: ['Reading your credit card and payments…'],
+        paras: ['Your credit card has no balance, and you’ve used it twice this year. Its 150 lei annual fee is due on 1 Dec.',
+                'Here are the two choices. On how you use it, I recommend closing it before 1 Dec:'],
+        card: { type: 'routes', icon: 'credit-card', title: 'Keep it or close it', recName: 'closing it', meta: 'fee due 1 Dec', items: [
+          { n: 'Close it before 1 Dec', d: 'No fee; you lose the 5,000 lei backup line', f: '0 lei', rec: true },
+          { n: 'Keep it', d: 'Up to 50 days interest-free, a backup line', f: '150 lei / yr' }],
+          why: ['You’d pay 150 lei for two payments a year.', 'Your debit card covers the payments you made with it.'], alt: 'Keep it if you want a backup line of credit for emergencies.',
+          handoff: { action: 'closeCard', label: 'Close the card in Smart Mobile' } },
+        sources: [['credit-card', 'Your credit card'], 'fees'], chips: ['Which subscriptions am I paying for?'] };
+    },
+    package: function () {
+      return { thinking: ['Checking your account package…', 'Checking the fee schedule…'],
+        paras: ['You paid one 5 lei fee in October. A package that covers every ATM only pays off if it costs less than that extra each month, so I’d keep yours and use Raiffeisen ATMs.', 'Withdraw at another bank’s ATM more than a few times a month, and it’s worth comparing packages. Want me to keep an eye on it?'],
+        card: null, sources: ['fees'], chips: ['Is there a cheaper way to cover my overdraft?'] };
+    },
+    newcard: function () {
+      return { thinking: ['Checking the card replacement steps…'],
+        paras: ['Order a replacement in Smart Mobile, under Card, then Report lost or stolen. That cancels the old card for good, so only do it once you’re sure it’s gone. Until then, keeping it frozen is enough.'],
+        card: null, sources: [], chips: [] };
+    },
+    unfreeze: function () {
+      return { thinking: ['Checking the card controls…'], paras: ['Open Card in Smart Mobile and switch off Freeze card. It works straight away, and nothing else changes.'], card: null, sources: [], chips: [] };
+    },
+    fallback: function () {
+      return {
+        thinking: ['Working out what you need…'],
+        paras: ['In this prototype I can compare your overdraft with a personal loan, explain a fee, talk through your pre-approved offer or help you freeze a lost card. Pick one below, or ask in your own words.'],
+        card: null, sources: [], chips: ['Is there a cheaper way to cover my overdraft?', 'Is my pre-approved offer a good deal?', 'I think I lost my card']
+      };
+    }
+  };
+  function route(text, ctx) {
+    var t = text.toLowerCase();
+    if (ctx && ctx.screen === 'transaction' && ctx.objectRef === 't2') return 'txn:t2';
+    if (ctx && ctx.proactiveCardId) return recById(ctx.proactiveCardId).flow;
+    var byQ = RECS.filter(function (r) { return r.q === text; })[0]; if (byQ) return byQ.flow;
+    if (/unfreeze|found it/.test(t)) return 'unfreeze';
+    if (/new card|replacement/.test(t)) return 'newcard';
+    if (/lost|stolen|steal|card.*missing|freeze/.test(t)) return 'lost';
+    if (/400|lower monthly|smaller payment|24 months|stretch/.test(t)) return 'sim';
+    if (/early|repay/.test(t)) return 'early';
+    if (/249|origination/.test(t)) return 'fee249';
+    if (/good deal|pre-approved|offer/.test(t) && !/compare/.test(t)) return 'detail';
+    if (/overdraft|cheaper|compare|loan/.test(t)) return 'compare';
+    if (/package|all atms/.test(t)) return 'package';
+    if (/new card|replacement/.test(t)) return 'newcard';
+    if (/atm|fee|charged/.test(t)) return 'feeAsk';
+    return 'fallback';
+  }
+
+  /* Sending and streaming */
+  var busy = false;
+  function send(text, ctx) {
+    text = text.trim(); if (!text || busy) return;
+    S.thread.push({ role: 'user', text: text });
+    $('#r-input').value = ''; updateSend(); setChips([]);
+    var el = msgEl(S.thread[S.thread.length - 1]); el.classList.add('enter'); thread.appendChild(el); follow();
+    var flow = route(text, ctx);
+    if (flow === 'txn:t2') {
+      if (S.perms.transactions || S.allows.some(function (a) { return a.objectRef === 't2'; })) return respond('fee');
+      var m = { role: 'raiffy', paras: [], card: { type: 'allow', ref: 't2' } };
+      S.thread.push(m);
+      setTimeout(function () { var e = msgEl(m); e.classList.add('enter'); thread.appendChild(e); icons(); follow(); announce('Raiffy asks: let Raiffy see this transaction?'); }, 300);
+      return;
+    }
+    if (flow === 'feeAsk') flow = S.perms.transactions ? 'fee' : 'feeGeneral';
+    respond(flow);
+  }
+  function respond(flow) {
+    var plan = FLOWS[flow]();
+    busy = true; updateSend();
+    var el = document.createElement('div'); el.className = 'msg-raiffy enter';
+    el.innerHTML = '<span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><div class="raiffy-body"><div class="think think-live"><ol class="think-lines" aria-label="Raiffy is working"></ol></div><div class="raiffy-text"></div></div>';
+    thread.appendChild(el); icons(); follow(); announce('Raiffy is thinking.');
+    var panel = el.querySelector('.think'), lines = panel.querySelector('.think-lines'), txt = el.querySelector('.raiffy-text'), i = 0, pi = 0, words = [], p;
+    function think() {
+      if (i < plan.thinking.length) { i++; lines.innerHTML = thinkLines(plan.thinking.slice(0, i), true); follow(); setTimeout(think, reduce.matches ? 400 : 700); }
+      else { var f = thinkHTML(plan.thinking); panel.parentNode.replaceChild(f, panel); icons(); if (reduce.matches) return finish(); nextPara(); }
+    }
+    function nextPara() {
+      if (pi >= plan.paras.length) return finish();
+      p = document.createElement('p'); p._t = ''; txt.appendChild(p); words = plan.paras[pi].split(/(\s+)/);
+      p.appendChild(document.createTextNode('')); var cr = document.createElement('span'); cr.className = 'caret'; cr.setAttribute('aria-hidden', 'true'); p.appendChild(cr); tick();
+    }
+    function tick() {
+      if (!words.length) { pi++; p.removeChild(p.lastChild); setTimeout(nextPara, 120); return; }
+      var w = words.shift(); if (/^\s+$/.test(w) && words.length) w += words.shift();
+      p._t += w; p.firstChild.nodeValue = p._t; follow(); setTimeout(tick, 20 + Math.random() * 30);
+    }
+    function finish() {
+      var m = { role: 'raiffy', thinking: plan.thinking, paras: plan.paras, card: plan.card, sources: plan.sources };
+      S.thread.push(m);
+      var f = msgEl(m); el.parentNode.replaceChild(f, el); icons(); follow();
+      busy = false; updateSend(); setChips(plan.chips);
+      if (S.recOpen) { var rs = recSt(S.recOpen); if (rs.status === 'opened') { rs.status = 'answered'; rs.chips = plan.chips; recLog(recById(S.recOpen), 'answered', 'waiting: acts, or stops in the chat'); } }
+      announce('Raiffy replied: ' + plan.paras.join(' '));
+    }
+    setTimeout(think, 120);
+  }
+
+  /* Status events from Smart Mobile land in the chat */
+  function onEvent(ev) {
+    if (ev.deepLink === 'apply') {
+      var st = S.thread.filter(function (m) { return m.card && m.card.type === 'status' && m.card.quoteId === ev.quoteId; })[0];
+      if (!st) { var q = S.quotes[ev.quoteId]; st = { role: 'raiffy', paras: [], card: { type: 'status', kind: 'apply', quoteId: ev.quoteId, amount: q.amount, term: q.termMonths, times: {} }, sources: ['app'] }; S.thread.push(st); }
+      if (ev.status === 'submitted' || ev.status === 'started') { st.card.amount = S.apply.amount; st.card.term = S.apply.term; }
+      st.card.times[ev.status] = ev.at;
+      if (ev.status === 'submitted') st.paras = ['You’ve signed and submitted your application in Smart Mobile. I’ll show its status here as the bank updates it.'];
+      if (ev.status === 'approved') { st.paras = ['Your loan is approved, and ' + lei(st.card.amount) + ' is in your current account. Your repayment schedule is in Loans.']; demo('status'); setChips(['Can I repay early?']); }
+      if (ev.status === 'abandoned') { st.paras = ['You left the application before signing. Nothing was submitted.']; recLeft('leftOfficialFlow'); }
+      if (ev.status === 'submitted') recActed();
+    } else if (ev.status === 'abandoned') {
+      S.thread.push({ role: 'raiffy', paras: ['You left ' + (OFFICIAL[ev.deepLink] ? OFFICIAL[ev.deepLink].h.charAt(0).toLowerCase() + OFFICIAL[ev.deepLink].h.slice(1) : 'that screen') + ' without confirming. Nothing changed, and your figures stay here.'] });
+      recLeft('leftOfficialFlow');
+    } else if (ev.status === 'completed') {
+      var txt = ev.deepLink === 'cardFreeze' ? 'Your card is frozen. Nobody can pay or withdraw with it until you unfreeze it.'
+              : ev.deepLink === 'cardControls' ? 'Your card controls are updated.'
+              : OFFICIAL[ev.deepLink] ? OFFICIAL[ev.deepLink].done : 'Your early repayment request is in. Smart Mobile confirms the date.';
+      S.thread.push({ role: 'raiffy', paras: [txt], card: { type: 'status', kind: ev.deepLink, times: { completed: ev.at } }, sources: ['app'] });
+      recActed();
+    }
+    if (sheetOpen) renderThread();
+  }
+
+  /* Chips and composer (Tab fills, Enter sends) */
+  var tabIdx = -1;
+  function setChips(list) {
+    S.chips = list; tabIdx = -1;
+    var el = $('#chips');
+    el.innerHTML = list.map(function (c, i) { return '<button class="chip" type="button" data-chip="' + i + '">' + esc(c) + (i === 0 ? '<kbd class="tab-kbd">Tab</kbd>' : '') + '</button>'; }).join('');
+    el.hidden = !list.length;
+  }
+  function markTab(n) { document.querySelectorAll('#chips .chip').forEach(function (c, i) { var k = c.querySelector('.tab-kbd'); if (k) k.remove(); if (i === n) c.insertAdjacentHTML('beforeend', '<kbd class="tab-kbd">Tab</kbd>'); }); }
+  $('#chips').onclick = function (e) { var c = e.target.closest('[data-chip]'); if (c) send(S.chips[+c.dataset.chip]); };
+  var input = $('#r-input');
+  function updateSend() { $('#r-send').disabled = busy || !input.value.trim(); }
+  input.oninput = function () { tabIdx = -1; updateSend(); };
+  input.onkeydown = function (e) {
+    if (e.key === 'Tab' && !e.shiftKey && S.chips.length && (input.value === '' || tabIdx >= 0)) {
+      if (tabIdx + 1 < S.chips.length) { e.preventDefault(); tabIdx++; input.value = S.chips[tabIdx]; updateSend(); markTab(tabIdx + 1); announce('Suggestion: ' + S.chips[tabIdx]); }
+      else tabIdx = -1;
+    }
+  };
+  $('#composer').onsubmit = function (e) { e.preventDefault(); send(input.value); };
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('#mini').classList.contains('on')) return closeMini();
+    if (sheetOpen) go(S.under);
+  });
+
+  /* ───────────── Start ───────────── */
+  function reset(initial) {
+    S = fresh(); clock = 0;
+    $('#log').innerHTML = '<li class="empty">Nothing yet. Open Raiffy from the app.</li>';
+    document.querySelectorAll('#demo-steps li').forEach(function (l) { l.classList.remove('done'); });
+    closeMini(); setChips([]); thread.innerHTML = '';
+    log('Session', 'Smart Mobile → Raiffy session', 'signed in through the app · no second sign-in (simulated)');
+    var h = parse().name;
+    if (initial === true && !/^(raiffy|apply|repay)$/.test(h)) render();
+    else if (location.hash === '#home' || !location.hash) render(); else location.hash = 'home';
+  }
+  $('#reset').onclick = reset;
+  window.addEventListener('hashchange', render);
+  reset(true);
+})();
+</script>
+</body>
+</html>

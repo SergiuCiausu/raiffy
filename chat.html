@@ -183,6 +183,35 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
 .acts .icon-btn { width: 28px; height: 28px; color: var(--text-3); }
 .acts .icon-btn svg { width: 14px; height: 14px; }
 
+/* Human verification: ask a specialist, the request panel, and the status that comes back */
+.vbtn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface);
+  cursor: pointer; font-size: 12px; color: var(--text-2); transition: border-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out); }
+.vbtn svg { width: 13px; height: 13px; }
+.vbtn:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .vbtn:hover { border-color: rgba(20,20,20,.24); color: var(--text-1); } }
+.gfoot .vbtn { margin-left: auto; }
+.gfoot .vbtn:not([hidden]) + .acts { margin-left: 0; }
+.vreq { max-width: 64ch; display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-float); }
+.vreq h3 { font-size: 14px; }
+.vreq p { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.vreq details { font-size: 12.5px; color: var(--text-2); }
+.vreq summary { cursor: pointer; width: fit-content; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.vreq ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.vreq textarea { width: 100%; min-height: 64px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 10px; resize: vertical; outline: none; font-size: 13.5px; line-height: 1.5; background: #fff; }
+.vreq textarea:focus { border-color: var(--ink); box-shadow: var(--halo); }
+.vreq .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vreq .micro { font-size: 11.5px; }
+.vstat { display: flex; align-items: flex-start; gap: 8px; max-width: 64ch; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45; background: var(--surface-2); color: var(--text-2); }
+.vstat svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.vstat b { color: var(--text-1); font-weight: 500; }
+.vstat.ok { background: #F1F8F3; color: #1E5B37; }
+.vstat.ok b { color: #1E5B37; }
+.vstat.ok svg { color: #2E7D4F; }
+.vstat.changed { background: #FFF8DC; color: #6B5200; }
+.raiffy-text ins { text-decoration: none; background: #FFF3C4; border-radius: 3px; padding: 0 2px; box-shadow: 0 0 0 1px rgba(200,150,20,.25); }
+.raiffy-text del { color: var(--text-3); text-decoration: line-through; }
+.plan-check { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
 /* Answer cards */
 .gcard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
 .gc-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
@@ -843,7 +872,8 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
         '<div class="kv"><span>Total cost</span><b></b></div><div class="costbar"><span></span></div></div>' +
         '<div class="opt" data-k="od"><div class="opt-h">' + recBadge(true) + 'Overdraft<span class="micro">11.5% variable</span></div><div class="big"></div>' +
         '<div class="kv"><span>Total cost</span><b></b></div><div class="costbar"><span></span></div><p class="opt-note" hidden></p></div>' +
-        '</div><p class="sim-say"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div></div>';
+        '</div><p class="sim-say"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div>' +
+        '<div class="gc-note plan-check"><span>Ready to decide? A specialist can check the plan before you apply.</span><button type="button" class="vbtn" data-act="plan">' + ic('file-check') + 'Check my plan</button></div></div>';
     }
     if (c.type === 'savings') {
       function row(icn, nm, ds, rt, liq, cls, tag) {
@@ -970,6 +1000,7 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       var f = document.createElement('div');
       f.className = 'gfoot' + (enter ? ' enter' : '');
       f.innerHTML = (m.sources || []).map(function (k) { var s = SOURCES[k]; return '<button type="button" class="src" data-src="' + k + '">' + ic(s.icon) + s.label + '</button>'; }).join('') +
+        (m.verify ? '' : '<button type="button" class="vbtn" data-act="verify">' + ic('user-check') + 'Ask a specialist</button>') +
         '<div class="acts">' +
         '<button type="button" class="icon-btn" data-act="copy" aria-label="Copy answer">' + ic('copy') + '</button>' +
         '<button type="button" class="icon-btn" data-act="up" aria-pressed="false" aria-label="Helpful">' + ic('thumbs-up') + '</button>' +
@@ -977,10 +1008,88 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
         (m.card && PIN_META[m.card.type] ? '<button type="button" class="icon-btn" data-act="pin" aria-pressed="' + !!m.pinned + '" aria-label="Pin to context">' + ic('pin') + '</button>' : '') +
         '</div>';
       body.appendChild(f);
+      var vz = document.createElement('div');
+      vz.className = 'vzone';
+      vz.innerHTML = verifyHTML(m);
+      body.appendChild(vz);
+      syncVBtns(el, m);
     }
     el._msg = m;
     return el;
   }
+
+  /* ───────────── Human verification (product-decisions.md) ─────────────
+     "Ask a specialist" on each answer, "Check my plan" on the simulator. Requests go to console.html through
+     localStorage in this demo, and the specialist's decision comes back the same way. */
+  var REQ_KEY = 'raiffy.demo.requests', VER_KEY = 'raiffy.demo.verdicts', reqN = 0;
+  function readJSON(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
+  function verifyHTML(m) {
+    var v = m.verify;
+    if (m.vdraft) {
+      var plan = m.vdraft === 'plan', open = conv().messages.some(function (x) { return x !== m && x.verify && x.verify.level === 'pending_review'; });
+      return '<div class="vreq" role="group" aria-labelledby="vq-' + m.vid + '"><h3 id="vq-' + m.vid + '">' + (plan ? 'Check my plan with a specialist' : 'Ask a specialist to check this answer') + '</h3>' +
+        '<p>A Raiffeisen specialist will see this conversation and the figures in this ' + (plan ? 'plan' : 'answer') + '. They confirm the information, not a credit decision.</p>' +
+        '<details><summary>See what’s sent</summary><ul><li>This conversation, with card numbers, CNP and IBAN masked</li><li>' + (plan ? 'The amount, term and rate you chose, and the repayment figures' : 'This answer, its figures and its sources') + '</li><li>Your note, if you add one</li></ul></details>' +
+        '<label class="sr-only" for="vn-' + m.vid + '">Note for the specialist</label><textarea id="vn-' + m.vid + '" data-vnote placeholder="What should they look at? (optional)"></textarea>' +
+        '<p class="micro">Usually within 30 minutes, 09:00–20:00. Outside those hours, a callback the next morning.' + (open && !plan ? ' This joins your open request in this chat.' : '') + (plan && open ? ' A plan check replaces the open answer checks in this chat.' : '') + '</p>' +
+        '<div class="row"><button type="button" class="btn btn-dark btn-sm" data-act="vsend">' + ic('send') + 'Send request</button><button type="button" class="btn btn-ghost btn-sm" data-act="vcancel">Cancel</button></div></div>';
+    }
+    if (!v) return '';
+    if (v.level === 'pending_review') return '<p class="vstat">' + ic('clock') + '<span><b>Waiting for a specialist</b> · ' + (v.kind === 'plan' ? 'plan check' : 'usually within 30 minutes') + '. You can keep chatting.</span></p>';
+    if (v.level === 'merged') return '<p class="vstat">' + ic('git-merge') + '<span>Merged into your plan check.</span></p>';
+    if (v.changed) return '<p class="vstat changed">' + ic('triangle-alert') + '<span><b>Changed after the specialist’s check.</b> The confirmation was for ' + v.inputs + '.</span></p>';
+    if (v.level === 'confirmed') return '<p class="vstat ok">' + ic('badge-check') + '<span><b>Confirmed by ' + v.reviewer.name + ', ' + v.reviewer.role.toLowerCase() + ' · ' + v.reviewedAt + '</b>. Still AI-generated, checked by a person.</span></p>';
+    if (v.level === 'edited') return '<p class="vstat ok">' + ic('pencil-line') + '<span><b>Edited by ' + v.reviewer.name + ', ' + v.reviewer.role.toLowerCase() + ' · ' + v.reviewedAt + '</b>. ' + (v.note ? 'Signed with a correction: “' + v.note + '”' : 'Changes are highlighted.') + '</span></p>';
+    if (v.level === 'returned') return '<p class="vstat changed">' + ic('undo-2') + '<span><b>The specialist sent this back:</b> ' + v.note + '</span></p>';
+    return '';
+  }
+  function syncVBtns(el, m) {
+    var busy = !!(m.verify || m.vdraft);
+    el.querySelectorAll('[data-act="verify"], [data-act="plan"]').forEach(function (b) { b.hidden = busy; });
+  }
+  function msgNode(m) { var all = thread.querySelectorAll('.msg'); for (var i = 0; i < all.length; i++) if (all[i]._msg === m) return all[i]; }
+  function refreshVerify(m) {
+    var el = msgNode(m); if (!el) return;
+    var vz = el.querySelector('.vzone'); if (vz) vz.innerHTML = verifyHTML(m);
+    syncVBtns(el, m);
+    icons();
+  }
+  function sendVerify(m, note) {
+    var c = conv(), kind = m.vdraft, idx = c.messages.indexOf(m), q = '';
+    for (var i = idx - 1; i >= 0; i--) if (c.messages[i].role === 'user' && c.messages[i].text) { q = c.messages[i].text; break; }
+    var req = { id: uid('vr'), n: Date.now() % 100000, kind: kind, at: Date.now(), conv: c.id, title: c.title, question: q || c.title, paras: m.paras, flow: m.flow, note: note,
+      sources: (m.sources || []).map(function (k) { return SOURCES[k].label; }) };
+    if (m.card && (m.card.type === 'sim' || m.card.type === 'compare')) {
+      var s = simCalc(m.card.amount, m.card.term, m.card.rate);
+      req.snap = { amount: m.card.amount, term: m.card.term, rate: m.card.rate, loanMonthly: s.loan.monthly, loanCost: s.loan.cost, odMonthly: s.od.monthly, odCost: s.od.cost, odOk: s.od.ok };
+      req.card = { amount: m.card.amount, term: m.card.term, rate: m.card.rate };
+    }
+    try { var all = readJSON(REQ_KEY, []); all.push(req); localStorage.setItem(REQ_KEY, JSON.stringify(all)); } catch (e) {}
+    m.vdraft = null;
+    m.verify = { level: 'pending_review', kind: kind, id: req.id, inputs: req.card ? lei(req.card.amount) + ' over ' + req.card.term + ' months' : '' };
+    if (kind === 'plan') c.messages.forEach(function (x) { if (x !== m && x.verify && x.verify.level === 'pending_review') { x.verify.level = 'merged'; refreshVerify(x); } });
+    refreshVerify(m);
+    announce('Request sent. A specialist will check ' + (kind === 'plan' ? 'your plan.' : 'this answer.'));
+  }
+  /* Decisions from the console */
+  function applyVerdicts() {
+    var all = readJSON(VER_KEY, {});
+    convs.forEach(function (c) {
+      c.messages.forEach(function (m) {
+        if (!m.verify || !m.verify.id || !all[m.verify.id] || m.verify.level === all[m.verify.id].level) return;
+        var v = all[m.verify.id];
+        m.verify.level = v.level; m.verify.reviewer = v.reviewer; m.verify.reviewedAt = v.reviewedAt; m.verify.note = v.note;
+        if (v.level === 'edited' && v.diff) {
+          m.paras = v.paras.slice();
+          var el = msgNode(m);
+          if (el) el.querySelectorAll('.raiffy-text p').forEach(function (p, i) { if (v.diff[i]) p.innerHTML = v.diff[i]; });
+        }
+        refreshVerify(m);
+        announce(v.level === 'confirmed' ? 'A specialist confirmed an answer.' : v.level === 'edited' ? 'A specialist edited an answer. Changes are highlighted.' : 'A specialist replied.');
+      });
+    });
+  }
+  window.addEventListener('storage', function (e) { if (e.key === VER_KEY) applyVerdicts(); });
   function renderMsg(m, enter) { var el = m.role === 'user' ? renderUser(m) : renderRaiffy(m, enter); if (enter && m.role === 'user') el.classList.add('enter'); return el; }
 
   function renderThread() {
@@ -1220,11 +1329,21 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
       var card = term.closest('.sim');
       card.querySelectorAll('.terms button').forEach(function (b) { b.setAttribute('aria-pressed', b === term); });
       var v = updateSim(card); card._msg.card.amount = v.amount; card._msg.card.term = v.term;
+      checkedChanged(card._msg);
       return;
     }
     var act = t.closest('[data-act]');
     if (act) {
       var msgEl = act.closest('.msg'), m = msgEl._msg, a = act.dataset.act;
+      if (a === 'verify' || a === 'plan') {
+        if (m.verify && m.verify.level === 'pending_review') { announce('A specialist is already checking this.'); return; }
+        m.vid = m.vid || uid('v'); m.vdraft = a === 'plan' ? 'plan' : 'answer'; m.verify = null;
+        refreshVerify(m);
+        var ta = msgNode(m).querySelector('[data-vnote]'); if (ta) ta.focus();
+        return;
+      }
+      if (a === 'vsend') { sendVerify(m, msgNode(m).querySelector('[data-vnote]').value.trim()); return; }
+      if (a === 'vcancel') { m.vdraft = null; refreshVerify(m); var vb = msgNode(m).querySelector('[data-act="verify"]'); if (vb) vb.focus(); return; }
       if (a === 'copy') {
         var s = m.paras.join('\n\n');
         if (navigator.clipboard) navigator.clipboard.writeText(s).catch(function () {});
@@ -1286,7 +1405,16 @@ kbd { font: 500 10.5px/1 var(--font-mono); color: var(--text-3); padding: 3px 5p
     if (!e.target.classList.contains('sim-amt')) return;
     var card = e.target.closest('.sim'), v = updateSim(card);
     card._msg.card.amount = v.amount; card._msg.card.term = v.term;
+    checkedChanged(card._msg);
   });
+  /* A confirmation holds only for the inputs it was given: moving the slider after it shows "Changed after the check" */
+  function checkedChanged(m) {
+    var v = m.verify;
+    if (!v || !v.inputs || (v.level !== 'confirmed' && v.level !== 'edited')) return;
+    var now = lei(m.card.amount) + ' over ' + m.card.term + ' months', was = !!v.changed;
+    v.changed = now !== v.inputs;
+    if (was !== v.changed) refreshVerify(m);
+  }
 
   function lightSource(k, scrollTo) {
     document.querySelectorAll('.src-item.lit, .src.lit').forEach(function (x) { x.classList.remove('lit'); });

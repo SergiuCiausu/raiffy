@@ -14,6 +14,8 @@ Raiffy's plan summary is an **indicative simulation** that mirrors Raiffeisen's 
 
 For business customers, the handoff goes to Smart Business or Raiffeisen Online IMM instead of Smart Mobile; business loans are currently decided in a branch, so the handoff pre-fills the online lead form or books a branch or specialist appointment.
 
+How the handoff works inside the app (deep links, the pre-filled flow, status events back to Raiffy): `docs/shared/smart-mobile.md`.
+
 ## Schema
 
 ```ts

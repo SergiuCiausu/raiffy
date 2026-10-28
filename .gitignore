@@ -19,3 +19,4 @@ __pycache__/
 # Large optional RAG data (re-add on request)
 raiffeisen-rag-package/data/optional/
 raiffeisen-rag-package/data/pdf_extracts/
+.gstack/

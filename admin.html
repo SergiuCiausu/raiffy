@@ -1,0 +1,1733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raiffy Admin</title>
+<meta name="description" content="Concept operator and admin console for Raiffy: edit the product catalog and parameters with approval, and see chat analytics.">
+<!--
+  Raiffy Admin (admin.html): operators and admins keep the catalog and parameters current and read chat analytics.
+  Spec: raiffy-spec/docs/shared/console.md. Front end only: roles, saving and publishing are simulated in memory.
+  Mode: Daylight only (a working tool). Accent as light; ink #1A1A1A for selection; --danger only for errors and stale values.
+  Routes: #home · #products · #products/<id> · #rules · #analytics · #audit. Later pages are listed but disabled.
+  Logic mirrors lib/calc (impact preview) and lib/analytics (summarize); move both there at conversion.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ───────────── Tokens (shared with raiffy.html and chat.html) ───────────── */
+:root {
+  --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --text-body: 15px; --lh-body: 1.6;
+  --text-sm: 14px;
+  --text-xs: 13px;
+
+  --radius-card: 20px; --radius-btn: 10px;
+  --accent-a: #FFD23F; --accent-b: #FF9A3D;
+  --ink: #1A1A1A;
+  --halo: 0 0 0 4px rgba(255,210,63,.35);
+  --danger: #B42318;     /* errors and stale values only */
+
+  --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0;
+  --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12);
+  --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.04); --shadow-float: 0 8px 30px rgba(20,20,40,.08);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--lh-body); color: var(--text-1); background: var(--bg);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow: hidden; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; }
+button, input, textarea, select { font: inherit; color: inherit; }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.micro { font-size: 11.5px; color: var(--text-3); }
+.eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.skip { position: absolute; left: 12px; top: -48px; z-index: 100; padding: 8px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 13px; text-decoration: none; }
+.skip:focus { top: 12px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--radius-btn);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; white-space: nowrap; font: 500 var(--text-xs)/1 var(--font-sans);
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.btn svg { width: 15px; height: 15px; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-ghost { background: var(--surface); color: var(--text-1); border-color: var(--border-strong); }
+.btn:disabled { cursor: default; }
+.btn-dark:disabled { background: #D9D5CB; color: #fff; }
+.btn-ghost:disabled { color: var(--text-3); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; }
+.btn-xs { height: 28px; padding: 0 10px; font-size: 12px; gap: 6px; }
+.btn-xs svg { width: 13px; height: 13px; }
+.icon-btn { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent;
+  color: var(--text-2); cursor: pointer; transition: color 150ms ease, background-color 150ms ease, transform 160ms var(--ease-out); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn:active { transform: scale(.94); }
+.link { border: 0; padding: 0; background: none; cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .btn-dark:hover:not(:disabled) { background: #2A2A2A; }
+  .btn-ghost:hover:not(:disabled) { border-color: rgba(20,20,20,.24); }
+  .icon-btn:hover { color: var(--text-1); background: rgba(20,20,20,.05); }
+  .link:hover { text-decoration-color: var(--ink); }
+}
+
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; line-height: 1.5;
+  color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
+.pill svg { width: 11px; height: 11px; }
+.pill.p-pending { --c: #8A6A00; background: #FFF3C4; }
+.pill.p-scheduled { --c: #5C5C5F; }
+.pill.p-draft { --c: #8E8E93; }
+.pill.p-published { --c: #1A1A1A; }
+.pill.p-rejected, .pill.p-stale { --c: var(--danger); }
+.pill.p-due { --c: #7A5A00; background: #FFF8DC; }
+.pill.p-ink { color: #fff; background: var(--ink); }
+.src { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  font-size: 11px; color: var(--text-2); text-decoration: none; white-space: nowrap; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
+.src svg { width: 11px; height: 11px; }
+@media (hover: hover) and (pointer: fine) { .src:hover { border-color: rgba(200,150,20,.4); background: #FFF8DC; color: var(--text-1); } }
+.stale { color: var(--danger); }
+.stale-ic { display: inline-flex; align-items: center; gap: 4px; color: var(--danger); }
+.stale-ic svg { width: 12px; height: 12px; }
+.ok-ic { color: #2E7D4F; }
+.ins { padding: 0 4px; border-radius: 4px; background: #FFF3C4; color: var(--text-1); }
+.del { color: var(--text-3); text-decoration: line-through; }
+.err { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 1.4; color: var(--danger); }
+.err svg { width: 13px; height: 13px; flex: none; margin-top: 1px; }
+.ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
+  background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
+.ava.sm { width: 20px; height: 20px; font-size: 9px; }
+.who { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+/* Segmented control: selection in ink */
+.seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); }
+.seg button { height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font-size: 12.5px; color: var(--text-2);
+  white-space: nowrap; transition: background-color 150ms ease, color 150ms ease; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+@media (hover: hover) and (pointer: fine) { .seg button:not([aria-pressed="true"]):hover { color: var(--text-1); background: rgba(20,20,20,.04); } }
+
+/* Inputs */
+.input { display: flex; align-items: center; height: 34px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease; }
+.input:focus-within { border-color: var(--ink); box-shadow: var(--halo); }
+.input:has(input:disabled) { background: var(--surface-2); color: var(--text-2); }
+textarea.ta:disabled { background: var(--surface-2); color: var(--text-2); }
+.input input, .input select { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-size: 13px; font-variant-numeric: tabular-nums; }
+.input .unit { flex: none; margin-left: 6px; font: 400 11.5px var(--font-mono); color: var(--text-3); }
+.input svg { width: 14px; height: 14px; color: var(--text-3); margin-right: 8px; flex: none; }
+.input.is-invalid { border-color: var(--danger); }
+.input.is-invalid:focus-within { box-shadow: 0 0 0 4px rgba(180,35,24,.12); }
+textarea.ta { display: block; width: 100%; min-height: 64px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: #fff; resize: vertical;
+  font-size: 13px; line-height: 1.5; outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; }
+textarea.ta:focus { border-color: var(--ink); box-shadow: var(--halo); }
+textarea.ta.is-invalid { border-color: var(--danger); }
+.lbl { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+
+/* ───────────── App shell (from chat.html) ───────────── */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.side { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px 12px; background: var(--surface-2); border-right: 1px solid var(--border); }
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -.01em; border-radius: 6px; }
+.logo-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--accent-a); display: grid; place-items: center; box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
+.logo-mark svg { width: 14px; height: 14px; color: #1A1A1A; stroke-width: 2.2; }
+.logo small { font-size: 11.5px; font-weight: 500; color: var(--text-3); margin-left: -4px; }
+.side-top { display: flex; align-items: center; justify-content: space-between; height: 36px; padding: 0 4px 0 6px; }
+.nav { flex: 1; min-height: 0; overflow-y: auto; margin: 8px -4px 0; padding: 0 4px 16px; }
+.grp { display: block; padding: 16px 10px 6px; }
+.nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 8px; text-decoration: none; font-size: 13.5px; color: var(--text-2);
+  transition: background-color 150ms ease, color 150ms ease; }
+.nav-item > svg { width: 15px; height: 15px; flex: none; color: var(--text-3); }
+.nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item small { flex: none; min-width: 18px; padding: 0 5px; border-radius: 999px; text-align: center; font: 500 10.5px/18px var(--font-mono); color: var(--text-3); }
+.nav-item small.hot { background: #FFF3C4; color: #7A5A00; }
+.nav-item small.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.nav-item[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
+.nav-item[aria-current="page"] > svg { color: var(--text-1); }
+.nav-item.is-later { opacity: .55; cursor: default; }
+@media (hover: hover) and (pointer: fine) { a.nav-item:not([aria-current="page"]):hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
+.me { display: grid; gap: 10px; padding: 12px 6px 0; border-top: 1px solid var(--border); }
+.me-row { display: flex; align-items: center; gap: 10px; }
+.me-row div { flex: 1; min-width: 0; line-height: 1.3; }
+.me-row b { display: block; font-size: 13px; font-weight: 500; }
+.me-row small { font-size: 11.5px; color: var(--text-3); }
+.role-switch { display: grid; gap: 6px; }
+.role-switch .seg { display: grid; grid-template-columns: 1fr 1fr; }
+.role-switch .micro { display: flex; align-items: center; gap: 6px; }
+.role-switch .micro svg { width: 12px; height: 12px; }
+
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.top { flex: none; display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 16px 0 20px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.top .menu { display: none; margin-left: -8px; }
+.crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); }
+.crumbs a { text-decoration: none; color: var(--text-3); }
+.crumbs svg { width: 13px; height: 13px; flex: none; }
+.top h1 { font-size: 15px; letter-spacing: -.01em; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top .sim { flex: none; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.page:focus { outline: none; }
+.page { max-width: 1180px; margin: 0 auto; padding: 28px 24px 72px; overflow-x: clip; }
+.pg-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.pg-head > div { max-width: 640px; }
+.pg-head h2 { font-size: 20px; line-height: 1.3; letter-spacing: -.02em; }
+.pg-head p { margin-top: 6px; font-size: 14px; line-height: 1.55; color: var(--text-2); }
+.sec { margin-top: 32px; }
+.sec-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.sec-h h3 { font-size: 16px; letter-spacing: -.01em; }
+.sec-h p { font-size: 13px; color: var(--text-3); }
+
+/* Cards */
+.gcard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-card); overflow: hidden; }
+.gc-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+.gc-h > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.gc-h svg { width: 14px; height: 14px; color: var(--text-2); }
+.gc-h .micro { font-weight: 400; }
+.gc-b { padding: 16px; }
+.gc-note { padding: 10px 16px; border-top: 1px solid var(--border); background: #FBFAF8; font-size: 11.5px; color: var(--text-3); }
+
+/* KPI strip: one bordered card, hairline dividers */
+.kpis { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-card); }
+.kpi { padding: 14px 16px; min-width: 0; }
+.kpi + .kpi { border-left: 1px solid var(--border); }
+.kpi .k { font-size: 12px; color: var(--text-3); }
+.kpi .v { margin-top: 4px; font-size: 20px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi .s { margin-top: 2px; font-size: 11.5px; color: var(--text-3); }
+@media (max-width: 960px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi + .kpi { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .kpi:nth-child(even) { border-left: 1px solid var(--border); }
+}
+
+/* Tables: hairline rows, mono tabular numbers */
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { padding: 9px 14px; text-align: left; font-size: 11.5px; font-weight: 500; color: var(--text-3); white-space: nowrap; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 11px 14px; border-top: 1px solid var(--border); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.tbl tr:first-child td { border-top: 0; }
+.tbl .r { text-align: right; }
+.tbl .nm b { display: block; font-weight: 500; }
+.tbl .nm small { display: block; font-size: 11.5px; color: var(--text-3); }
+.tbl tr.click { cursor: pointer; transition: background-color 150ms ease; }
+.tbl tr.hl td { background: #FFF8DC; }
+.tbl td.go { width: 36px; color: var(--text-3); }
+.tbl td.go svg { width: 15px; height: 15px; }
+@media (hover: hover) and (pointer: fine) { .tbl tr.click:hover td { background: #FBFAF8; } }
+.pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.filters .input { width: 240px; }
+.filters .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.filters .seg::-webkit-scrollbar { display: none; }
+.tog { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
+  cursor: pointer; font-size: 12.5px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
+.tog svg { width: 13px; height: 13px; }
+.tog[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* Attention list (Home) */
+.att { display: grid; }
+.att-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); }
+.att-row:first-child { border-top: 0; }
+.att-row .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); }
+.att-row .ic svg { width: 15px; height: 15px; }
+.att-row .ic.warm { background: #FFF3C4; color: #7A5A00; }
+.att-row .ic.bad { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
+.att-row b { display: block; font-size: 13.5px; font-weight: 500; }
+.att-row small { display: block; font-size: 12px; color: var(--text-3); }
+.home-grid { display: grid; grid-template-columns: 7fr 5fr; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
+.hello { position: relative; isolation: isolate; }
+.bloom { position: absolute; left: -80px; top: -120px; width: 520px; height: 320px; pointer-events: none; opacity: .4; z-index: -1;
+  background:
+    radial-gradient(closest-side at 42% 45%, rgb(255 210 63 / .55), rgb(255 210 63 / .28) 45%, rgb(255 210 63 / .08) 75%, transparent),
+    radial-gradient(closest-side at 62% 58%, rgb(255 154 61 / .45), rgb(255 154 61 / .2) 45%, rgb(255 154 61 / .05) 75%, transparent); }
+
+/* Product editor */
+.ed { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px; align-items: start; }
+.ed-side { position: sticky; top: 0; display: grid; gap: 16px; }
+@media (max-width: 1100px) { .ed { grid-template-columns: minmax(0, 1fr); } .ed-side { position: static; } }
+.ed-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 20px; }
+.ed-head h2 { font-size: 20px; letter-spacing: -.02em; }
+.ed-head .micro { flex-basis: 100%; }
+.fgroup + .fgroup { margin-top: 16px; }
+.frow { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 6px 16px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); transition: background-color 150ms ease; }
+.frow:first-child { border-top: 0; }
+.frow .fl b { display: block; font-size: 13px; font-weight: 500; }
+.frow .fl small { display: block; font-size: 11.5px; color: var(--text-3); }
+.frow .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 11.5px; color: var(--text-3); }
+.frow .was { display: none; font-size: 11.5px; }
+.frow.changed { background: #FFFCF0; }
+.frow.changed .was { display: inline; }
+.frow .newsrc { grid-column: 1 / -1; display: none; grid-template-columns: minmax(0, 1fr) 150px; gap: 8px; }
+.frow.changed .newsrc { display: grid; }
+.frow .newsrc .lbl { margin-bottom: 4px; font-size: 11.5px; }
+@media (max-width: 640px) { .frow { grid-template-columns: 1fr; } .frow .newsrc { grid-template-columns: 1fr; } }
+.list-ed { padding: 16px; display: grid; gap: 14px; }
+
+.banner { border-color: rgba(200,150,20,.35); }
+.banner .gc-h { background: #FFFDF5; }
+.banner .gc-h .ic { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: #FFF3C4; color: #7A5A00; }
+.banner .gc-h .ic svg { color: inherit; width: 13px; height: 13px; }
+.diff td:first-child { color: var(--text-2); }
+.act-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.act-row .grow { flex: 1; }
+.decide { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); }
+
+.imp-sum { padding: 12px 16px; font-size: 13px; line-height: 1.5; color: var(--text-2); border-bottom: 1px solid var(--border); }
+.imp-sum b { color: var(--text-1); font-weight: 500; }
+.imp-empty { padding: 20px 16px; font-size: 13px; color: var(--text-3); }
+.pub { display: grid; gap: 14px; padding: 16px; }
+.pub .when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pub .when .input { width: 160px; }
+.pub-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pub-foot .grow { flex: 1; font-size: 12px; color: var(--text-3); }
+
+/* Rules */
+.hl-list { display: grid; }
+.hl { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border); }
+.hl:first-child { border-top: 0; }
+.hl .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); }
+.hl .ic svg { width: 14px; height: 14px; }
+.hl h4 { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.hl p { margin-top: 2px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.hl .evs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.ev { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border); font: 400 10.5px var(--font-mono); color: var(--text-2); }
+.prm-ed td { background: #FBFAF8; }
+.prm-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.prm-form .wide { grid-column: span 2; }
+@media (max-width: 860px) { .prm-form { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .prm-form { grid-template-columns: 1fr; } .prm-form .wide { grid-column: auto; } }
+
+/* Analytics */
+.an-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 960px) { .an-grid { grid-template-columns: 1fr; } }
+.an-from { font-size: 11.5px; font-weight: 400; color: var(--text-3); }
+.supp { color: var(--text-3); font-weight: 400; }
+.stat-rows { display: grid; }
+.stat { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-2); }
+.stat:first-child { border-top: 0; padding-top: 0; }
+.stat b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sub-h { margin: 16px 0 8px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+/* Funnel and bar lists: one hue (ink), a light track, rounded data ends */
+.fn { display: grid; gap: 8px; }
+.fn-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 64px 44px; gap: 10px; align-items: center; font-size: 12.5px; }
+.fn-row .lb { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fn-row .tr { height: 8px; border-radius: 0 4px 4px 0; background: #EFEDE8; overflow: hidden; }
+.fn-row .tr i { display: block; height: 100%; width: var(--w); background: var(--ink); border-radius: 0 4px 4px 0; }
+.fn-row .ct { text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fn-row .pc { text-align: right; font: 400 11.5px var(--font-mono); color: var(--text-3); }
+@media (max-width: 480px) { .fn-row { grid-template-columns: 88px minmax(0, 1fr) 56px 40px; } }
+.split { display: flex; gap: 2px; height: 10px; margin: 4px 0 10px; }
+.split i { display: block; height: 100%; }
+.split i:first-child { background: var(--ink); border-radius: 4px 0 0 4px; }
+.split i:last-child { background: #D9D5CB; border-radius: 0 4px 4px 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--ink); }
+.legend i.lt { background: #D9D5CB; }
+.check-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: #FBFAF8; font-size: 12.5px; color: var(--text-2); }
+.check-line svg { width: 14px; height: 14px; flex: none; }
+.check-line.bad { background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
+
+.vol { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; }
+.vol-y { position: relative; height: 180px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.vol-y span { position: absolute; right: 0; translate: 0 -50%; }
+.vol-plot { position: relative; height: 180px; }
+.vol-plot .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--border); }
+.vol-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 2px; }
+.vol-bars b { flex: 1; min-width: 1px; height: 100%; display: flex; align-items: flex-end; cursor: crosshair; }
+.vol-bars b i { display: block; width: 100%; height: var(--h); background: var(--ink); border-radius: 3px 3px 0 0; transition: opacity 150ms ease; }
+.vol-bars.hovering b i { opacity: .35; }
+.vol-bars.hovering b.on i { opacity: 1; }
+.vol-x { grid-column: 2; display: flex; justify-content: space-between; margin-top: 6px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.tip { position: absolute; z-index: 5; pointer-events: none; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #fff; box-shadow: var(--shadow-float);
+  font-size: 12px; line-height: 1.45; white-space: nowrap; }
+.tip b { display: block; font-weight: 600; }
+.tip span { color: var(--text-2); font-variant-numeric: tabular-nums; }
+details.tv { border-top: 1px solid var(--border); }
+details.tv summary { display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-size: 12px; color: var(--text-2); cursor: pointer; list-style: none; }
+details.tv summary::-webkit-details-marker { display: none; }
+details.tv summary svg { width: 13px; height: 13px; transition: transform 160ms var(--ease-out); }
+details.tv[open] summary svg { transform: rotate(90deg); }
+details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px solid var(--border); }
+
+/* Audit */
+.aud-diff { font-size: 12.5px; }
+.aud-diff div + div { margin-top: 2px; }
+
+/* Toast */
+.toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
+.toast { display: grid; grid-template-columns: 16px 1fr; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--ink); color: #fff; box-shadow: var(--shadow-float); font-size: 13px; line-height: 1.45; }
+.toast svg { width: 15px; height: 15px; margin-top: 2px; color: var(--accent-a); }
+.toast small { display: block; color: rgba(255,255,255,.66); font-size: 12px; }
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(20,20,20,.28); }
+@media (max-width: 859px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; z-index: 40; top: 0; left: 0; bottom: 0; width: min(300px, 86vw); box-shadow: 20px 0 50px rgba(20,20,40,.12);
+    transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
+  .app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
+  .top { padding: 0 12px 0 16px; }
+  .top .menu { display: grid; }
+  .top .sim { display: none; }
+  .page { padding: 20px 16px 56px; }
+  .filters .input { width: 100%; }
+}
+
+/* ───────────── Motion ───────────── */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .page.enter > * { animation: rise 420ms var(--ease-out) backwards; }
+  .page.enter > *:nth-child(2) { animation-delay: 60ms; }
+  .page.enter > *:nth-child(3) { animation-delay: 120ms; }
+  .page.enter > *:nth-child(4) { animation-delay: 180ms; }
+  .page.enter > *:nth-child(n+5) { animation-delay: 240ms; }
+  .page.enter .fn-row .tr i { transform-origin: left; animation: grow 600ms var(--ease-out) backwards 200ms; }
+  .toast { animation: rise 260ms var(--ease-out) backwards; }
+  .scrim:not([hidden]) { animation: fade 200ms ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page.enter > * { animation: fade 200ms ease backwards; }
+  .side { transition-duration: 0s !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<div class="app" id="app">
+
+  <!-- ═════════════ Sidebar ═════════════ -->
+  <aside class="side" id="side" aria-label="Console navigation">
+    <div class="side-top">
+      <a class="logo" href="#home"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy <small>Console</small></a>
+    </div>
+    <nav class="nav" id="nav" aria-label="Console pages"></nav>
+    <div class="me">
+      <div class="me-row">
+        <span class="ava" id="me-ava" aria-hidden="true"></span>
+        <div><b id="me-name"></b><small id="me-role"></small></div>
+        <a class="icon-btn" href="login.html#login" aria-label="Sign out"><i data-lucide="log-out"></i></a>
+      </div>
+      <div class="role-switch">
+        <span class="micro"><i data-lucide="flask-conical"></i>Demo only: viewing as</span>
+        <div class="seg" role="group" aria-label="Demo role">
+          <button type="button" data-act="role" data-role="operator">Operator</button>
+          <button type="button" data-act="role" data-role="admin">Admin</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═════════════ Main ═════════════ -->
+  <div class="main">
+    <header class="top">
+      <button type="button" class="icon-btn menu" id="open-side" aria-label="Open navigation" aria-controls="side" aria-expanded="false"><i data-lucide="menu"></i></button>
+      <div class="crumbs" id="crumbs"></div>
+      <span class="pill sim" title="Nothing here is saved or sent anywhere">Simulated · changes live in this tab only</span>
+    </header>
+    <div class="scroll" id="scroll">
+      <main class="page" id="content" tabindex="-1"></main>
+    </div>
+  </div>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="sr-only" id="announce" aria-live="polite"></div>
+
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ───────────── Helpers ───────────── */
+  function $(id) { return document.getElementById(id); }
+  function ic(n) { return '<i data-lucide="' + n + '"></i>'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var NF = {};
+  function num(n, d) { d = d || 0; var k = 'n' + d; NF[k] = NF[k] || new Intl.NumberFormat('en-GB', { maximumFractionDigits: d, minimumFractionDigits: 0 }); return NF[k].format(n); }
+  function lei(n) { return num(Math.round(n)) + ' lei'; }
+  function pct(r, d) { return num(r * 100, d == null ? 0 : d) + '%'; }
+  var DF = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  var DFS = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  function date(iso) { return DF.format(new Date(iso.slice(0, 10) + 'T00:00:00Z')); }
+  function dateShort(iso) { return DFS.format(new Date(iso.slice(0, 10) + 'T00:00:00Z')); }
+  function addDays(iso, n) { return new Date(Date.parse(iso.slice(0, 10) + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+  function host(url) { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; } }
+  function validUrl(u) { try { var x = new URL(u); return x.protocol === 'https:' || x.protocol === 'http:'; } catch (e) { return false; } }
+  function announce(msg) { var a = $('announce'); a.textContent = ''; setTimeout(function () { a.textContent = msg; }, 60); }
+  function toast(msg, sub) {
+    var t = document.createElement('div');
+    t.className = 'toast'; t.setAttribute('role', 'status');
+    t.innerHTML = ic('check') + '<div>' + esc(msg) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>';
+    $('toasts').appendChild(t); icons();
+    setTimeout(function () { t.remove(); }, 5200);
+  }
+  function icons() { if (window.lucide) lucide.createIcons({ attrs: { 'aria-hidden': 'true' } }); }
+
+  /* ═════════════════════════════════════════════════════════════════════
+     MOCK DATA: simulated, illustrative figures. Shapes follow
+     raiffy-spec/docs/shared/console.md (Versioned<T>, DatedValue, AuditEntry) and
+     lib/analytics/schemas.ts (AnswerTrace, OutcomeEvent). At conversion this block
+     becomes Convex queries on products, parameters, audit, answerTraces, outcomeEvents.
+     ═════════════════════════════════════════════════════════════════════ */
+
+  /** The demo clock. Review dates and "valid from" compare against it. */
+  var TODAY = '2026-10-28';
+  var NOW_ISO = TODAY + 'T14:20:00Z';
+
+  /** Clerk users. Role is publicMetadata.role in the real app. */
+  var USERS = {
+    user_op_ioana: { name: 'Ioana Marin', initials: 'IM', role: 'operator', title: 'Lending specialist · Operator' },
+    user_adm_radu: { name: 'Radu Ionescu', initials: 'RI', role: 'admin', title: 'Product owner · Admin' },
+    user_adm_elena: { name: 'Elena Dobre', initials: 'ED', role: 'admin', title: 'Pricing team · Admin' }
+  };
+  var ROLE_USER = { operator: 'user_op_ioana', admin: 'user_adm_radu' };
+
+  /** Field definitions. unit drives formatting; fee fields at 0 read "None, confirmed". */
+  var FIELDS = {
+    rate:              { label: 'Interest rate', unit: '%', step: .01, group: 'rate' },
+    marginAfterFixed:  { label: 'Margin after the fixed period', unit: '% + IRCC', step: .01, group: 'rate' },
+    originationFee:    { label: 'Origination fee', unit: 'lei', step: 1, group: 'fees', fee: true, hint: 'One-off, at disbursement' },
+    originationPct:    { label: 'Origination fee', unit: '% of amount', step: .05, group: 'fees', fee: true, hint: 'One-off, at disbursement' },
+    adminFee:          { label: 'Administration fee', unit: 'lei / month', step: 1, group: 'fees', fee: true },
+    valuationFee:      { label: 'Property valuation fee', unit: 'lei', step: 1, group: 'fees', fee: true },
+    earlyRepaymentFee: { label: 'Early repayment fee', unit: '% of amount', step: .1, group: 'fees', fee: true },
+    insurance:         { label: 'Mandatory insurance', unit: '% / month', step: .001, group: 'fees', fee: true, hint: 'Of the remaining balance' },
+    requiredPackage:   { label: 'Required account package', unit: 'lei / month', step: 1, group: 'fees', fee: true },
+    annualFee:         { label: 'Annual fee', unit: 'lei / year', step: 1, group: 'fees', fee: true },
+    monthlyFee:        { label: 'Monthly fee', unit: 'lei / month', step: 1, group: 'fees', fee: true },
+    cashFee:           { label: 'Cash withdrawal fee', unit: '%', step: .1, group: 'fees', fee: true },
+    transferFee:       { label: 'Transfer fee beyond the package', unit: 'lei', step: .5, group: 'fees', fee: true },
+    minAmount:         { label: 'Minimum amount', unit: 'lei', step: 100, group: 'limits' },
+    maxAmount:         { label: 'Maximum amount', unit: 'lei', step: 100, group: 'limits' },
+    minTerm:           { label: 'Minimum term', unit: 'months', step: 1, group: 'limits' },
+    maxTerm:           { label: 'Maximum term', unit: 'months', step: 1, group: 'limits' },
+    maxLtv:            { label: 'Maximum loan-to-value', unit: '%', step: 1, group: 'limits' },
+    gracePeriod:       { label: 'Interest-free period', unit: 'days', step: 1, group: 'limits' },
+    includedTransfers: { label: 'Transfers included', unit: 'per month', step: 1, group: 'limits' }
+  };
+  var GROUPS = { rate: 'Rate', fees: 'Fees and commissions', limits: 'Amounts and terms' };
+
+  /** Product types: the calculator the impact preview runs, and its fixed sample cases. */
+  var TYPES = {
+    personalLoan: { label: 'Personal loan', rateHint: 'Fixed, per year', calc: 'loan', compare: 'overdraft',
+      cases: [{ amount: 8000, months: 12 }, { amount: 20000, months: 36 }, { amount: 50000, months: 60 }] },
+    refinancing:  { label: 'Refinancing loan', rateHint: 'Fixed, per year', calc: 'loan',
+      cases: [{ amount: 40000, months: 60 }, { amount: 80000, months: 84 }] },
+    overdraft:    { label: 'Overdraft', rateHint: 'Variable, per year', calc: 'overdraft', compare: 'loan',
+      cases: [{ amount: 3000, months: 6 }, { amount: 8000, months: 12 }, { amount: 15000, months: 12 }] },
+    mortgage:     { label: 'Mortgage', rateHint: 'Fixed for the first 3 years', calc: 'loan',
+      cases: [{ amount: 300000, months: 360 }, { amount: 450000, months: 300 }] },
+    creditCard:   { label: 'Credit card', rateHint: 'Per year, after the interest-free period', calc: null },
+    savings:      { label: 'Savings account', rateHint: 'Variable, per year', calc: 'deposit',
+      cases: [{ amount: 15000, months: 12 }, { amount: 50000, months: 12 }] },
+    deposit:      { label: 'Term deposit', rateHint: 'Fixed for the term, per year', calc: 'deposit',
+      cases: [{ amount: 10000, months: 6 }, { amount: 50000, months: 6 }] },
+    package:      { label: 'Account package', calc: null },
+    businessLoan: { label: 'Business loan', rateHint: 'Fixed, per year', calc: 'loan',
+      cases: [{ amount: 150000, months: 60 }, { amount: 400000, months: 84 }] }
+  };
+
+  var RO = 'https://www.raiffeisen.ro/ro/';
+  /* Seed: values are [value, validFrom, reviewBy]. history lists, newest first, the values each
+     earlier version had (prev), so older versions are rebuilt from the current one. */
+  var PRODUCT_SEED = [
+    { id: 'personal-loan', name: 'Personal loan', type: 'personalLoan', track: 'personal', owner: 'Retail Lending',
+      url: RO + 'persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html',
+      values: { rate: [9.4, '2026-10-01', '2026-12-31'], originationFee: [249, '2026-03-01', '2027-03-01'], adminFee: [0, '2026-03-01', '2027-03-01'],
+        earlyRepaymentFee: [0, '2026-03-01', '2027-03-01'], insurance: [0, '2026-03-01', '2027-03-01'], minAmount: [1000, '2026-01-15', '2027-01-15'],
+        maxAmount: [250000, '2026-01-15', '2027-01-15'], minTerm: [6, '2026-01-15', '2027-01-15'], maxTerm: [60, '2026-01-15', '2027-01-15'] },
+      description: 'Unsecured personal loan in lei, fixed rate for the whole term, applied for in Smart Mobile or in a branch.',
+      eligibility: ['Aged 18 or over, and at most 65 at the end of the loan', 'Romanian residency', 'Net income of at least 1,500 lei a month', 'Debt-to-income within the BNR limit'],
+      documents: ['Identity card', 'Income statement, or salary paid into a Raiffeisen account'],
+      links: { docs: 3, faqs: 14 },
+      history: [
+        { v: 6, by: 'user_adm_elena', at: '2026-09-29T09:12:00Z', note: 'Q4 pricing review', prev: { rate: 9.9 } },
+        { v: 5, by: 'user_op_ioana', approvedBy: 'user_adm_radu', at: '2026-06-02T11:40:00Z', note: 'Origination fee lowered for the summer campaign', prev: { originationFee: 299 } },
+        { v: 4, by: 'user_adm_radu', at: '2026-03-01T08:00:00Z', note: 'Early repayment fee removed', prev: { earlyRepaymentFee: 0.5 } }
+      ],
+      pending: { by: 'user_op_ioana', at: '2026-10-27T16:05:00Z', validFrom: '2026-11-01', note: 'November campaign: rate cut for salary-account customers is now the list price.',
+        set: { rate: [8.9, 'https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html', '2027-01-31'] } } },
+
+    { id: 'overdraft', name: 'Overdraft', type: 'overdraft', track: 'personal', owner: 'Retail Lending',
+      url: RO + 'persoane-fizice/produsele-noastre/credite/overdraft.html',
+      values: { rate: [11.5, '2026-07-01', '2026-12-31'], annualFee: [9, '2026-01-15', '2027-01-15'], maxAmount: [15000, '2026-01-15', '2027-01-15'], maxTerm: [12, '2026-01-15', '2027-01-15'] },
+      description: 'An overdraft on the current account, renewed every 12 months. Interest only on the amount used.',
+      eligibility: ['Current account with Raiffeisen', 'Salary or pension paid into the account', 'Aged 18 or over'],
+      documents: ['Identity card'],
+      links: { docs: 2, faqs: 9 },
+      history: [{ v: 3, by: 'user_adm_elena', at: '2026-06-30T10:00:00Z', note: 'Rate follows the July pricing committee', prev: { rate: 11.9 } }] },
+
+    { id: 'refinancing', name: 'Refinancing loan', type: 'refinancing', track: 'personal', owner: 'Retail Lending',
+      url: RO + 'persoane-fizice/produsele-noastre/credite/credit-de-refinantare-fara-ipoteca.html',
+      values: { rate: [8.4, '2026-09-01', '2026-11-30'], originationFee: [0, '2026-09-01', '2027-03-01'], adminFee: [0, '2026-03-01', '2027-03-01'],
+        earlyRepaymentFee: [0, '2026-03-01', '2027-03-01'], minAmount: [5000, '2026-01-15', '2027-01-15'], maxAmount: [250000, '2026-01-15', '2027-01-15'],
+        minTerm: [12, '2026-01-15', '2027-01-15'], maxTerm: [84, '2026-01-15', '2027-01-15'] },
+      description: 'Moves loans and credit cards from other banks into one fixed-rate loan in lei.',
+      eligibility: ['Loans to refinance are up to date', 'Aged 18 or over, and at most 65 at the end of the loan', 'Romanian residency'],
+      documents: ['Identity card', 'Statements for the loans being refinanced', 'Income statement'],
+      links: { docs: 3, faqs: 7 },
+      history: [{ v: 4, by: 'user_adm_radu', at: '2026-08-28T13:30:00Z', note: 'Origination fee waived for refinancing', prev: { originationFee: 199 } }] },
+
+    { id: 'casa-ta', name: 'Casa Ta mortgage', type: 'mortgage', track: 'personal', owner: 'Mortgages',
+      url: RO + 'persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html',
+      values: { rate: [5.29, '2026-08-01', '2026-11-15'], marginAfterFixed: [2.49, '2026-08-01', '2027-02-01'], originationFee: [0, '2026-01-15', '2027-01-15'],
+        valuationFee: [450, '2026-01-15', '2027-01-15'], earlyRepaymentFee: [0, '2026-01-15', '2027-01-15'], insurance: [0.025, '2026-01-15', '2027-01-15'],
+        maxLtv: [85, '2026-01-15', '2027-01-15'], maxAmount: [1500000, '2026-01-15', '2027-01-15'], maxTerm: [360, '2026-01-15', '2027-01-15'] },
+      description: 'Mortgage in lei with a fixed rate for the first 3 years, then IRCC plus a margin.',
+      eligibility: ['Aged 18 or over, and at most 65 at the end of the loan', 'Down payment of at least 15%', 'Debt-to-income within the BNR limit'],
+      documents: ['Identity card', 'Income statement', 'Pre-sale agreement', 'Property valuation report'],
+      links: { docs: 5, faqs: 21 },
+      history: [{ v: 5, by: 'user_adm_elena', at: '2026-07-30T09:00:00Z', note: 'Fixed rate lowered', prev: { rate: 5.49 } }],
+      scheduled: { by: 'user_adm_elena', at: '2026-10-24T10:15:00Z', validFrom: '2026-11-03', note: 'Fixed rate from the October pricing committee',
+        set: { rate: [5.19, 'https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html', '2027-02-03'] } } },
+
+    { id: 'casa-ta-verde', name: 'Casa Ta Verde mortgage', type: 'mortgage', track: 'personal', owner: 'Mortgages',
+      url: RO + 'persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta-verde.html',
+      values: { rate: [4.85, '2026-08-01', '2026-11-15'], marginAfterFixed: [2.29, '2026-08-01', '2027-02-01'], originationFee: [0, '2026-01-15', '2027-01-15'],
+        valuationFee: [450, '2026-01-15', '2027-01-15'], earlyRepaymentFee: [0, '2026-01-15', '2027-01-15'], insurance: [0.025, '2026-01-15', '2027-01-15'],
+        maxLtv: [85, '2026-01-15', '2027-01-15'], maxAmount: [1500000, '2026-01-15', '2027-01-15'], maxTerm: [360, '2026-01-15', '2027-01-15'] },
+      description: 'Mortgage for energy-efficient homes (energy class A), with a lower fixed rate for the first 3 years.',
+      eligibility: ['Home with energy performance class A', 'Aged 18 or over, and at most 65 at the end of the loan', 'Down payment of at least 15%'],
+      documents: ['Identity card', 'Income statement', 'Energy performance certificate', 'Property valuation report'],
+      links: { docs: 4, faqs: 12 },
+      history: [{ v: 2, by: 'user_adm_elena', at: '2026-07-30T09:05:00Z', note: 'Fixed rate lowered', prev: { rate: 4.99 } }] },
+
+    { id: 'credit-card-standard', name: 'Standard credit card', type: 'creditCard', track: 'personal', owner: 'Cards',
+      url: RO + 'persoane-fizice/produsele-noastre/carduri/cardul-de-cumparaturi-standard.html',
+      values: { rate: [21.9, '2026-04-01', '2027-04-01'], annualFee: [0, '2026-04-01', '2027-04-01'], cashFee: [2, '2026-04-01', '2027-04-01'],
+        gracePeriod: [56, '2026-04-01', '2027-04-01'], maxAmount: [30000, '2026-04-01', '2027-04-01'] },
+      description: 'Credit card with up to 56 interest-free days and instalments at partner shops.',
+      eligibility: ['Aged 18 or over', 'Net income of at least 1,500 lei a month'],
+      documents: ['Identity card', 'Income statement'],
+      links: { docs: 2, faqs: 11 },
+      history: [{ v: 3, by: 'user_adm_radu', at: '2026-03-30T12:00:00Z', note: 'Annual fee removed', prev: { annualFee: 50 } }] },
+
+    { id: 'savings-account', name: 'Savings account', type: 'savings', track: 'personal', owner: 'Deposits',
+      url: RO + 'persoane-fizice/produsele-noastre/economii/cont-de-economii.html',
+      values: { rate: [3.5, '2026-07-15', '2026-10-20'], monthlyFee: [0, '2026-01-15', '2027-01-15'] },
+      description: 'Savings account opened online in Smart Mobile. Money can be withdrawn at any time.',
+      eligibility: ['Current account with Raiffeisen'],
+      documents: [],
+      links: { docs: 1, faqs: 6 },
+      history: [{ v: 4, by: 'user_adm_elena', at: '2026-07-14T08:30:00Z', note: 'Rate follows the July pricing committee', prev: { rate: 3.75 } }] },
+
+    { id: 'term-deposit', name: 'Term deposit, 6 months', type: 'deposit', track: 'personal', owner: 'Deposits',
+      url: RO + 'persoane-fizice/produsele-noastre/economii/depozite-la-termen.html',
+      values: { rate: [5.6, '2026-08-05', '2026-11-04'], minAmount: [500, '2026-01-15', '2027-01-15'] },
+      description: 'Fixed-rate deposit in lei for 6 months, renewed automatically unless the customer stops it.',
+      eligibility: ['Current account with Raiffeisen'],
+      documents: [],
+      links: { docs: 2, faqs: 8 },
+      history: [{ v: 7, by: 'user_op_ioana', approvedBy: 'user_adm_elena', at: '2026-08-04T15:20:00Z', note: 'Rate follows the August pricing committee', prev: { rate: 5.85 } }] },
+
+    { id: 'sme-plus', name: 'SME Plus account package', type: 'package', track: 'business', owner: 'SME Banking',
+      url: RO + 'imm/produse-si-servicii/conturi-si-pachete-de-cont-curent-imm/pachet-imm-cont-curent-plus.html',
+      values: { monthlyFee: [39, '2026-02-01', '2027-02-01'], includedTransfers: [50, '2026-02-01', '2027-02-01'], transferFee: [2.5, '2026-02-01', '2027-02-01'] },
+      description: 'Current account package for small companies, with internet banking and a monthly allowance of transfers.',
+      eligibility: ['Company registered in Romania'],
+      documents: ['Registration certificate', 'Identity card of the legal representative'],
+      links: { docs: 2, faqs: 5 },
+      history: [] },
+
+    { id: 'sme-investment-loan', name: 'Investment loan for SMEs', type: 'businessLoan', track: 'business', owner: 'SME Banking',
+      url: RO + 'imm/produse-si-servicii/finantare.html',
+      values: { rate: [8.1, '2026-10-20', '2027-01-20'], originationPct: [0.5, '2026-10-20', '2027-01-20'], maxAmount: [2500000, '2026-10-20', '2027-01-20'], maxTerm: [120, '2026-10-20', '2027-01-20'] },
+      description: 'Investment loan for equipment and premises, with an FNGCIMM guarantee available.',
+      eligibility: ['At least 12 months of activity', 'No outstanding debts to the state budget'],
+      documents: ['Financial statements for the last 2 years', 'Business plan for the investment', 'Registration certificate'],
+      links: { docs: 3, faqs: 4 },
+      draftOnly: { by: 'user_adm_radu', at: '2026-10-21T10:00:00Z', note: 'New product, waiting for the fee schedule from SME Banking' } }
+  ];
+
+  /** Parameters: dated values the tools read. Same Versioned<DatedValue> shape. */
+  var PARAM_SEED = [
+    { id: 'dti-cap', name: 'Debt-to-income cap', unit: '%', value: 40, validFrom: '2025-01-01', reviewBy: '2027-01-01', owner: 'Risk', sourceUrl: 'https://www.bnr.ro/Regulamente-BNR-1868-Mobile.aspx', usedBy: 'Affordability check, eligibility' },
+    { id: 'max-age-end', name: 'Maximum age at the end of the loan', unit: 'years', value: 65, validFrom: '2026-01-15', reviewBy: '2027-01-15', owner: 'Risk', sourceUrl: RO + 'persoane-fizice/produsele-noastre/credite/credite-de-nevoi-personale/conditii-credit-nevoi-personale.html', usedBy: 'Eligibility' },
+    { id: 'ircc', name: 'IRCC index', unit: '%', value: 5.55, validFrom: '2026-07-01', reviewBy: '2026-10-15', owner: 'Treasury', sourceUrl: 'https://www.bnr.ro/Indicele-de-referinta-pentru-creditele-consumatorilor--19492-Mobile.aspx', usedBy: 'Variable-rate quotes, mortgage after the fixed period' },
+    { id: 'near-tie', name: 'Recommendation near-tie margin', unit: 'lei', value: 40, validFrom: '2026-05-01', reviewBy: '2027-05-01', owner: 'Product', sourceUrl: 'https://raiffy.internal/decisions/recommendation-rule', usedBy: 'Recommendation rule' },
+    { id: 'competitor-fresh', name: 'Competitor data freshness', unit: 'days', value: 30, validFrom: '2026-05-01', reviewBy: '2027-05-01', owner: 'Pricing', sourceUrl: 'https://raiffy.internal/decisions/competitor-data', usedBy: 'Comparisons, counter-offers' },
+    { id: 'fixed-end-lead', name: 'Fixed-rate-ending reminder lead time', unit: 'days', value: 90, validFrom: '2026-06-01', reviewBy: '2026-11-08', owner: 'Retail Lending', sourceUrl: 'https://raiffy.internal/decisions/reminders', usedBy: 'Fixed-rate-ending reminder' },
+    { id: 'maturity-lead', name: 'Deposit maturity reminder lead time', unit: 'days', value: 7, validFrom: '2026-06-01', reviewBy: '2027-06-01', owner: 'Deposits', sourceUrl: 'https://raiffy.internal/decisions/reminders', usedBy: 'Maturity reminder' },
+    { id: 'analytics-min', name: 'Analytics minimum group size', unit: 'people', value: 10, validFrom: '2026-09-01', reviewBy: '2027-09-01', owner: 'Data Protection', sourceUrl: 'https://raiffy.internal/privacy/analytics', usedBy: 'Analytics: hides smaller counts' }
+  ];
+  var PARAM_HISTORY = { 'ircc': { by: 'user_adm_elena', at: '2026-06-30T09:00:00Z', note: 'Q3 IRCC published by BNR', prev: 5.66 } };
+
+  /** Behavior rules that live in code. Read-only here, each with the eval cases that protect it. */
+  var HARD_LIMITS = [
+    { icon: 'eye-off', name: 'PII is masked', text: 'Names, CNP, IBANs and card numbers are masked in prompts, logs and the console. Unmasking a review needs a logged reason.', evals: ['hl-pii-mask-01', 'hl-pii-mask-02', 'hl-pii-log-01'] },
+    { icon: 'key-round', name: 'Data is scoped to the signed-in customer', text: 'Every tool reads only the customer’s own accounts. Shared chats never widen it.', evals: ['hl-scope-01', 'hl-scope-shared-02'] },
+    { icon: 'ban', name: 'No payments or signatures', text: 'Raiffy never moves money, collects a signature or submits an application. It hands off to the bank’s own flows.', evals: ['hl-pay-01', 'hl-sign-01', 'hl-handoff-03'] },
+    { icon: 'scale', name: 'No credit decisions', text: 'Affordability is shown as an indicative check, never as approval or refusal.', evals: ['hl-credit-01', 'hl-credit-02'] },
+    { icon: 'badge-check', name: 'Pre-approved offers come only from the bank', text: 'Raiffy shows the offer the bank issued and never computes one.', evals: ['hl-offer-src-01'] },
+    { icon: 'calculator', name: 'Every number comes from a tool or a source', text: 'The output check blocks any figure not found in a tool result or a cited source.', evals: ['hl-numbers-01', 'hl-numbers-02', 'hl-numbers-fx-03'] },
+    { icon: 'clock-alert', name: 'Stale values block the answer', text: 'A value past its review date blocks every answer that needs it, until someone updates it.', evals: ['hl-stale-01', 'hl-stale-02'] }
+  ];
+
+  /* ───────────── Versioned store (simulated Convex tables) ───────────── */
+  var DB = { products: [], parameters: [], audit: [] };
+
+  function datedValues(values, url, owner) {
+    var out = {};
+    Object.keys(values).forEach(function (k) {
+      var v = values[k];
+      out[k] = { value: v[0], validFrom: v[1], reviewBy: v[2], sourceUrl: url, owner: owner };
+    });
+    return out;
+  }
+  function cloneData(d) { return JSON.parse(JSON.stringify(d)); }
+
+  PRODUCT_SEED.forEach(function (s) {
+    var data = { values: datedValues(s.values, s.url, s.owner), description: s.description, eligibility: s.eligibility.slice(), documents: s.documents.slice() };
+    var e = { entityId: s.id, table: 'products', name: s.name, type: s.type, track: s.track, owner: s.owner, url: s.url, links: s.links, versions: [] };
+    if (s.draftOnly) {
+      e.versions.push({ version: 1, status: 'draft', data: data, validFrom: TODAY, proposedBy: s.draftOnly.by, note: s.draftOnly.note, createdAt: s.draftOnly.at });
+    } else {
+      // Rebuild older versions backwards from the current data.
+      var cur = cloneData(data), built = [];
+      var top = s.history.length ? s.history[0].v : 1;
+      s.history.forEach(function (h) {
+        built.push({ version: h.v, status: 'published', data: cloneData(cur), validFrom: h.at.slice(0, 10), proposedBy: h.by, approvedBy: h.approvedBy, note: h.note, createdAt: h.at });
+        Object.keys(h.prev).forEach(function (k) { cur.values[k].value = h.prev[k]; });
+      });
+      var oldest = s.history.length ? top - s.history.length : 1;
+      for (var v = oldest; v >= 1; v--) built.push({ version: v, status: 'published', data: cloneData(cur), validFrom: '2026-01-15', proposedBy: 'user_adm_radu', note: v === 1 ? 'Imported from the Raiffeisen catalog' : 'Annual catalog review', createdAt: '2026-01-15T09:00:00Z' });
+      e.versions = built.reverse();
+      [['scheduled', 'published'], ['pending', 'pending']].forEach(function (pair) {
+        var p = s[pair[0]]; if (!p) return;
+        var d = cloneData(data);
+        Object.keys(p.set).forEach(function (k) { var x = p.set[k]; d.values[k] = { value: x[0], validFrom: p.validFrom, reviewBy: x[2], sourceUrl: x[1], owner: d.values[k].owner }; });
+        e.versions.push({ version: e.versions.length + 1, status: pair[1], data: d, validFrom: p.validFrom, proposedBy: p.by, approvedBy: pair[1] === 'published' && USERS[p.by].role === 'operator' ? 'user_adm_radu' : undefined, note: p.note, createdAt: p.at });
+      });
+    }
+    DB.products.push(e);
+  });
+
+  PARAM_SEED.forEach(function (p) {
+    var d = { value: p.value, unit: p.unit, validFrom: p.validFrom, reviewBy: p.reviewBy, sourceUrl: p.sourceUrl, owner: p.owner };
+    var e = { entityId: p.id, table: 'parameters', name: p.name, usedBy: p.usedBy, versions: [] };
+    var h = PARAM_HISTORY[p.id];
+    if (h) e.versions.push({ version: 1, status: 'published', data: Object.assign({}, d, { value: h.prev, validFrom: '2026-04-01', reviewBy: '2026-07-15' }), validFrom: '2026-04-01', proposedBy: h.by, note: 'Q2 IRCC published by BNR', createdAt: '2026-03-31T09:00:00Z' });
+    e.versions.push({ version: e.versions.length + 1, status: 'published', data: d, validFrom: p.validFrom, proposedBy: h ? h.by : 'user_adm_radu', note: h ? h.note : 'Initial value', createdAt: h ? h.at : p.validFrom + 'T09:00:00Z' });
+    DB.parameters.push(e);
+  });
+
+  /** AuditEntry rows, newest first. Append-only. */
+  DB.audit = [
+    { at: '2026-10-27T16:05:00Z', userId: 'user_op_ioana', action: 'submitted', table: 'products', entity: 'personal-loan', version: 7, diff: [['Interest rate', '9.4%', '8.9%']], reason: 'November campaign: rate cut for salary-account customers is now the list price.' },
+    { at: '2026-10-24T10:15:00Z', userId: 'user_adm_elena', action: 'scheduled', table: 'products', entity: 'casa-ta', version: 6, diff: [['Interest rate', '5.29%', '5.19%']], reason: 'Fixed rate from the October pricing committee · live 3 Nov 2026' },
+    { at: '2026-10-21T10:00:00Z', userId: 'user_adm_radu', action: 'drafted', table: 'products', entity: 'sme-investment-loan', version: 1, diff: [], reason: 'New product, waiting for the fee schedule from SME Banking' },
+    { at: '2026-10-16T08:42:00Z', userId: 'user_adm_elena', action: 'rejected', table: 'parameters', entity: 'competitor-fresh', version: 2, diff: [['Competitor data freshness', '30 days', '60 days']], reason: 'Proposed by Ioana Marin. 60 days is too long for promotional rates.' },
+    { at: '2026-09-29T09:12:00Z', userId: 'user_adm_elena', action: 'published', table: 'products', entity: 'personal-loan', version: 6, diff: [['Interest rate', '9.9%', '9.4%']], reason: 'Q4 pricing review' },
+    { at: '2026-08-28T13:30:00Z', userId: 'user_adm_radu', action: 'published', table: 'products', entity: 'refinancing', version: 4, diff: [['Origination fee', '199 lei', 'None']], reason: 'Origination fee waived for refinancing' },
+    { at: '2026-08-04T15:20:00Z', userId: 'user_adm_elena', action: 'approved', table: 'products', entity: 'term-deposit', version: 7, diff: [['Interest rate', '5.85%', '5.6%']], reason: 'Proposed by Ioana Marin · Rate follows the August pricing committee' },
+    { at: '2026-07-30T09:00:00Z', userId: 'user_adm_elena', action: 'published', table: 'products', entity: 'casa-ta', version: 5, diff: [['Interest rate', '5.49%', '5.29%']], reason: 'Fixed rate lowered' },
+    { at: '2026-07-14T08:30:00Z', userId: 'user_adm_elena', action: 'published', table: 'products', entity: 'savings-account', version: 4, diff: [['Interest rate', '3.75%', '3.5%']], reason: 'Rate follows the July pricing committee' },
+    { at: '2026-06-30T09:00:00Z', userId: 'user_adm_elena', action: 'published', table: 'parameters', entity: 'ircc', version: 2, diff: [['IRCC index', '5.66%', '5.55%']], reason: 'Q3 IRCC published by BNR' }
+  ];
+
+  /* ───────────── Store queries ───────────── */
+  function entity(table, id) { return DB[table].filter(function (e) { return e.entityId === id; })[0]; }
+  function current(e) {
+    var pub = e.versions.filter(function (v) { return v.status === 'published' && v.validFrom <= TODAY; });
+    return pub[pub.length - 1] || null;
+  }
+  function pendingOf(e) { return e.versions.filter(function (v) { return v.status === 'pending'; })[0] || null; }
+  function scheduledOf(e) { return e.versions.filter(function (v) { return v.status === 'published' && v.validFrom > TODAY; })[0] || null; }
+  function draftOf(e) { return e.versions.filter(function (v) { return v.status === 'draft'; })[0] || null; }
+  function base(e) { return current(e) || draftOf(e); }
+  function reviewState(reviewBy) { return reviewBy < TODAY ? 'stale' : reviewBy <= addDays(TODAY, 14) ? 'due' : 'ok'; }
+  function staleValues(e) {
+    var b = current(e); if (!b) return [];
+    if (e.table === 'parameters') return reviewState(b.data.reviewBy) !== 'ok' ? [{ key: 'value', label: e.name, reviewBy: b.data.reviewBy, state: reviewState(b.data.reviewBy) }] : [];
+    return Object.keys(b.data.values).map(function (k) { var dv = b.data.values[k]; return { key: k, label: FIELDS[k].label, reviewBy: dv.reviewBy, state: reviewState(dv.reviewBy) }; })
+      .filter(function (x) { return x.state !== 'ok'; });
+  }
+  function param(id) { var c = current(entity('parameters', id)); return c.data.value; }
+
+  /* ───────────── Formatting values ───────────── */
+  function fmtVal(key, v) {
+    var f = FIELDS[key];
+    if (typeof v !== 'number' || isNaN(v)) return '—';
+    if (f.fee && v === 0) return 'None, confirmed';
+    switch (f.unit) {
+      case '%': return num(v, 2) + '%';
+      case '% + IRCC': return 'IRCC + ' + num(v, 2) + '%';
+      case '% of amount': return num(v, 2) + '% of the amount';
+      case '% / month': return num(v, 3) + '% a month';
+      case 'lei': return num(v, 2) + ' lei';
+      case 'lei / month': return num(v, 2) + ' lei / month';
+      case 'lei / year': return num(v, 2) + ' lei / year';
+      case 'months': return num(v) + ' months';
+      case 'days': return num(v) + ' days';
+      case 'per month': return num(v) + ' a month';
+      default: return num(v, 2);
+    }
+  }
+  function fmtParam(d) {
+    if (d.unit === '%') return num(d.value, 2) + '%';
+    if (d.unit === 'lei') return num(d.value) + ' lei';
+    return num(d.value, 2) + ' ' + d.unit;
+  }
+  function headline(e) {
+    var b = base(e); if (!b) return '';
+    var v = b.data.values;
+    if (v.rate) return num(v.rate.value, 2) + '%';
+    if (v.monthlyFee) return fmtVal('monthlyFee', v.monthlyFee.value);
+    return '';
+  }
+  function userChip(id) { var u = USERS[id]; return '<span class="who"><span class="ava sm" aria-hidden="true">' + u.initials + '</span>' + esc(u.name) + '</span>'; }
+
+  /** Field-level differences between two product data objects (or two parameter values). */
+  function diffData(table, a, b) {
+    var out = [];
+    if (table === 'parameters') {
+      if (a.value !== b.value) out.push({ key: 'value', label: 'Value', from: fmtParam(a), to: fmtParam(b) });
+      if (a.sourceUrl !== b.sourceUrl) out.push({ key: 'source', label: 'Source', from: host(a.sourceUrl), to: host(b.sourceUrl) });
+      return out;
+    }
+    Object.keys(b.values).forEach(function (k) {
+      if (!a.values[k] || a.values[k].value !== b.values[k].value) out.push({ key: k, label: FIELDS[k].label, from: a.values[k] ? fmtVal(k, a.values[k].value) : '—', to: fmtVal(k, b.values[k].value) });
+    });
+    if (a.description !== b.description) out.push({ key: 'description', label: 'Description', from: 'Previous text', to: 'Updated text' });
+    ['eligibility', 'documents'].forEach(function (k) {
+      if (a[k].join('\n') !== b[k].join('\n')) out.push({ key: k, label: k === 'eligibility' ? 'Eligibility' : 'Required documents', from: a[k].length + ' items', to: b[k].length + ' items' });
+    });
+    return out;
+  }
+
+  /* ───────────── Lifecycle (docs/shared/console.md → Change lifecycle) ─────────────
+     Operator: draft → pending → published | rejected. Admin: draft → published. Rollback = a new version. */
+  var ROLE = 'admin';
+  function me() { return ROLE_USER[ROLE]; }
+  function isAdmin() { return ROLE === 'admin'; }
+
+  function audit(action, e, version, diff, reason) {
+    DB.audit.unshift({ at: new Date().toISOString(), userId: me(), action: action, table: e.table, entity: e.entityId, version: version,
+      diff: diff.map(function (d) { return [d.label, d.from, d.to]; }), reason: reason || '' });
+  }
+
+  /** Commit a change. Admins publish (now or scheduled), operators submit for approval. */
+  function commit(e, data, opts) {
+    var from = base(e).data;
+    var diff = diffData(e.table, from, data);
+    var v = { version: e.versions.length + 1, status: isAdmin() ? 'published' : 'pending', data: data, validFrom: opts.validFrom, proposedBy: me(), note: opts.note, createdAt: new Date().toISOString() };
+    // An admin publishing over a draft-only product replaces the draft.
+    var dr = draftOf(e); if (dr && isAdmin()) dr.status = 'superseded';
+    e.versions.push(v);
+    var action = opts.rollbackTo ? (isAdmin() ? 'rolled back' : 'proposed rollback') : isAdmin() ? (opts.validFrom > TODAY ? 'scheduled' : 'published') : 'submitted';
+    audit(action, e, v.version, diff, (opts.rollbackTo ? 'To v' + opts.rollbackTo + '. ' : '') + (opts.note || '') + (opts.validFrom > TODAY ? ' · live ' + date(opts.validFrom) : ''));
+    return { version: v, diff: diff };
+  }
+  function approve(e, note) {
+    var p = pendingOf(e), from = base(e).data;
+    p.status = 'published'; p.approvedBy = me(); p.approvalNote = note;
+    if (p.validFrom < TODAY) p.validFrom = TODAY;
+    audit('approved', e, p.version, diffData(e.table, from, p.data), 'Proposed by ' + USERS[p.proposedBy].name + (note ? ' · ' + note : ''));
+    return p;
+  }
+  function reject(e, reason) {
+    var p = pendingOf(e);
+    p.status = 'rejected'; p.rejectedBy = me(); p.rejectReason = reason;
+    audit('rejected', e, p.version, diffData(e.table, base(e).data, p.data), reason);
+  }
+  function withdraw(e) {
+    var p = pendingOf(e);
+    p.status = 'withdrawn';
+    audit('withdrew', e, p.version, diffData(e.table, base(e).data, p.data), '');
+  }
+
+  /* ═════════════ Calculations: mirror lib/calc/loan.ts and lib/calc/impact.ts ═════════════ */
+  function annuityPayment(P, n, rate) { var r = rate / 12; return r === 0 ? P / n : P * r / (1 - Math.pow(1 + r, -n)); }
+  function quoteLoan(c, t) { var m = annuityPayment(c.amount, c.months, t.annualRate) + t.monthlyFee; return { monthly: m, totalCost: m * c.months - c.amount + t.originationFee }; }
+  function quoteOverdraft(c, t) {
+    var interest = c.amount * t.annualRate * (c.months + 1) / 2 / 12, total = interest + t.annualFee * Math.ceil(c.months / 12);
+    return { fits: c.months <= t.maxMonths && c.amount <= t.maxAmount, monthly: (c.amount + total) / c.months, totalCost: total };
+  }
+  function recommendLoanOrOverdraft(loan, od, margin) {
+    var gap = Math.abs(loan.totalCost - od.totalCost);
+    if (!od.fits) return { pick: 'loan', reason: 'onlyFit', gap: gap };
+    if (gap < margin) return { pick: 'loan', reason: 'nearTie', gap: gap };
+    return { pick: od.totalCost < loan.totalCost ? 'overdraft' : 'loan', reason: 'cheaper', gap: gap };
+  }
+  function depositInterest(P, n, rate) { return P * rate * n / 12; }
+
+  /* Catalog values → calculator terms. Percentages in the catalog, fractions in the tools. */
+  function loanTerms(vals, amount) {
+    var g = function (k) { return vals[k] ? Number(vals[k].value) : 0; };
+    // Business origination fees are a percentage of the amount; personal ones are lei.
+    return { annualRate: g('rate') / 100, originationFee: g('originationFee') + g('originationPct') / 100 * amount + g('valuationFee'), monthlyFee: g('adminFee') };
+  }
+  function odTerms(vals) { return { annualRate: vals.rate.value / 100, annualFee: vals.annualFee.value, maxAmount: vals.maxAmount.value, maxMonths: vals.maxTerm.value }; }
+
+  /** impactPreview: before/after on the type's fixed sample cases. */
+  function impactPreview(e, beforeVals, afterVals) {
+    var T = TYPES[e.type]; if (!T.calc) return null;
+    var margin = param('near-tie');
+    var otherVals = T.compare ? current(entity('products', T.compare === 'overdraft' ? 'overdraft' : 'personal-loan')).data.values : null;
+    return T.cases.map(function (c) {
+      var row = { c: c, metric: T.calc === 'deposit' ? 'interest' : 'monthly' };
+      if (T.calc === 'deposit') {
+        row.before = depositInterest(c.amount, c.months, beforeVals.rate.value / 100);
+        row.after = depositInterest(c.amount, c.months, afterVals.rate.value / 100);
+      } else if (T.calc === 'loan') {
+        row.before = quoteLoan(c, loanTerms(beforeVals, c.amount)).monthly;
+        row.after = quoteLoan(c, loanTerms(afterVals, c.amount)).monthly;
+        if (otherVals) {
+          var od = odTerms(otherVals);
+          row.rec = { before: recommendLoanOrOverdraft(quoteLoan(c, loanTerms(beforeVals, c.amount)), quoteOverdraft(c, od), margin).pick,
+                      after: recommendLoanOrOverdraft(quoteLoan(c, loanTerms(afterVals, c.amount)), quoteOverdraft(c, od), margin).pick };
+        }
+      } else {
+        row.before = quoteOverdraft(c, odTerms(beforeVals)).monthly;
+        row.after = quoteOverdraft(c, odTerms(afterVals)).monthly;
+        if (otherVals) {
+          var lt = loanTerms(otherVals, c.amount);
+          row.rec = { before: recommendLoanOrOverdraft(quoteLoan(c, lt), quoteOverdraft(c, odTerms(beforeVals)), margin).pick,
+                      after: recommendLoanOrOverdraft(quoteLoan(c, lt), quoteOverdraft(c, odTerms(afterVals)), margin).pick };
+        }
+      }
+      row.delta = row.after - row.before;
+      if (row.rec) row.rec.changed = row.rec.before !== row.rec.after;
+      return row;
+    });
+  }
+
+  /* ═════════════ Analytics data: seeded traces, shapes from lib/analytics/schemas.ts ═════════════ */
+  var AN = null;
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var DATA_SOURCES = ['loans', 'limits', 'productsHeld', 'preApproved', 'deposits', 'feesCharged', 'ageResidency', 'idStatus', 'contractEvents'];
+  var SOURCE_LABEL = { loans: 'Existing loans and cards', limits: 'Overdraft and card limits', productsHeld: 'Products held', preApproved: 'Pre-approved offers',
+    deposits: 'Deposits and savings', feesCharged: 'Fees charged', ageResidency: 'Age and residency', idStatus: 'Identity verification', contractEvents: 'Application and contract events' };
+  var INTENT_W = [['newLoan', 24], ['refinancing', 9], ['earlyRepayment', 7], ['cashNeed', 10], ['savings', 16], ['feeQuestion', 18], ['eligibility', 5], ['other', 11]];
+  var INTENT_DATA = { newLoan: ['loans', 'limits', 'productsHeld', 'preApproved', 'ageResidency', 'idStatus'], refinancing: ['loans', 'limits', 'productsHeld', 'preApproved'],
+    earlyRepayment: ['loans', 'contractEvents'], cashNeed: ['limits', 'loans', 'preApproved'], savings: ['deposits', 'productsHeld'], feeQuestion: ['feesCharged', 'productsHeld'],
+    eligibility: ['ageResidency', 'idStatus', 'loans'], other: [] };
+  var OFFER_PRODUCTS = ['personal-loan', 'refinancing', 'credit-card-standard', 'overdraft'];
+  var FEE_LINES = [['ATM withdrawal fee', 'debit-card'], ['Account package fee', 'current-account'], ['Card annual fee', 'credit-card-standard'], ['Interbank transfer fee', 'current-account'],
+    ['Overdraft annual fee', 'overdraft'], ['SMS alerts', 'current-account'], ['Cash withdrawal fee', 'credit-card-standard']];
+
+  function buildAnalytics() {
+    var rnd = mulberry32(20261028), answers = [], events = [];
+    function pick(w) { var t = 0, i; for (i = 0; i < w.length; i++) t += w[i][1]; var x = rnd() * t; for (i = 0; i < w.length; i++) { x -= w[i][1]; if (x < 0) return w[i][0]; } return w[0][0]; }
+    function p(x) { return rnd() < x; }
+    var DAYS = 90, start = addDays(TODAY, -DAYS), convN = 0;
+    for (var d = 0; d < DAYS; d++) {
+      var day = addDays(start, d), dow = new Date(day + 'T00:00:00Z').getUTCDay();
+      // Pilot traffic: growing over the quarter, quieter at weekends.
+      var conv = Math.round((70 + d * 1.6) * (dow === 0 || dow === 6 ? .62 : 1) * (.9 + rnd() * .2));
+      for (var c = 0; c < conv; c++) {
+        var b = { conversationKey: 'cv' + (++convN), customerKey: 'cu' + Math.floor(rnd() * 3200), track: p(.86) ? 'personal' : 'business', entry: p(.58) ? 'smartMobile' : 'web' };
+        var hour = 7 + Math.floor(rnd() * 15), intent = pick(INTENT_W), n = 1 + Math.floor(rnd() * 3.4);
+        var stamp = function (min) { return day + 'T' + String(hour).padStart(2, '0') + ':' + String(Math.min(59, min)).padStart(2, '0') + ':00Z'; };
+        var ev = function (o) { events.push(Object.assign({ at: stamp(30), conversationKey: b.conversationKey, customerKey: b.customerKey, track: b.track, entry: b.entry }, o)); };
+        for (var a = 0; a < n; a++) {
+          var used = INTENT_DATA[intent].filter(function () { return p(.82); });
+          answers.push({ at: stamp(a * 3), conversationKey: b.conversationKey, customerKey: b.customerKey, track: b.track, entry: b.entry, intent: intent, dataUsed: used,
+            evaluatorLoops: p(.9) ? 0 : p(.8) ? 1 : 2, fallback: p(.012), escalated: p(.035), staleBlocked: intent === 'savings' && day >= '2026-10-21' ? p(.3) : p(.004) });
+        }
+        if (intent === 'newLoan' || intent === 'refinancing' || intent === 'cashNeed') {
+          ev({ kind: 'affordabilityCheck', askedCustomer: p(.14), limitsChangedResult: p(.18) });
+          if (p(.55)) ev({ kind: 'qualifyShown' });
+          if (p(.09)) ev({ kind: 'hiddenCostCaught' });
+          if (p(.42)) {
+            var op = OFFER_PRODUCTS[intent === 'refinancing' ? 1 : intent === 'cashNeed' ? (p(.5) ? 3 : 2) : 0];
+            var gap = op === 'personal-loan' ? 1.2 + rnd() * .8 : op === 'refinancing' ? .8 + rnd() * .6 : .5 + rnd();
+            ev({ kind: 'offer', productId: op, stage: 'shown', source: 'bank', rateGapPts: gap });
+            if (p(.48)) { ev({ kind: 'offer', productId: op, stage: 'opened', source: 'bank', rateGapPts: gap });
+              if (p(.44)) ev({ kind: 'offer', productId: op, stage: 'applied', source: 'bank', rateGapPts: gap }); else if (p(.3)) ev({ kind: 'offer', productId: op, stage: 'expired', source: 'bank', rateGapPts: gap }); }
+            else if (p(.25)) ev({ kind: 'offer', productId: op, stage: 'expired', source: 'bank', rateGapPts: gap });
+          }
+          if (p(.06)) ev({ kind: 'eligibilityLimit', reason: p(.78) ? 'maxAgeAtEnd' : 'residency', productId: intent === 'refinancing' ? 'refinancing' : p(.7) ? 'personal-loan' : 'casa-ta' });
+          if (p(.2)) {
+            var prod = intent === 'refinancing' ? 'refinancing' : intent === 'cashNeed' ? 'overdraft' : 'personal-loan', digital = p(.71);
+            ev({ kind: 'application', productId: prod, channel: digital ? 'digital' : 'branch', branchReason: digital ? undefined : pick([['idNotVerified', 5], ['documents', 3], ['customerChoice', 2]]) });
+            ev({ kind: 'contract', productId: prod, status: 'applied' });
+            if (p(.68)) { ev({ kind: 'contract', productId: prod, status: 'signed' });
+              if (p(.12)) ev({ kind: 'raiffeisenOnlyDefault' });
+              if (intent === 'refinancing' || p(.35)) ev({ kind: 'moneySaved', lei: Math.round(intent === 'refinancing' ? 900 + rnd() * 3800 : 120 + rnd() * 900) }); }
+            else if (p(.3)) ev({ kind: 'contract', productId: prod, status: 'withdrawn' });
+          }
+        }
+        if (intent === 'earlyRepayment' && p(.1)) ev({ kind: 'contract', productId: 'personal-loan', status: 'repaid' });
+        if (intent === 'earlyRepayment' && p(.3)) ev({ kind: 'moneySaved', lei: Math.round(200 + rnd() * 1400) });
+        if ((intent === 'refinancing' || intent === 'earlyRepayment') && p(.16)) {
+          ev({ kind: 'reminder', reminder: 'fixedRateEnding', stage: 'sent' });
+          if (p(.62)) { ev({ kind: 'reminder', reminder: 'fixedRateEnding', stage: 'opened' }); if (p(.38)) ev({ kind: 'reminder', reminder: 'fixedRateEnding', stage: 'acted' }); }
+        }
+        if (intent === 'savings') {
+          if (p(.22)) ev({ kind: 'depositGoal', stage: 'created' });
+          if (p(.4)) ev({ kind: 'depositGoal', stage: 'progressShown' });
+          if (p(.2)) { ev({ kind: 'reminder', reminder: 'depositMaturity', stage: 'sent' });
+            if (p(.7)) { ev({ kind: 'reminder', reminder: 'depositMaturity', stage: 'opened' }); if (p(.55)) ev({ kind: 'reminder', reminder: 'depositMaturity', stage: 'acted' }); } }
+          if (p(.05)) ev({ kind: 'moneySaved', lei: Math.round(40 + rnd() * 300) });
+        }
+        if (intent === 'feeQuestion') {
+          var fl = FEE_LINES[Math.min(FEE_LINES.length - 1, Math.floor(Math.pow(rnd(), 1.7) * FEE_LINES.length))];
+          ev({ kind: 'feeExplained', feeLine: fl[0], productId: fl[1], resolved: p(.86) });
+          if (p(.07)) ev({ kind: 'hiddenCostCaught' });
+        }
+        if (intent === 'eligibility' && p(.45)) ev({ kind: 'eligibilityLimit', reason: p(.7) ? 'maxAgeAtEnd' : 'residency', productId: p(.6) ? 'casa-ta' : 'personal-loan' });
+      }
+    }
+    return { answers: answers, events: events };
+  }
+
+  /* summarize: mirrors lib/analytics/summarize.ts. Counts under minCount come back null. */
+  function summarize(A0, E0, f) {
+    var k = f.minCount;
+    function n(x) { return x < k ? null : x; }
+    function share(part, whole) { return whole < k || whole === 0 ? null : part / whole; }
+    function inF(r) { var d = r.at.slice(0, 10); return d >= f.from && d <= f.to && (!f.track || r.track === f.track) && (!f.entry || r.entry === f.entry); }
+    var A = A0.filter(inF), E = E0.filter(inF);
+    var by = {}; E.forEach(function (e) { (by[e.kind] = by[e.kind] || []).push(e); });
+    function of(kind) { return by[kind] || []; }
+    function cnt(arr, fn) { return arr.filter(fn).length; }
+    var convs = {}, withData = 0, days = {};
+    A.forEach(function (a) {
+      convs[a.conversationKey] = 1; if (a.dataUsed.length) withData++;
+      var d = a.at.slice(0, 10), x = days[d] || (days[d] = { answers: 0, c: {} }); x.answers++; x.c[a.conversationKey] = 1;
+    });
+    var daily = [];
+    for (var d = f.from; d <= f.to; d = addDays(d, 1)) {
+      var x = days[d], an = x ? x.answers : 0, cv = x ? Object.keys(x.c).length : 0;
+      daily.push({ date: d, answers: an < k ? 0 : an, conversations: cv < k ? 0 : cv });
+    }
+    var intents = {}; A.forEach(function (a) { intents[a.intent] = (intents[a.intent] || 0) + 1; });
+    function remF(which) { var r = of('reminder').filter(function (x) { return x.reminder === which; });
+      return { sent: n(cnt(r, function (x) { return x.stage === 'sent'; })), opened: n(cnt(r, function (x) { return x.stage === 'opened'; })), acted: n(cnt(r, function (x) { return x.stage === 'acted'; })) }; }
+    var offers = of('offer');
+    function stage(s) { return offers.filter(function (o) { return o.stage === s; }); }
+    var shown = stage('shown'), applied = stage('applied');
+    var fees = of('feeExplained'), feeMap = {};
+    fees.forEach(function (x) { var key = x.feeLine + '|' + x.productId; feeMap[key] = (feeMap[key] || 0) + 1; });
+    var feeTop = Object.keys(feeMap).map(function (key) { var p = key.split('|'); return { feeLine: p[0], productId: p[1], count: n(feeMap[key]) }; })
+      .filter(function (x) { return x.count !== null; }).sort(function (a, b) { return b.count - a.count; }).slice(0, 5);
+    var elig = of('eligibilityLimit'), eligMap = {};
+    elig.forEach(function (x) { eligMap[x.productId] = (eligMap[x.productId] || 0) + 1; });
+    var apps = of('application'), digital = cnt(apps, function (x) { return x.channel === 'digital'; }), branch = apps.filter(function (x) { return x.channel === 'branch'; });
+    var contracts = of('contract');
+    function cs(s) { return n(cnt(contracts, function (c) { return c.status === s; })); }
+    var saved = of('moneySaved'), byCust = {}, total = 0;
+    saved.forEach(function (s) { byCust[s.customerKey] = (byCust[s.customerKey] || 0) + s.lei; total += s.lei; });
+    var custVals = Object.keys(byCust).map(function (c) { return byCust[c]; }).sort(function (a, b) { return a - b; });
+    var savedOk = custVals.length >= k;
+    var mid = Math.floor(custVals.length / 2), med = !custVals.length ? null : custVals.length % 2 ? custVals[mid] : (custVals[mid - 1] + custVals[mid]) / 2;
+    var goals = of('depositGoal');
+    return {
+      kpis: { conversations: n(Object.keys(convs).length), answers: n(A.length), accountDataShare: share(withData, A.length), offerTakeUp: share(applied.length, shown.length),
+        digitalShare: share(digital, apps.length), moneySavedLei: savedOk ? total : null },
+      daily: daily,
+      dataUsage: DATA_SOURCES.map(function (s) { var c = cnt(A, function (a) { return a.dataUsed.indexOf(s) >= 0; }); return { source: s, answers: n(c), share: c < k ? null : share(c, A.length) }; }),
+      affordability: { checks: n(of('affordabilityCheck').length), withoutAsking: n(cnt(of('affordabilityCheck'), function (c) { return !c.askedCustomer; })),
+        limitsChanged: n(cnt(of('affordabilityCheck'), function (c) { return c.limitsChangedResult; })), refinancing: n(intents.refinancing || 0),
+        earlyRepayment: n(intents.earlyRepayment || 0), cashNeed: n(intents.cashNeed || 0), fixedRateReminder: remF('fixedRateEnding') },
+      pricing: { qualifyShown: n(of('qualifyShown').length), hiddenCostCaught: n(of('hiddenCostCaught').length), feeExplanations: n(fees.length) },
+      offers: { funnel: { shown: n(shown.length), opened: n(stage('opened').length), applied: n(applied.length) }, expired: n(stage('expired').length),
+        avgRateGapPts: shown.length < k ? null : shown.reduce(function (t, o) { return t + o.rateGapPts; }, 0) / shown.length,
+        bankSourcedShare: share(cnt(offers, function (o) { return o.source === 'bank'; }), offers.length),
+        byProduct: OFFER_PRODUCTS.slice().sort().map(function (pid) { return { productId: pid, shown: n(cnt(shown, function (o) { return o.productId === pid; })), applied: n(cnt(applied, function (o) { return o.productId === pid; })) }; }) },
+      savings: { goalsCreated: n(cnt(goals, function (g) { return g.stage === 'created'; })), progressShown: n(cnt(goals, function (g) { return g.stage === 'progressShown'; })), maturityReminder: remF('depositMaturity') },
+      fees: { questions: n(fees.length), resolvedShare: share(cnt(fees, function (x) { return x.resolved; }), fees.length), top: feeTop },
+      eligibility: { maxAgeAtEnd: n(cnt(elig, function (e) { return e.reason === 'maxAgeAtEnd'; })), residency: n(cnt(elig, function (e) { return e.reason === 'residency'; })),
+        byProduct: Object.keys(eligMap).map(function (pid) { return { productId: pid, count: n(eligMap[pid]) }; }).filter(function (x) { return x.count !== null; }).sort(function (a, b) { return b.count - a.count; }) },
+      channel: { digital: n(digital), branch: n(branch.length),
+        branchReasons: ['idNotVerified', 'documents', 'customerChoice'].map(function (r) { return { reason: r, count: n(cnt(branch, function (b) { return b.branchReason === r; })) }; }) },
+      contracts: { funnel: { applied: cs('applied'), signed: cs('signed'), withdrawn: cs('withdrawn'), repaid: cs('repaid') }, raiffeisenOnlyDefaults: n(of('raiffeisenOnlyDefault').length),
+        moneySaved: { totalLei: savedOk ? total : null, medianLei: savedOk ? med : null, customers: n(custVals.length) } },
+      quality: { firstPassShare: share(cnt(A, function (a) { return a.evaluatorLoops === 0; }), A.length), fallbacks: n(cnt(A, function (a) { return a.fallback; })),
+        escalations: n(cnt(A, function (a) { return a.escalated; })), staleBlocks: n(cnt(A, function (a) { return a.staleBlocked; })) }
+    };
+  }
+
+  /* ═════════════ Rendering ═════════════ */
+  var ROUTE = { page: 'home', id: null };
+  var UI = {
+    products: { q: '', track: 'all', status: 'all', review: false },
+    analytics: { range: 30, track: 'all', entry: 'all' },
+    audit: { q: '', action: 'all' },
+    paramOpen: null
+  };
+  var EDIT = null;
+
+  function productName(id) { var e = entity('products', id); return e ? e.name : PRODUCT_LABEL[id] || id; }
+  var PRODUCT_LABEL = { 'debit-card': 'Debit card', 'current-account': 'Current account' };
+
+  function counts() {
+    var pend = 0, stale = 0;
+    DB.products.concat(DB.parameters).forEach(function (e) {
+      if (pendingOf(e)) pend++;
+      stale += staleValues(e).filter(function (s) { return s.state === 'stale'; }).length;
+    });
+    return { pending: pend, stale: stale };
+  }
+
+  function renderNav() {
+    var c = counts();
+    var items = [
+      ['home', 'layout-dashboard', 'Home', c.pending ? '<small class="hot" title="Pending approvals">' + c.pending + '</small>' : ''],
+      ['products', 'package', 'Products', '<small>' + DB.products.length + '</small>'],
+      ['rules', 'sliders-horizontal', 'Rules', c.stale ? '<small class="bad" title="Values past their review date">' + c.stale + '</small>' : ''],
+      ['analytics', 'chart-column', 'Analytics', ''],
+      ['audit', 'scroll-text', 'Audit log', '']
+    ];
+    var later = [['inbox', 'Reviews'], ['message-square-text', 'Prompts'], ['flask-conical', 'Evals'], ['book-open', 'Knowledge'], ['landmark', 'Regulations'], ['handshake', 'Counter-offers']];
+    $('nav').innerHTML = '<span class="grp eyebrow">Console</span>' + items.map(function (it) {
+      return '<a class="nav-item" href="#' + it[0] + '"' + (ROUTE.page === it[0] ? ' aria-current="page"' : '') + '>' + ic(it[1]) + '<span>' + it[2] + '</span>' + it[3] + '</a>';
+    }).join('') + '<span class="grp eyebrow">Later</span>' + later.map(function (it) {
+      return '<span class="nav-item is-later" aria-disabled="true">' + ic(it[0]) + '<span>' + it[1] + '</span><small>soon</small></span>';
+    }).join('');
+    var u = USERS[me()];
+    $('me-ava').textContent = u.initials; $('me-name').textContent = u.name; $('me-role').textContent = u.title;
+    document.querySelectorAll('[data-act="role"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.role === ROLE)); });
+  }
+
+  function crumbs(parts) {
+    $('crumbs').innerHTML = parts.map(function (p, i) {
+      return i === parts.length - 1 ? '<h1>' + esc(p[0]) + '</h1>' : '<a href="' + p[1] + '">' + esc(p[0]) + '</a>' + ic('chevron-right');
+    }).join('');
+  }
+
+  function statusPills(e) {
+    var out = [];
+    var cur = current(e), pend = pendingOf(e), sch = scheduledOf(e), dr = draftOf(e);
+    if (cur) out.push('<span class="pill p-published">Published · v' + cur.version + '</span>');
+    if (dr && !cur) out.push('<span class="pill p-draft">Draft</span>');
+    if (sch) out.push('<span class="pill p-scheduled">' + ic('calendar-clock') + 'v' + sch.version + ' from ' + dateShort(sch.validFrom) + '</span>');
+    if (pend) out.push('<span class="pill p-pending">' + ic('hourglass') + 'Pending approval</span>');
+    return out.join('');
+  }
+  function reviewCell(e) {
+    var s = staleValues(e);
+    var st = s.filter(function (x) { return x.state === 'stale'; });
+    if (st.length) return '<span class="stale-ic">' + ic('triangle-alert') + st.length + ' past review</span>';
+    if (s.length) return '<span class="pill p-due">' + s.length + ' due by ' + dateShort(s.map(function (x) { return x.reviewBy; }).sort()[0]) + '</span>';
+    var b = base(e), dates = e.table === 'products' ? Object.keys(b.data.values).map(function (k) { return b.data.values[k].reviewBy; }) : [b.data.reviewBy];
+    return '<span class="micro mono">' + dateShort(dates.sort()[0]) + '</span>';
+  }
+
+  /* ───────────── Home ───────────── */
+  function renderHome() {
+    crumbs([['Home']]);
+    var u = USERS[me()], rows = [];
+    DB.products.concat(DB.parameters).forEach(function (e) {
+      var p = pendingOf(e); if (!p) return;
+      var d = diffData(e.table, base(e).data, p.data), href = e.table === 'products' ? '#products/' + e.entityId : '#rules';
+      var mine = p.proposedBy === me();
+      rows.push({ o: 0, html: '<div class="att-row"><span class="ic warm">' + ic('hourglass') + '</span><div><b>' + esc(e.name) + ': ' + d.map(function (x) { return esc(x.label.toLowerCase()) + ' <span class="del">' + esc(x.from) + '</span> → <span class="ins">' + esc(x.to) + '</span>'; }).join(', ') + '</b>' +
+        '<small>' + (mine ? 'You proposed it' : 'Proposed by ' + esc(USERS[p.proposedBy].name)) + ' on ' + date(p.createdAt) + ' · ' + (isAdmin() ? 'needs your approval' : 'waiting for an admin') + '</small></div>' +
+        '<a class="btn btn-' + (isAdmin() ? 'dark' : 'ghost') + ' btn-sm" href="' + href + '">' + (isAdmin() ? 'Review' : 'Open') + '</a></div>' });
+    });
+    DB.products.concat(DB.parameters).forEach(function (e) {
+      staleValues(e).forEach(function (s) {
+        var href = e.table === 'products' ? '#products/' + e.entityId : '#rules';
+        rows.push({ o: s.state === 'stale' ? 1 : 3, html: '<div class="att-row"><span class="ic ' + (s.state === 'stale' ? 'bad' : '') + '">' + ic(s.state === 'stale' ? 'triangle-alert' : 'clock') + '</span><div><b>' + esc(e.name) + (e.table === 'products' ? ' · ' + esc(s.label.toLowerCase()) : '') + '</b>' +
+          '<small' + (s.state === 'stale' ? ' class="stale"' : '') + '>' + (s.state === 'stale' ? 'Review date ' + date(s.reviewBy) + ' has passed. Answers that need it are blocked.' : 'Review due ' + date(s.reviewBy)) + '</small></div>' +
+          '<a class="btn btn-ghost btn-sm" href="' + href + '">Update</a></div>' });
+      });
+    });
+    DB.products.forEach(function (e) {
+      var s = scheduledOf(e); if (!s) return;
+      rows.push({ o: 2, html: '<div class="att-row"><span class="ic">' + ic('calendar-clock') + '</span><div><b>' + esc(e.name) + ' v' + s.version + ' goes live on ' + date(s.validFrom) + '</b><small>' + esc(s.note) + '</small></div><a class="btn btn-ghost btn-sm" href="#products/' + e.entityId + '">Open</a></div>' });
+    });
+    rows.sort(function (a, b) { return a.o - b.o; });
+
+    if (!AN) AN = buildAnalytics();
+    var wk = summarize(AN.answers, AN.events, { from: addDays(TODAY, -7), to: addDays(TODAY, -1), minCount: param('analytics-min') });
+    var hour = new Date().getHours(), greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+    return '<div class="pg-head hello"><div class="bloom" aria-hidden="true"></div><div><h2>' + greet + ', ' + esc(u.name.split(' ')[0]) + '</h2>' +
+      '<p>' + (isAdmin() ? 'You can publish changes directly and approve what operators propose.' : 'Your changes go to an admin for approval before customers see them.') + ' Everything you change is versioned and logged.</p></div></div>' +
+      '<div class="home-grid">' +
+        '<section class="gcard" aria-labelledby="att-h"><div class="gc-h"><span id="att-h">' + ic('bell') + 'Needs attention</span><span class="micro">' + rows.length + ' items</span></div>' +
+          '<div class="att">' + (rows.length ? rows.map(function (r) { return r.html; }).join('') : '<p class="empty-row">Nothing needs you right now.</p>') + '</div></section>' +
+        '<div style="display:grid;gap:16px">' +
+          '<section class="gcard" aria-labelledby="wk-h"><div class="gc-h"><span id="wk-h">' + ic('chart-column') + 'Last 7 days</span><a class="link" href="#analytics">Analytics</a></div>' +
+            '<div class="gc-b stat-rows">' +
+              stat('Conversations', fmtCount(wk.kpis.conversations)) + stat('Answers using account data', fmtShare(wk.kpis.accountDataShare)) +
+              stat('Pre-approved offer take-up', fmtShare(wk.kpis.offerTakeUp, 1)) + stat('Fully digital applications', fmtShare(wk.kpis.digitalShare)) +
+              stat('Answers blocked by stale data', fmtCount(wk.quality.staleBlocks)) +
+            '</div></section>' +
+          '<section class="gcard" aria-labelledby="rc-h"><div class="gc-h"><span id="rc-h">' + ic('history') + 'Recent changes</span><a class="link" href="#audit">Audit log</a></div>' +
+            '<div class="att">' + DB.audit.slice(0, 5).map(function (a) {
+              return '<div class="att-row"><span class="ava" aria-hidden="true">' + USERS[a.userId].initials + '</span><div><b>' + esc(USERS[a.userId].name) + ' ' + esc(a.action) + ' ' + esc(entityName(a)) + '</b><small>' + date(a.at) + (a.diff[0] ? ' · ' + esc(a.diff[0][0]) + ' ' + esc(a.diff[0][1]) + ' → ' + esc(a.diff[0][2]) : '') + '</small></div><span></span></div>';
+            }).join('') + '</div></section>' +
+        '</div>' +
+      '</div>';
+  }
+  function entityName(a) { var e = entity(a.table, a.entity); return (e ? e.name : a.entity) + ' v' + a.version; }
+
+  /* ───────────── Products ───────────── */
+  function renderProducts() {
+    crumbs([['Products']]);
+    var f = UI.products, q = f.q.trim().toLowerCase();
+    var list = DB.products.filter(function (e) {
+      if (q && (e.name + ' ' + TYPES[e.type].label).toLowerCase().indexOf(q) < 0) return false;
+      if (f.track !== 'all' && e.track !== f.track) return false;
+      if (f.status === 'pending' && !pendingOf(e)) return false;
+      if (f.status === 'scheduled' && !scheduledOf(e)) return false;
+      if (f.status === 'draft' && current(e)) return false;
+      if (f.status === 'published' && !current(e)) return false;
+      if (f.review && !staleValues(e).length) return false;
+      return true;
+    });
+    var seg = function (key, opts) { return '<div class="seg" role="group" aria-label="' + key + '">' + opts.map(function (o) { return '<button type="button" data-act="pf" data-k="' + key + '" data-v="' + o[0] + '" aria-pressed="' + (f[key] === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>'; };
+    return '<div class="pg-head"><div><h2>Products</h2><p>The financial solutions Raiffy can recommend. Every value carries its source, owner and review date, and every change creates a new version.</p></div></div>' +
+      '<div class="filters">' +
+        '<label class="input">' + ic('search') + '<span class="sr-only">Search products</span><input type="search" id="pq" placeholder="Search products" value="' + esc(f.q) + '" autocomplete="off"></label>' +
+        seg('track', [['all', 'All'], ['personal', 'Individuals'], ['business', 'Business']]) +
+        seg('status', [['all', 'Any status'], ['published', 'Published'], ['pending', 'Pending'], ['scheduled', 'Scheduled'], ['draft', 'Draft']]) +
+        '<button type="button" class="tog" data-act="pf-review" aria-pressed="' + f.review + '">' + ic('clock-alert') + 'Needs review</button>' +
+      '</div>' +
+      '<div class="gcard"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Product</th><th>Track</th><th class="r">Headline</th><th>Status</th><th>Review by</th><th>Owner</th><th><span class="sr-only">Open</span></th></tr></thead><tbody>' +
+      (list.length ? list.map(function (e) {
+        return '<tr class="click" data-href="#products/' + e.entityId + '"><td class="nm"><b><a href="#products/' + e.entityId + '" style="text-decoration:none">' + esc(e.name) + '</a></b><small>' + TYPES[e.type].label + '</small></td>' +
+          '<td>' + (e.track === 'personal' ? 'Individuals' : 'Business') + '</td><td class="r mono">' + headline(e) + '</td><td><div class="pills">' + statusPills(e) + '</div></td><td>' + reviewCell(e) + '</td>' +
+          '<td class="micro">' + esc(e.owner) + '</td><td class="go">' + ic('chevron-right') + '</td></tr>';
+      }).join('') : '<tr><td colspan="7" class="empty-row">No products match these filters.</td></tr>') +
+      '</tbody></table></div><div class="gc-note">' + list.length + ' of ' + DB.products.length + ' products · the full catalog comes from the import of Raiffeisen’s products (handled separately)</div></div>';
+  }
+
+  /* ───────────── Product editor ───────────── */
+  function startEdit(e) {
+    var b = base(e);
+    EDIT = { id: e.entityId, from: b, data: cloneData(b.data), when: 'now', date: addDays(TODAY, 7), note: '', tried: false };
+  }
+  function editDiff() { return diffData('products', EDIT.from.data, EDIT.data); }
+
+  function renderProduct(id) {
+    var e = entity('products', id);
+    if (!e) { crumbs([['Products', '#products'], ['Not found']]); return '<p class="empty-row">No product called “' + esc(id) + '”. <a class="link" href="#products">Back to products</a></p>'; }
+    if (!EDIT || EDIT.id !== id) startEdit(e);
+    crumbs([['Products', '#products'], [e.name]]);
+    var T = TYPES[e.type], b = EDIT.from, pend = pendingOf(e), sch = scheduledOf(e), locked = !!pend;
+    var html = '<div class="ed-head"><h2>' + esc(e.name) + '</h2><div class="pills">' + statusPills(e) + '</div>' +
+      '<p class="micro">' + T.label + ' · ' + (e.track === 'personal' ? 'Individuals' : 'Business') + ' · owner ' + esc(e.owner) + ' · ' + e.links.docs + ' documents and ' + e.links.faqs + ' FAQs linked · <a class="link" href="' + esc(e.url) + '" target="_blank" rel="noopener">Product page</a></p></div>';
+
+    if (pend) html += pendingBanner(e, pend);
+    if (sch) html += '<div class="gcard" style="margin-bottom:16px"><div class="gc-h"><span>' + ic('calendar-clock') + 'v' + sch.version + ' is scheduled for ' + date(sch.validFrom) + '</span><span class="micro">' + userChip(sch.proposedBy) + '</span></div>' +
+      diffTable(diffData('products', current(e).data, sch.data)) + '<div class="gc-note">Answers keep using v' + current(e).version + ' until then. Quotes already given keep the version they used.</div></div>';
+
+    html += '<div class="ed"><div>';
+    ['rate', 'fees', 'limits'].forEach(function (g) {
+      var keys = Object.keys(EDIT.data.values).filter(function (k) { return FIELDS[k].group === g; });
+      if (!keys.length) return;
+      html += '<section class="gcard fgroup" aria-labelledby="g-' + g + '"><div class="gc-h"><span id="g-' + g + '">' + GROUPS[g] + '</span>' + (g === 'fees' ? '<span class="micro">Every fee is listed, or confirmed as none</span>' : '') + '</div>' +
+        keys.map(function (k) { return fieldRow(k, b.data.values[k], EDIT.data.values[k], locked, k === 'rate' ? T.rateHint : FIELDS[k].hint); }).join('') + '</section>';
+    });
+    html += '<section class="gcard fgroup" aria-labelledby="g-text"><div class="gc-h"><span id="g-text">Description, eligibility and documents</span><span class="micro">One item per line</span></div><div class="list-ed">' +
+      '<div><label class="lbl" for="t-description">Description</label><textarea class="ta" id="t-description" data-list="description"' + (locked ? ' disabled' : '') + '>' + esc(EDIT.data.description) + '</textarea></div>' +
+      '<div><label class="lbl" for="t-eligibility">Eligibility rules</label><textarea class="ta" id="t-eligibility" data-list="eligibility" rows="4"' + (locked ? ' disabled' : '') + '>' + esc(EDIT.data.eligibility.join('\n')) + '</textarea></div>' +
+      '<div><label class="lbl" for="t-documents">Required documents</label><textarea class="ta" id="t-documents" data-list="documents" rows="3"' + (locked ? ' disabled' : '') + '>' + esc(EDIT.data.documents.join('\n')) + '</textarea></div>' +
+      '</div></section>';
+    html += historyCard(e) + '</div>';
+
+    html += '<div class="ed-side"><section class="gcard" aria-labelledby="imp-h" aria-live="polite"><div class="gc-h"><span id="imp-h">' + ic('calculator') + 'Impact preview</span><span class="micro">Sample cases</span></div><div id="impact">' + impactHTML(e) + '</div></section>' +
+      '<section class="gcard" aria-labelledby="pub-h"><div class="gc-h"><span id="pub-h">' + ic(isAdmin() ? 'upload' : 'send') + (isAdmin() ? 'Publish' : 'Submit for approval') + '</span><span class="micro" id="pub-count"></span></div><div id="pub">' + publishHTML(e) + '</div></section></div></div>';
+    return html;
+  }
+
+  function fieldRow(k, orig, cur, locked, hint) {
+    var f = FIELDS[k], rs = reviewState(orig.reviewBy), changed = orig.value !== cur.value;
+    return '<div class="frow' + (changed ? ' changed' : '') + '" data-row="' + k + '">' +
+      '<div class="fl"><b id="lb-' + k + '">' + f.label + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</div>' +
+      '<label class="input"><span class="sr-only">' + f.label + '</span><input type="number" inputmode="decimal" min="0" step="' + f.step + '" data-field="' + k + '" value="' + cur.value + '" aria-describedby="mt-' + k + '"' + (locked ? ' disabled' : '') + '><span class="unit">' + f.unit + '</span></label>' +
+      '<div class="meta" id="mt-' + k + '"><span class="was">Published: <span class="del">' + esc(fmtVal(k, orig.value)) + '</span> → <span class="ins" data-now="' + k + '">' + esc(fmtVal(k, cur.value)) + '</span></span>' +
+        '<a class="src" href="' + esc(orig.sourceUrl) + '" target="_blank" rel="noopener">' + ic('link') + host(orig.sourceUrl) + '</a>' +
+        '<span>valid from ' + dateShort(orig.validFrom) + '</span><span>' + esc(orig.owner) + '</span>' +
+        (rs === 'stale' ? '<span class="stale-ic">' + ic('triangle-alert') + 'review date ' + dateShort(orig.reviewBy) + ' passed</span>' : rs === 'due' ? '<span class="pill p-due">review by ' + dateShort(orig.reviewBy) + '</span>' : '<span>review by ' + date(orig.reviewBy) + '</span>') +
+      '</div>' +
+      '<div class="newsrc"><div><label class="lbl" for="src-' + k + '">Source for the new value</label><label class="input' + (EDIT.tried && !validUrl(cur.sourceUrl) ? ' is-invalid' : '') + '" data-srcwrap="' + k + '"><input type="url" id="src-' + k + '" data-src="' + k + '" value="' + esc(cur.sourceUrl) + '"' + (locked ? ' disabled' : '') + '></label></div>' +
+        '<div><label class="lbl" for="rb-' + k + '">Review by</label><label class="input"><input type="date" id="rb-' + k + '" data-rb="' + k + '" value="' + cur.reviewBy + '" min="' + addDays(TODAY, 1) + '"' + (locked ? ' disabled' : '') + '></label></div></div>' +
+    '</div>';
+  }
+
+  function impactHTML(e) {
+    var T = TYPES[e.type];
+    if (!T.calc) return '<p class="imp-empty">No calculator runs on ' + T.label.toLowerCase() + 's. A change here only affects the fee explanations Raiffy quotes, which cite the new value and its source.</p>';
+    var rows = impactPreview(e, EDIT.from.data.values, EDIT.data.values);
+    if (rows.some(function (r) { return !isFinite(r.after); })) return '<p class="imp-empty">Enter a number in every field to see the preview.</p>';
+    var changed = rows.some(function (r) { return Math.abs(r.delta) > .004; });
+    var flips = rows.filter(function (r) { return r.rec && r.rec.changed; });
+    var metric = rows[0].metric === 'interest' ? 'Interest earned' : 'Monthly payment';
+    var sum;
+    if (!changed && !flips.length) sum = 'Change a value to see its effect on these quotes. ' + (T.compare ? 'The loan-or-overdraft recommendation is re-run too.' : '');
+    else {
+      var ds = rows.map(function (r) { return r.delta; }), lo = Math.min.apply(null, ds), hi = Math.max.apply(null, ds);
+      var word = rows[0].metric === 'interest' ? (hi > 0 ? 'Interest earned rises' : 'Interest earned falls') : (hi > 0 ? 'Monthly payments rise' : 'Monthly payments fall');
+      var aLo = Math.round(Math.min(Math.abs(lo), Math.abs(hi))), aHi = Math.round(Math.max(Math.abs(lo), Math.abs(hi)));
+      sum = '<b>' + word + ' by ' + (aHi > aLo ? num(aLo) + '–' + num(aHi) : num(aHi)) + ' lei' + (rows[0].metric === 'interest' ? '' : ' a month') + '.</b> ' +
+        (T.compare ? (flips.length ? 'The recommendation flips in ' + flips.length + ' of ' + rows.length + ' cases.' : 'The recommendation is unchanged.') : '');
+    }
+    return '<p class="imp-sum">' + sum + '</p><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Case</th><th class="r">' + metric + '</th>' + (T.compare ? '<th>Recommended</th>' : '') + '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var moved = Math.abs(r.delta) > .004;
+        return '<tr' + (r.rec && r.rec.changed ? ' class="hl"' : '') + '><td class="mono" style="font-size:12px">' + num(r.c.amount) + ' lei · ' + r.c.months + ' mo</td>' +
+          '<td class="r mono" style="font-size:12px">' + (moved ? '<span class="del">' + num(r.before, 0) + '</span> ' : '') + '<b style="font-weight:500">' + num(r.after, 0) + ' lei</b>' + (moved ? '<span class="micro"> ' + (r.delta > 0 ? '+' : '−') + num(Math.abs(r.delta), 0) + '</span>' : '') + '</td>' +
+          (r.rec ? '<td style="font-size:12px">' + (r.rec.changed ? '<span class="del">' + recName(r.rec.before) + '</span> → <b style="font-weight:500">' + recName(r.rec.after) + '</b>' : recName(r.rec.after)) + '</td>' : '') + '</tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="gc-note">Calculated with lib/calc · near-tie margin ' + num(param('near-tie')) + ' lei' + (T.compare ? ' · compared with the published ' + (T.compare === 'overdraft' ? 'overdraft' : 'personal loan') : '') + '</div>';
+  }
+  function recName(k) { return k === 'loan' ? 'Loan' : 'Overdraft'; }
+
+  function publishHTML(e) {
+    var pend = pendingOf(e), d = editDiff(), nv = e.versions.length + 1;
+    if (pend) return '<p class="imp-empty">' + (isAdmin() ? 'Approve or reject the pending change first. There is one open proposal per item.' : pend.proposedBy === me() ? 'Your change is waiting for an admin. Withdraw it to make a different one.' : 'Another change is waiting for an admin.') + '</p>';
+    var badSrc = Object.keys(EDIT.data.values).filter(function (k) { return EDIT.data.values[k].value !== EDIT.from.data.values[k].value && !validUrl(EDIT.data.values[k].sourceUrl); });
+    var badVal = Object.keys(EDIT.data.values).filter(function (k) { var v = EDIT.data.values[k].value; return typeof v !== 'number' || isNaN(v) || v < 0; });
+    var errs = [];
+    if (EDIT.tried && badVal.length) errs.push('Enter a number of 0 or more for ' + badVal.map(function (k) { return FIELDS[k].label.toLowerCase(); }).join(', ') + '.');
+    if (EDIT.tried && badSrc.length) errs.push('Add a source link for ' + badSrc.map(function (k) { return FIELDS[k].label.toLowerCase(); }).join(', ') + '.');
+    if (EDIT.tried && EDIT.when === 'date' && !(EDIT.date > TODAY)) errs.push('Pick a date after today.');
+    return '<div class="pub">' +
+      (d.length ? '<div class="gcard" style="box-shadow:none">' + diffTable(d) + '</div>' : '<p class="micro">No changes yet. Edit a value on the left.</p>') +
+      '<div><span class="lbl">Valid from</span><div class="when"><div class="seg" role="group" aria-label="Valid from"><button type="button" data-act="when" data-v="now" aria-pressed="' + (EDIT.when === 'now') + '">' + (isAdmin() ? 'Now' : 'On approval') + '</button><button type="button" data-act="when" data-v="date" aria-pressed="' + (EDIT.when === 'date') + '">A later date</button></div>' +
+        (EDIT.when === 'date' ? '<label class="input"><span class="sr-only">Date</span><input type="date" id="when-date" value="' + EDIT.date + '" min="' + addDays(TODAY, 1) + '"></label>' : '') + '</div></div>' +
+      '<div><label class="lbl" for="pub-note">Reason for the change</label><textarea class="ta" id="pub-note" placeholder="For example: November pricing committee. It goes into the audit log.">' + esc(EDIT.note) + '</textarea></div>' +
+      (errs.length ? '<div role="alert" style="display:grid;gap:4px">' + errs.map(function (x) { return '<p class="err">' + ic('circle-alert') + esc(x) + '</p>'; }).join('') + '</div>' : '') +
+      '<div class="pub-foot"><span class="grow">' + (isAdmin() ? 'Publishes v' + nv + ' with no further approval.' : 'An admin approves v' + nv + ' before customers see it.') + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="discard"' + (d.length ? '' : ' disabled') + '>Discard</button>' +
+        '<button type="button" class="btn btn-dark btn-sm" data-act="commit"' + (d.length ? '' : ' disabled') + '>' + (isAdmin() ? (EDIT.when === 'date' ? 'Schedule v' + nv : 'Publish v' + nv) : 'Submit for approval') + '</button></div>' +
+      '<p class="micro">On publish: linked documents and FAQs are re-embedded, and open plans that used v' + EDIT.from.version + ' are marked “Figures updated since this plan”.</p>' +
+    '</div>';
+  }
+
+  function diffTable(d) {
+    return '<div class="tbl-wrap"><table class="tbl diff"><thead><tr><th>Field</th><th>Published</th><th>Proposed</th></tr></thead><tbody>' +
+      d.map(function (x) { return '<tr><td>' + esc(x.label) + '</td><td class="mono" style="font-size:12px"><span class="del">' + esc(x.from) + '</span></td><td class="mono" style="font-size:12px"><span class="ins">' + esc(x.to) + '</span></td></tr>'; }).join('') +
+      '</tbody></table></div>';
+  }
+
+  function pendingBanner(e, p) {
+    var d = diffData(e.table, base(e).data, p.data), mine = p.proposedBy === me();
+    var decide = isAdmin()
+      ? '<div class="decide"><div><label class="lbl" for="dec-note">Note <span class="micro">(required to reject)</span></label><textarea class="ta" id="dec-note" rows="2" placeholder="Why you approve or reject it. It goes into the audit log."></textarea></div>' +
+        '<p class="err" id="dec-err" hidden>' + ic('circle-alert') + 'Add a reason so ' + esc(USERS[p.proposedBy].name.split(' ')[0]) + ' knows what to change.</p>' +
+        '<div class="act-row"><span class="grow micro">' + (p.validFrom > TODAY ? 'Goes live on ' + date(p.validFrom) + ' once approved.' : 'Goes live as soon as you approve it.') + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="reject" data-t="' + e.table + '" data-id="' + e.entityId + '">Reject</button>' +
+        '<button type="button" class="btn btn-dark btn-sm" data-act="approve" data-t="' + e.table + '" data-id="' + e.entityId + '">' + ic('check') + 'Approve and publish</button></div></div>'
+      : '<div class="decide"><div class="act-row"><span class="grow micro">' + (mine ? 'Only an admin can publish it. You can withdraw it to make changes.' : 'Waiting for an admin.') + '</span>' +
+        (mine ? '<button type="button" class="btn btn-ghost btn-sm" data-act="withdraw" data-t="' + e.table + '" data-id="' + e.entityId + '">Withdraw</button>' : '') + '</div></div>';
+    var impact = '';
+    if (e.table === 'products' && TYPES[e.type].calc) {
+      var rows = impactPreview(e, base(e).data.values, p.data.values);
+      var flips = rows.filter(function (r) { return r.rec && r.rec.changed; }).length;
+      impact = '<div class="gc-note">Impact on sample cases: ' + rows.map(function (r) { return num(r.c.amount) + ' lei · ' + r.c.months + ' mo ' + num(r.before) + ' → ' + num(r.after) + ' lei'; }).join('; ') +
+        (TYPES[e.type].compare ? (flips ? '. Recommendation flips in ' + flips + ' case' + (flips > 1 ? 's' : '') + '.' : '. Recommendation unchanged.') : '.') + '</div>';
+    }
+    return '<section class="gcard banner" style="margin-bottom:16px" aria-labelledby="pend-h"><div class="gc-h"><span id="pend-h"><span class="ic">' + ic('hourglass') + '</span>Pending change · v' + p.version + '</span><span class="micro">' + userChip(p.proposedBy) + ' · ' + date(p.createdAt) + '</span></div>' +
+      (p.note ? '<p class="imp-sum">“' + esc(p.note) + '”</p>' : '') + diffTable(d) + impact + decide + '</section>';
+  }
+
+  function historyCard(e) {
+    var cur = current(e), vs = e.versions.slice().reverse();
+    return '<section class="gcard fgroup" aria-labelledby="hist-h"><div class="gc-h"><span id="hist-h">' + ic('history') + 'Version history</span><span class="micro">' + e.versions.length + ' versions</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Version</th><th>Status</th><th>Change</th><th>By</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      vs.map(function (v) {
+        var prev = e.versions.filter(function (x) { return x.version < v.version && (x.status === 'published' || x.status === 'draft'); }).pop();
+        var d = prev ? diffData(e.table, prev.data, v.data) : [];
+        var st = v === cur ? '<span class="pill p-ink">Current</span>' : v.status === 'published' ? (v.validFrom > TODAY ? '<span class="pill p-scheduled">Scheduled</span>' : '<span class="pill p-draft">Superseded</span>') :
+          '<span class="pill p-' + (v.status === 'superseded' || v.status === 'withdrawn' ? 'draft' : v.status) + '">' + v.status.charAt(0).toUpperCase() + v.status.slice(1) + '</span>';
+        var canRoll = cur && v.status === 'published' && v.validFrom <= TODAY && v.version < cur.version && !pendingOf(e);
+        return '<tr><td class="mono">v' + v.version + '</td><td>' + st + '</td><td><div class="aud-diff">' +
+          (d.length ? d.map(function (x) { return '<div>' + esc(x.label) + ' <span class="del">' + esc(x.from) + '</span> → ' + esc(x.to) + '</div>'; }).join('') : '') +
+          '<div class="micro">' + esc(v.note || '') + (v.rejectReason ? ' · Rejected: ' + esc(v.rejectReason) : '') + '</div></div></td>' +
+          '<td style="font-size:12.5px">' + userChip(v.proposedBy) + '<div class="micro">' + date(v.createdAt) + (v.approvedBy ? ' · approved by ' + esc(USERS[v.approvedBy].name) : '') + '</div></td>' +
+          '<td class="r">' + (canRoll ? '<button type="button" class="btn btn-ghost btn-xs" data-act="rollback" data-id="' + e.entityId + '" data-v="' + v.version + '">' + ic('rotate-ccw') + (isAdmin() ? 'Roll back' : 'Propose rollback') + '</button>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div></section>';
+  }
+
+  /* Partial updates while typing: keep focus by touching only the changed row, the preview and the publish panel. */
+  function refreshEditor() {
+    var e = entity('products', EDIT.id);
+    Object.keys(EDIT.data.values).forEach(function (k) {
+      var row = document.querySelector('[data-row="' + k + '"]'); if (!row) return;
+      var changed = EDIT.data.values[k].value !== EDIT.from.data.values[k].value;
+      row.classList.toggle('changed', changed);
+      var now = row.querySelector('[data-now]'); if (now) now.textContent = isNaN(EDIT.data.values[k].value) ? '—' : fmtVal(k, EDIT.data.values[k].value);
+      var w = row.querySelector('[data-srcwrap]'); if (w) w.classList.toggle('is-invalid', EDIT.tried && changed && !validUrl(EDIT.data.values[k].sourceUrl));
+    });
+    var imp = $('impact'); if (imp) imp.innerHTML = impactHTML(e);
+    refreshPublish();
+  }
+  function refreshPublish() {
+    var e = entity('products', EDIT.id), pub = $('pub');
+    if (!pub) return;
+    var focusId = document.activeElement && document.activeElement.id;
+    var caret = focusId === 'pub-note' ? document.activeElement.selectionStart : null;
+    pub.innerHTML = publishHTML(e);
+    var n = editDiff().length; $('pub-count').textContent = n ? n + ' change' + (n > 1 ? 's' : '') : '';
+    icons();
+    if (focusId && $(focusId)) { $(focusId).focus(); if (caret != null) $(focusId).setSelectionRange(caret, caret); }
+  }
+
+  function commitEdit() {
+    var e = entity('products', EDIT.id);
+    EDIT.tried = true;
+    var bad = Object.keys(EDIT.data.values).some(function (k) {
+      var v = EDIT.data.values[k];
+      return typeof v.value !== 'number' || isNaN(v.value) || v.value < 0 || (v.value !== EDIT.from.data.values[k].value && !validUrl(v.sourceUrl));
+    }) || (EDIT.when === 'date' && !(EDIT.date > TODAY));
+    if (bad) { refreshEditor(); var a = document.querySelector('#pub [role="alert"]'); if (a) a.scrollIntoView({ block: 'nearest' }); return; }
+    var validFrom = EDIT.when === 'date' ? EDIT.date : TODAY;
+    Object.keys(EDIT.data.values).forEach(function (k) { if (EDIT.data.values[k].value !== EDIT.from.data.values[k].value) EDIT.data.values[k].validFrom = validFrom; });
+    var r = commit(e, cloneData(EDIT.data), { validFrom: validFrom, note: EDIT.note.trim() });
+    EDIT = null;
+    if (isAdmin()) toast(validFrom > TODAY ? 'Scheduled ' + e.name + ' v' + r.version.version + ' for ' + date(validFrom) : 'Published ' + e.name + ' v' + r.version.version, 'Re-embedding ' + e.links.docs + ' documents and ' + e.links.faqs + ' FAQs (simulated).');
+    else toast('Sent ' + e.name + ' v' + r.version.version + ' for approval', 'Switch to Admin in the sidebar to approve it.');
+    render();
+  }
+
+  /* ───────────── Rules ───────────── */
+  function renderRules() {
+    crumbs([['Rules']]);
+    return '<div class="pg-head"><div><h2>Rules</h2><p>Two kinds, kept apart on purpose. Parameters are dated values you can edit. Hard limits are behavior rules in code: they are listed here, but changing one is a code change.</p></div></div>' +
+      '<section aria-labelledby="prm-h"><div class="sec-h"><h3 id="prm-h">Parameters</h3><p>A value past its review date blocks the answers that need it.</p></div>' +
+      '<div class="gcard"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Parameter</th><th class="r">Value</th><th>Source</th><th>Valid from</th><th>Review by</th><th>Owner</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      DB.parameters.map(paramRows).join('') + '</tbody></table></div></div></section>' +
+      '<section class="sec" aria-labelledby="hl-h"><div class="sec-h"><h3 id="hl-h">Hard limits</h3><p>Read-only for everyone. No prompt or form can loosen them.</p></div>' +
+      '<div class="gcard"><div class="hl-list">' + HARD_LIMITS.map(function (h) {
+        return '<div class="hl"><span class="ic">' + ic(h.icon) + '</span><div><h4>' + esc(h.name) + ' <span class="pill" style="vertical-align:2px">' + ic('lock') + 'In code</span></h4><p>' + esc(h.text) + '</p>' +
+          '<div class="evs" aria-label="Protecting eval cases">' + h.evals.map(function (x) { return '<span class="ev">' + x + '</span>'; }).join('') + '</div></div></div>';
+      }).join('') + '</div><div class="gc-note">Each limit is protected by the eval cases listed with it. They run on every prompt and code change.</div></div></section>';
+  }
+
+  function paramRows(e) {
+    var cur = current(e), d = cur.data, rs = reviewState(d.reviewBy), pend = pendingOf(e), open = UI.paramOpen === e.entityId;
+    var row = '<tr' + (open ? ' class="hl"' : '') + '><td class="nm"><b>' + esc(e.name) + '</b><small>Used by: ' + esc(e.usedBy) + '</small></td>' +
+      '<td class="r mono">' + fmtParam(d) + '</td><td><a class="src" href="' + esc(d.sourceUrl) + '" target="_blank" rel="noopener">' + ic('link') + host(d.sourceUrl) + '</a></td>' +
+      '<td class="micro mono">' + dateShort(d.validFrom) + '</td>' +
+      '<td>' + (rs === 'stale' ? '<span class="stale-ic">' + ic('triangle-alert') + dateShort(d.reviewBy) + ' · blocking</span>' : rs === 'due' ? '<span class="pill p-due">' + dateShort(d.reviewBy) + '</span>' : '<span class="micro mono">' + dateShort(d.reviewBy) + '</span>') + '</td>' +
+      '<td class="micro">' + esc(d.owner) + '</td>' +
+      '<td class="r"><div class="act-row" style="justify-content:flex-end;flex-wrap:nowrap">' + (pend ? '<span class="pill p-pending">Pending</span>' : '') +
+        '<button type="button" class="btn btn-ghost btn-xs" data-act="param-open" data-id="' + e.entityId + '" aria-expanded="' + open + '">' + (open ? 'Close' : pend ? 'Review' : 'Edit') + '</button></div></td></tr>';
+    if (!open) return row;
+    var inner;
+    if (pend) {
+      inner = '<div style="display:grid;gap:12px"><p style="font-size:13px">' + userChip(pend.proposedBy) + ' proposed ' + fmtParam(d) + ' → <span class="ins">' + fmtParam(pend.data) + '</span> on ' + date(pend.createdAt) + (pend.note ? ': “' + esc(pend.note) + '”' : '') + '</p>' +
+        (isAdmin() ? '<div><label class="lbl" for="dec-note">Note <span class="micro">(required to reject)</span></label><textarea class="ta" id="dec-note" rows="2"></textarea></div><p class="err" id="dec-err" hidden>' + ic('circle-alert') + 'Add a reason for the rejection.</p>' +
+          '<div class="act-row"><span class="grow"></span><button type="button" class="btn btn-ghost btn-sm" data-act="reject" data-t="parameters" data-id="' + e.entityId + '">Reject</button><button type="button" class="btn btn-dark btn-sm" data-act="approve" data-t="parameters" data-id="' + e.entityId + '">' + ic('check') + 'Approve and publish</button></div>'
+          : '<div class="act-row"><span class="grow micro">Waiting for an admin.</span>' + (pend.proposedBy === me() ? '<button type="button" class="btn btn-ghost btn-sm" data-act="withdraw" data-t="parameters" data-id="' + e.entityId + '">Withdraw</button>' : '') + '</div>') + '</div>';
+    } else {
+      inner = '<form class="prm-form" data-pform="' + e.entityId + '" novalidate>' +
+        '<div><label class="lbl" for="pv">New value</label><label class="input"><input type="number" id="pv" step="any" min="0" value="' + d.value + '" required><span class="unit">' + esc(d.unit) + '</span></label></div>' +
+        '<div class="wide"><label class="lbl" for="ps">Source</label><label class="input"><input type="url" id="ps" value="' + esc(d.sourceUrl) + '" required></label></div>' +
+        '<div><label class="lbl" for="pr">Review by</label><label class="input"><input type="date" id="pr" value="' + (rs === 'ok' ? d.reviewBy : addDays(TODAY, 90)) + '" min="' + addDays(TODAY, 1) + '" required></label></div>' +
+        '<div class="wide"><label class="lbl" for="pn">Reason for the change</label><textarea class="ta" id="pn" rows="2" placeholder="For example: Q4 IRCC published by BNR."></textarea></div>' +
+        '<div class="wide" style="display:grid;align-content:end;gap:8px"><p class="err" id="perr" hidden></p><div class="act-row"><span class="grow micro">' + (isAdmin() ? 'Publishes v' + (e.versions.length + 1) + ' now.' : 'An admin approves it first.') + '</span>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-act="param-open" data-id="' + e.entityId + '">Cancel</button><button type="submit" class="btn btn-dark btn-sm">' + (isAdmin() ? 'Publish' : 'Submit for approval') + '</button></div></div>' +
+      '</form>';
+    }
+    return row + '<tr class="prm-ed"><td colspan="7">' + inner + '</td></tr>';
+  }
+
+  /* ───────────── Analytics ───────────── */
+  function fmtCount(x) { return x === null ? '<span class="supp" title="Hidden: fewer than ' + param('analytics-min') + '">&lt;' + param('analytics-min') + '</span>' : num(x); }
+  function fmtShare(x, d) { return x === null ? '<span class="supp" title="Hidden: too few to show">—</span>' : pct(x, d || 0); }
+  function stat(label, value) { return '<div class="stat"><span>' + label + '</span><b>' + value + '</b></div>'; }
+  function funnel(rows) {
+    var top = rows[0][1];
+    return '<div class="fn">' + rows.map(function (r) {
+      var w = r[1] === null || !top ? 0 : r[1] / top * 100;
+      return '<div class="fn-row"><span class="lb">' + r[0] + '</span><span class="tr" aria-hidden="true"><i style="--w:' + w.toFixed(1) + '%"></i></span><span class="ct">' + fmtCount(r[1]) + '</span>' +
+        '<span class="pc">' + (r[1] === null || !top ? '' : pct(r[1] / top)) + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function card(title, from, body) {
+    return '<section class="gcard" aria-label="' + esc(title) + '"><div class="gc-h"><span>' + title + '</span><span class="an-from">' + from + '</span></div><div class="gc-b">' + body + '</div></section>';
+  }
+
+  function renderAnalytics() {
+    crumbs([['Analytics']]);
+    var f = UI.analytics;
+    var seg = function (key, opts) { return '<div class="seg" role="group" aria-label="' + key + '">' + opts.map(function (o) { return '<button type="button" data-act="af" data-k="' + key + '" data-v="' + o[0] + '" aria-pressed="' + (String(f[key]) === String(o[0])) + '">' + o[1] + '</button>'; }).join('') + '</div>'; };
+    return '<div class="pg-head"><div><h2>Analytics</h2><p>How Raiffy uses customers’ account data and what comes of it. Only totals: no customer can be picked out, and counts under ' + param('analytics-min') + ' are hidden.</p></div>' +
+      '<span class="pill">' + ic('flask-conical') + 'Pilot traffic · mock data</span></div>' +
+      '<div class="filters">' + seg('range', [[7, '7 days'], [30, '30 days'], [90, '90 days']]) + seg('track', [['all', 'All'], ['personal', 'Individuals'], ['business', 'Business']]) +
+        seg('entry', [['all', 'All entry points'], ['web', 'Web'], ['smartMobile', 'Smart Mobile']]) + '</div>' +
+      '<div id="an-body">' + analyticsBody() + '</div>';
+  }
+
+  function analyticsBody() {
+    if (!AN) AN = buildAnalytics();
+    var f = UI.analytics, to = addDays(TODAY, -1), from = addDays(TODAY, -f.range);
+    var s = summarize(AN.answers, AN.events, { from: from, to: to, track: f.track === 'all' ? null : f.track, entry: f.entry === 'all' ? null : f.entry, minCount: param('analytics-min') });
+    var k = s.kpis;
+    var html = '<div class="kpis" style="--n:5">' +
+      kpi('Conversations', fmtCount(k.conversations), fmtCount(k.answers) + ' answers') +
+      kpi('Used account data', fmtShare(k.accountDataShare), 'of answers') +
+      kpi('Offer take-up', fmtShare(k.offerTakeUp, 1), 'pre-approved, shown → applied') +
+      kpi('Fully digital', fmtShare(k.digitalShare), 'of applications') +
+      kpi('Money saved', k.moneySavedLei === null ? fmtCount(null) : lei(k.moneySavedLei), 'for customers, from the ledger') + '</div>';
+
+    // Volume
+    var max = Math.max.apply(null, s.daily.map(function (d) { return d.answers; })) || 1;
+    var nice = Math.ceil(max / 100) * 100, ticks = [nice, nice / 2, 0];
+    html += '<section class="gcard sec" aria-labelledby="vol-h"><div class="gc-h"><span id="vol-h">Answers per day</span><span class="an-from">' + date(from) + ' – ' + date(to) + '</span></div><div class="gc-b">' +
+      '<div class="vol"><div class="vol-y" aria-hidden="true">' + ticks.map(function (t) { return '<span style="top:' + (100 - t / nice * 100) + '%">' + num(t) + '</span>'; }).join('') + '</div>' +
+      '<div class="vol-plot" id="vol-plot"><span class="gl" style="top:0"></span><span class="gl" style="top:50%"></span><span class="gl" style="bottom:0"></span>' +
+      '<div class="vol-bars" id="vol-bars" role="img" aria-label="Answers per day, from ' + num(Math.min.apply(null, s.daily.map(function (d) { return d.answers; }))) + ' to ' + num(max) + '. The data table below has every day.">' +
+      s.daily.map(function (d, i) { return '<b data-i="' + i + '"><i style="--h:' + (d.answers / nice * 100).toFixed(1) + '%"></i></b>'; }).join('') + '</div>' +
+      '<div class="tip" id="vol-tip" hidden></div></div>' +
+      '<div class="vol-x" aria-hidden="true"><span>' + dateShort(from) + '</span><span>' + dateShort(s.daily[Math.floor(s.daily.length / 2)].date) + '</span><span>' + dateShort(to) + '</span></div></div></div>' +
+      '<details class="tv"><summary>' + ic('chevron-right') + 'Data table</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th class="r">Answers</th><th class="r">Conversations</th></tr></thead><tbody>' +
+      s.daily.slice().reverse().map(function (d) { return '<tr><td class="mono" style="font-size:12px">' + date(d.date) + '</td><td class="r mono">' + (d.answers ? num(d.answers) : fmtCount(null)) + '</td><td class="r mono">' + (d.conversations ? num(d.conversations) : fmtCount(null)) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></details></section>';
+    AN.lastDaily = s.daily;
+
+    // Data usage
+    var usageTop = Math.max.apply(null, s.dataUsage.map(function (u) { return u.answers || 0; })) || 1;
+    html += '<section class="gcard sec" aria-labelledby="du-h"><div class="gc-h"><span id="du-h">Account data used in answers</span><span class="an-from">Share of all answers</span></div><div class="gc-b"><div class="fn">' +
+      s.dataUsage.map(function (u) {
+        return '<div class="fn-row" style="grid-template-columns:minmax(120px,200px) minmax(0,1fr) 64px 44px"><span class="lb">' + SOURCE_LABEL[u.source] + '</span><span class="tr" aria-hidden="true"><i style="--w:' + ((u.answers || 0) / usageTop * 100).toFixed(1) + '%"></i></span>' +
+          '<span class="ct">' + fmtCount(u.answers) + '</span><span class="pc">' + (u.share === null ? '' : pct(u.share)) + '</span></div>';
+      }).join('') + '</div></div></section>';
+
+    var a = s.affordability, o = s.offers, sv = s.savings, fe = s.fees, el = s.eligibility, ch = s.channel, ct = s.contracts, q = s.quality;
+    html += '<div class="an-grid sec">';
+    html += card('Affordability and debt', 'Existing loans and cards · limits',
+      '<div class="stat-rows">' + stat('Affordability checks run', fmtCount(a.checks)) + stat('Run without asking the customer', fmtCount(a.withoutAsking)) +
+      stat('Credit limits changed the result', fmtCount(a.limitsChanged)) + stat('Refinancing answers', fmtCount(a.refinancing)) + stat('Early-repayment answers', fmtCount(a.earlyRepayment)) +
+      stat('Short-term cash-need comparisons', fmtCount(a.cashNeed)) + '</div>' +
+      '<p class="sub-h">Fixed-rate-ending reminder</p>' + funnel([['Sent', a.fixedRateReminder.sent], ['Opened', a.fixedRateReminder.opened], ['Acted on', a.fixedRateReminder.acted]]));
+    html += card('Pre-approved offers', 'Bank-issued offers',
+      funnel([['Shown', o.funnel.shown], ['Opened', o.funnel.opened], ['Applied', o.funnel.applied]]) +
+      '<div class="stat-rows" style="margin-top:16px">' + stat('Expired unused', fmtCount(o.expired)) + stat('Average gap to the list rate', o.avgRateGapPts === null ? fmtCount(null) : num(o.avgRateGapPts, 2) + ' pts') + '</div>' +
+      '<p class="sub-h">By product · shown → applied</p><div class="stat-rows">' + o.byProduct.map(function (p) { return stat(productName(p.productId), fmtCount(p.shown) + ' → ' + fmtCount(p.applied)); }).join('') + '</div>' +
+      (o.bankSourcedShare === null ? '' : o.bankSourcedShare === 1
+        ? '<p class="check-line">' + ic('shield-check') + '<span>All offers shown were issued by the bank. Raiffy computed none.</span></p>'
+        : '<p class="check-line bad">' + ic('triangle-alert') + '<span>' + pct(1 - o.bankSourcedShare, 1) + ' of offers were not bank-issued. This breaks a hard limit.</span></p>'));
+    html += card('Relationship pricing', 'Products held',
+      '<div class="stat-rows">' + stat('“You already qualify” conditions shown', fmtCount(s.pricing.qualifyShown)) + stat('Hidden costs caught, such as a package already paid', fmtCount(s.pricing.hiddenCostCaught)) +
+      stat('Fee explanations given', fmtCount(s.pricing.feeExplanations)) + '</div>');
+    html += card('Fees', 'Fees charged',
+      '<div class="stat-rows">' + stat('“Why was I charged this?” questions', fmtCount(fe.questions)) + stat('Answered without a handoff', fmtShare(fe.resolvedShare)) + '</div>' +
+      '<p class="sub-h">Most-asked fee lines</p>' + (fe.top.length ? '<div class="fn">' + fe.top.map(function (t) {
+        return '<div class="fn-row" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 64px"><span class="lb">' + esc(t.feeLine) + ' <span class="micro">· ' + esc(productName(t.productId)) + '</span></span><span class="tr" aria-hidden="true"><i style="--w:' + (t.count / fe.top[0].count * 100).toFixed(1) + '%"></i></span><span class="ct">' + num(t.count) + '</span></div>';
+      }).join('') + '</div>' : '<p class="micro">Too few questions to show.</p>'));
+    html += card('Savings', 'Deposits and savings',
+      '<div class="stat-rows">' + stat('Deposit goals created', fmtCount(sv.goalsCreated)) + stat('Goal progress shown in the living plan', fmtCount(sv.progressShown)) + '</div>' +
+      '<p class="sub-h">Maturity reminder</p>' + funnel([['Sent', sv.maturityReminder.sent], ['Opened', sv.maturityReminder.opened], ['Acted on', sv.maturityReminder.acted]]));
+    html += card('Eligibility', 'Age and residency',
+      '<div class="stat-rows">' + stat('Limited by maximum age at the end of the loan', fmtCount(el.maxAgeAtEnd)) + stat('Limited by residency', fmtCount(el.residency)) + '</div>' +
+      '<p class="sub-h">Where limits come up</p><div class="stat-rows">' + (el.byProduct.length ? el.byProduct.map(function (p) { return stat(productName(p.productId), fmtCount(p.count)); }).join('') : '<p class="micro">Too few to show.</p>') + '</div>');
+    var tot = (ch.digital || 0) + (ch.branch || 0);
+    html += card('Digital or branch', 'Identity verification status',
+      (tot ? '<div class="split" role="img" aria-label="' + pct((ch.digital || 0) / tot) + ' fully digital, ' + pct((ch.branch || 0) / tot) + ' through a branch"><i style="width:' + ((ch.digital || 0) / tot * 100).toFixed(1) + '%"></i><i style="flex:1"></i></div>' +
+        '<div class="legend"><span><i></i>Fully digital · ' + fmtCount(ch.digital) + '</span><span><i class="lt"></i>Branch visit · ' + fmtCount(ch.branch) + '</span></div>' : '<p class="micro">Too few applications to show.</p>') +
+      '<p class="sub-h">Why customers needed a branch</p><div class="stat-rows">' + ch.branchReasons.map(function (r) { return stat({ idNotVerified: 'Identity not verified for digital signing', documents: 'Documents needed in person', customerChoice: 'Customer chose a branch' }[r.reason], fmtCount(r.count)); }).join('') + '</div>');
+    html += card('Applications and contracts', 'Application and contract events',
+      funnel([['Applied', ct.funnel.applied], ['Signed', ct.funnel.signed], ['Withdrawn', ct.funnel.withdrawn], ['Repaid early', ct.funnel.repaid]]) +
+      '<div class="stat-rows" style="margin-top:16px">' + stat('“Raiffeisen options only” turned on after a first signing', fmtCount(ct.raiffeisenOnlyDefaults)) +
+      stat('Money saved, ledger total', ct.moneySaved.totalLei === null ? fmtCount(null) : lei(ct.moneySaved.totalLei)) +
+      stat('Median per customer', ct.moneySaved.medianLei === null ? fmtCount(null) : lei(ct.moneySaved.medianLei)) + stat('Customers with savings recorded', fmtCount(ct.moneySaved.customers)) + '</div>');
+    html += '</div>';
+
+    html += '<section class="sec" aria-labelledby="q-h"><div class="sec-h"><h3 id="q-h">Assistant quality</h3><p>Where answers needed help. Stale-data blocks point to <a class="link" href="#rules">Rules</a> and <a class="link" href="#products">Products</a>.</p></div>' +
+      '<div class="kpis" style="--n:4">' + kpi('Passed checks first time', fmtShare(q.firstPassShare), 'evaluator, no retry') + kpi('Safe fallbacks', fmtCount(q.fallbacks), 'after two failed retries') +
+      kpi('Sent to a specialist', fmtCount(q.escalations), 'automatic or on request') + kpi('Blocked by stale data', fmtCount(q.staleBlocks), staleNote()) + '</div></section>';
+    return html;
+  }
+  function kpi(k, v, s) { return '<div class="kpi"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + s + '</div></div>'; }
+  function staleNote() {
+    var st = []; DB.products.concat(DB.parameters).forEach(function (e) { staleValues(e).forEach(function (x) { if (x.state === 'stale') st.push(e.name); }); });
+    return st.length ? 'now: ' + esc(st.join(', ')) : 'no stale values now';
+  }
+
+  function bindVolume() {
+    var bars = $('vol-bars'), tip = $('vol-tip'), plot = $('vol-plot');
+    if (!bars) return;
+    function hide() { tip.hidden = true; bars.classList.remove('hovering'); var on = bars.querySelector('.on'); if (on) on.classList.remove('on'); }
+    bars.addEventListener('pointermove', function (ev) {
+      var b = ev.target.closest('b'); if (!b) return;
+      var d = AN.lastDaily[+b.dataset.i]; var on = bars.querySelector('.on'); if (on !== b) { if (on) on.classList.remove('on'); b.classList.add('on'); }
+      bars.classList.add('hovering');
+      tip.innerHTML = '<b>' + date(d.date) + '</b><span>' + (d.answers ? num(d.answers) + ' answers' : 'Fewer than ' + param('analytics-min') + ' answers') + '</span><br><span>' + (d.conversations ? num(d.conversations) + ' conversations' : '') + '</span>';
+      tip.hidden = false;
+      var pr = plot.getBoundingClientRect(), br = b.getBoundingClientRect(), x = br.left - pr.left + br.width / 2;
+      tip.style.left = Math.max(0, Math.min(pr.width - tip.offsetWidth, x - tip.offsetWidth / 2)) + 'px';
+      tip.style.top = '-8px'; tip.style.transform = 'translateY(-100%)';
+    });
+    bars.addEventListener('pointerleave', hide);
+  }
+
+  /* ───────────── Audit ───────────── */
+  function renderAudit() {
+    crumbs([['Audit log']]);
+    var f = UI.audit, q = f.q.trim().toLowerCase();
+    var list = DB.audit.filter(function (a) {
+      if (f.action !== 'all' && a.action.indexOf(f.action) < 0) return false;
+      if (q && (USERS[a.userId].name + ' ' + entityName(a) + ' ' + a.reason + ' ' + a.diff.join(' ')).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    return '<div class="pg-head"><div><h2>Audit log</h2><p>Every change, approval, rejection and rollback: who, when, what and why. Append-only, and nobody can edit it.</p></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-act="export">' + ic('download') + 'Export CSV</button></div>' +
+      '<div class="filters"><label class="input">' + ic('search') + '<span class="sr-only">Search the audit log</span><input type="search" id="aq" placeholder="Search people, items, reasons" value="' + esc(f.q) + '" autocomplete="off"></label>' +
+      '<div class="seg" role="group" aria-label="Action">' + [['all', 'All'], ['published', 'Published'], ['submitted', 'Submitted'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['roll', 'Rollbacks']].map(function (o) {
+        return '<button type="button" data-act="audf" data-v="' + o[0] + '" aria-pressed="' + (f.action === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="gcard"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Item</th><th>Change</th><th>Why</th></tr></thead><tbody>' +
+      (list.length ? list.map(function (a) {
+        var e = entity(a.table, a.entity), href = a.table === 'products' ? '#products/' + a.entity : '#rules';
+        return '<tr><td class="mono" style="font-size:12px;white-space:nowrap">' + date(a.at) + '<div class="micro">' + a.at.slice(11, 16) + ' UTC</div></td><td style="font-size:12.5px">' + userChip(a.userId) + '<div class="micro">' + USERS[a.userId].role + '</div></td>' +
+          '<td><span class="pill' + (a.action === 'rejected' ? ' p-rejected' : a.action === 'submitted' ? ' p-pending' : '') + '">' + esc(a.action) + '</span></td>' +
+          '<td style="white-space:nowrap"><a class="link" href="' + href + '">' + esc(e ? e.name : a.entity) + '</a> <span class="micro mono">v' + a.version + '</span></td>' +
+          '<td class="aud-diff">' + (a.diff.length ? a.diff.map(function (d) { return '<div>' + esc(d[0]) + ' <span class="del">' + esc(d[1]) + '</span> → <span class="ins">' + esc(d[2]) + '</span></div>'; }).join('') : '<span class="micro">—</span>') + '</td>' +
+          '<td style="font-size:12.5px;color:var(--text-2);max-width:320px">' + esc(a.reason || '—') + '</td></tr>';
+      }).join('') : '<tr><td colspan="6" class="empty-row">No entries match.</td></tr>') +
+      '</tbody></table></div><div class="gc-note">' + list.length + ' entries · unmasking and chat access will be logged here too once Reviews is built</div></div>';
+  }
+  function exportCsv() {
+    var rows = [['at', 'user', 'role', 'action', 'table', 'entity', 'version', 'change', 'reason']].concat(DB.audit.map(function (a) {
+      return [a.at, USERS[a.userId].name, USERS[a.userId].role, a.action, a.table, a.entity, a.version, a.diff.map(function (d) { return d[0] + ': ' + d[1] + ' -> ' + d[2]; }).join('; '), a.reason];
+    }));
+    var csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+    var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a');
+    a.href = url; a.download = 'raiffy-audit-' + TODAY + '.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  /* ───────────── Router ───────────── */
+  function parseHash() {
+    var h = location.hash.replace(/^#/, '') || 'home', parts = h.split('/');
+    var pages = ['home', 'products', 'rules', 'analytics', 'audit'];
+    ROUTE = { page: pages.indexOf(parts[0]) >= 0 ? parts[0] : 'home', id: parts[1] ? decodeURIComponent(parts[1]) : null };
+  }
+  function render(opts) {
+    var html;
+    switch (ROUTE.page) {
+      case 'products': html = ROUTE.id ? renderProduct(ROUTE.id) : renderProducts(); break;
+      case 'rules': html = renderRules(); break;
+      case 'analytics': html = renderAnalytics(); break;
+      case 'audit': html = renderAudit(); break;
+      default: html = renderHome();
+    }
+    var c = $('content');
+    c.className = 'page' + (opts && opts.enter ? ' enter' : '');
+    c.innerHTML = html;
+    renderNav(); icons();
+    if (ROUTE.page === 'products' && ROUTE.id && EDIT) { var n = editDiff().length; if ($('pub-count')) $('pub-count').textContent = n ? n + ' change' + (n > 1 ? 's' : '') : ''; }
+    if (ROUTE.page === 'analytics') bindVolume();
+    document.title = ($('crumbs').querySelector('h1') || {}).textContent + ' · Raiffy Admin';
+  }
+  function navigate() {
+    parseHash();
+    if (!(ROUTE.page === 'products' && ROUTE.id && EDIT && EDIT.id === ROUTE.id)) EDIT = null;
+    UI.paramOpen = null;
+    render({ enter: true });
+    $('scroll').scrollTop = 0;
+    closeSide();
+    $('content').focus({ preventScroll: true });
+  }
+
+  /* ───────────── Events ───────────── */
+  function openSide() { $('app').classList.add('side-open'); $('scrim').hidden = false; $('open-side').setAttribute('aria-expanded', 'true'); }
+  function closeSide() { $('app').classList.remove('side-open'); $('scrim').hidden = true; $('open-side').setAttribute('aria-expanded', 'false'); }
+  $('open-side').addEventListener('click', openSide);
+  $('scrim').addEventListener('click', closeSide);
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && $('app').classList.contains('side-open')) { closeSide(); $('open-side').focus(); } });
+
+  document.addEventListener('click', function (ev) {
+    var row = ev.target.closest('tr[data-href]');
+    if (row && !ev.target.closest('a, button')) { location.hash = row.dataset.href; return; }
+    var t = ev.target.closest('[data-act]'); if (!t) return;
+    var act = t.dataset.act;
+    if (act === 'role') {
+      if (ROLE === t.dataset.role) return;
+      ROLE = t.dataset.role; EDIT = null; UI.paramOpen = null; render();
+      announce('Now viewing as ' + USERS[me()].name + ', ' + ROLE + '.');
+      toast('Viewing as ' + USERS[me()].name, ROLE === 'admin' ? 'Admins publish directly and approve proposals.' : 'Operators propose changes for an admin to approve.');
+    } else if (act === 'pf') { UI.products[t.dataset.k] = t.dataset.v; render(); refocus('[data-act="pf"][data-k="' + t.dataset.k + '"][data-v="' + t.dataset.v + '"]'); }
+    else if (act === 'pf-review') { UI.products.review = !UI.products.review; render(); refocus('[data-act="pf-review"]'); }
+    else if (act === 'af') {
+      UI.analytics[t.dataset.k] = t.dataset.k === 'range' ? +t.dataset.v : t.dataset.v;
+      document.querySelectorAll('[data-act="af"][data-k="' + t.dataset.k + '"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); });
+      $('an-body').innerHTML = analyticsBody(); icons(); bindVolume(); announce('Analytics updated.');
+    }
+    else if (act === 'audf') { UI.audit.action = t.dataset.v; render(); refocus('[data-act="audf"][data-v="' + t.dataset.v + '"]'); }
+    else if (act === 'export') { exportCsv(); toast('Exported the audit log', DB.audit.length + ' entries as CSV.'); }
+    else if (act === 'when') { EDIT.when = t.dataset.v; refreshPublish(); refocus('[data-act="when"][data-v="' + t.dataset.v + '"]'); }
+    else if (act === 'discard') { var e0 = entity('products', EDIT.id); startEdit(e0); render(); toast('Changes discarded'); }
+    else if (act === 'commit') commitEdit();
+    else if (act === 'approve' || act === 'reject' || act === 'withdraw') decide(act, t.dataset.t, t.dataset.id);
+    else if (act === 'rollback') rollback(t.dataset.id, +t.dataset.v);
+    else if (act === 'param-open') { UI.paramOpen = UI.paramOpen === t.dataset.id ? null : t.dataset.id; render(); var f = $('pv') || $('dec-note'); if (f) f.focus(); else refocus('[data-act="param-open"][data-id="' + t.dataset.id + '"]'); }
+  });
+  function refocus(sel) { var el = document.querySelector(sel); if (el) el.focus(); }
+
+  function decide(act, table, id) {
+    var e = entity(table, id), p = pendingOf(e);
+    if (act === 'withdraw') { withdraw(e); toast('Withdrew your change to ' + e.name); EDIT = null; render(); return; }
+    var note = ($('dec-note') && $('dec-note').value.trim()) || '';
+    if (act === 'reject') {
+      if (!note) { $('dec-err').hidden = false; $('dec-note').classList.add('is-invalid'); $('dec-note').focus(); return; }
+      reject(e, note); toast('Rejected ' + e.name + ' v' + p.version, USERS[p.proposedBy].name + ' sees your reason.');
+    } else {
+      approve(e, note);
+      toast(p.validFrom > TODAY ? 'Approved. ' + e.name + ' v' + p.version + ' goes live on ' + date(p.validFrom) : 'Approved and published ' + e.name + ' v' + p.version,
+        table === 'products' ? 'Re-embedding ' + e.links.docs + ' documents and ' + e.links.faqs + ' FAQs (simulated).' : 'Answers use the new value from now on.');
+    }
+    EDIT = null; UI.paramOpen = null; render();
+  }
+
+  function rollback(id, v) {
+    var e = entity('products', id), target = e.versions.filter(function (x) { return x.version === v; })[0];
+    var data = cloneData(target.data);
+    Object.keys(data.values).forEach(function (k) { data.values[k].validFrom = TODAY; if (data.values[k].reviewBy <= TODAY) data.values[k].reviewBy = addDays(TODAY, 90); });
+    var r = commit(e, data, { validFrom: TODAY, note: 'Restores the values of v' + v + '.', rollbackTo: v });
+    EDIT = null;
+    toast(isAdmin() ? 'Rolled back ' + e.name + ': v' + r.version.version + ' restores v' + v : 'Proposed a rollback of ' + e.name + ' to v' + v, isAdmin() ? 'Published as a new version. Nothing was deleted.' : 'An admin approves it first.');
+    render();
+  }
+
+  document.addEventListener('input', function (ev) {
+    var t = ev.target;
+    if (t.id === 'pq') { UI.products.q = t.value; var pos = t.selectionStart; render(); var q = $('pq'); q.focus(); q.setSelectionRange(pos, pos); return; }
+    if (t.id === 'aq') { UI.audit.q = t.value; var p2 = t.selectionStart; render(); var a = $('aq'); a.focus(); a.setSelectionRange(p2, p2); return; }
+    if (!EDIT) return;
+    if (t.dataset.field) { EDIT.data.values[t.dataset.field].value = t.value === '' ? NaN : parseFloat(t.value); refreshEditor(); }
+    else if (t.dataset.src) { EDIT.data.values[t.dataset.src].sourceUrl = t.value.trim(); refreshEditor(); }
+    else if (t.dataset.rb) { EDIT.data.values[t.dataset.rb].reviewBy = t.value; }
+    else if (t.dataset.list) {
+      EDIT.data[t.dataset.list] = t.dataset.list === 'description' ? t.value : t.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+      refreshPublish();
+    }
+    else if (t.id === 'pub-note') EDIT.note = t.value;
+    else if (t.id === 'when-date') { EDIT.date = t.value; }
+  });
+  document.addEventListener('change', function (ev) { if (ev.target.id === 'when-date' && EDIT) refreshPublish(); });
+
+  document.addEventListener('submit', function (ev) {
+    var form = ev.target.closest('[data-pform]'); if (!form) return;
+    ev.preventDefault();
+    var e = entity('parameters', form.dataset.pform), cur = current(e).data;
+    var v = parseFloat($('pv').value), src = $('ps').value.trim(), rb = $('pr').value, note = $('pn').value.trim(), err = [];
+    if (isNaN(v) || v < 0) err.push('Enter a value of 0 or more.');
+    if (!validUrl(src)) err.push('Add a source link.');
+    if (!(rb > TODAY)) err.push('Pick a review date after today.');
+    if (!err.length && v === cur.value && src === cur.sourceUrl && rb === cur.reviewBy) err.push('Nothing changed.');
+    if (err.length) { var pe = $('perr'); pe.innerHTML = ic('circle-alert') + esc(err.join(' ')); pe.hidden = false; pe.setAttribute('role', 'alert'); icons(); return; }
+    var r = commit(e, Object.assign({}, cur, { value: v, sourceUrl: src, reviewBy: rb, validFrom: TODAY }), { validFrom: TODAY, note: note });
+    UI.paramOpen = null;
+    toast(isAdmin() ? 'Published ' + e.name + ': ' + fmtParam(r.version.data) : 'Sent ' + e.name + ' for approval', isAdmin() ? 'Answers that were blocked by it can run again.' : 'Switch to Admin in the sidebar to approve it.');
+    render();
+  });
+
+  window.addEventListener('hashchange', navigate);
+  navigate();
+})();
+</script>
+</body>
+</html>

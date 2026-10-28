@@ -35,6 +35,7 @@ Never use pure black or pure white for text. Use three levels: primary, secondar
 - **The primary "ink" is `#1A1A1A`.** Daylight uses it for filled buttons, active segments, slider fills, checkboxes and chart bars. Selection is shown with dark ink, not color.
 - Badges/pills: 10.5–11px on a 12% tint of their color (`color-mix(in srgb, var(--c) 12%, transparent)`). Deep amber text (`#8A6A00`, `#7A5A00`) sits on yellow tints.
 - Semantic green appears only for checks (`#2E7D4F`).
+- `--danger: #B42318` is for form errors and failing checks only (`login.html`, `console.html`), never for decoration or "bad" options.
 - **Never:** gradient text, rainbow gradients, purple/blue, neon outlines.
 
 ## 4. Typography
@@ -107,6 +108,23 @@ The rules every vignette follows:
   - For a `detail` answer, one suggestion goes deeper into the same product and one opens a related Raiffeisen solution.
 - **Thinking panel:** while Raiffy works, a dimmed panel above the answer (`#FBFAF8`, hairline border, radius 12px, Geist Mono 12px in `--text-3`) lists pre-written status lines, with the current one in `--text-2` and amber dots, and done lines ticked. When the text starts streaming, the panel folds into a `<details>` summary, "How I worked this out · 2 steps", that the customer can reopen. Then the answer streams word by word with a blinking caret.
 - **Sign-in methods** (`login.html`): a dark "Continue with Raiffeisen" button with the yellow logo mark (an SSO placeholder, not wired), then equal ghost Google and Apple buttons with monochrome marks, an "or use your email" divider and an email magic-link form. Sign-up adds the required terms checkbox and a separate, unticked marketing-consent checkbox.
+- **Raiffy inside Smart Mobile** (`smart-mobile.html`): a mobile-first app on the same tokens, shown full screen on a phone and in a 390×844 frame on desktop.
+  - **Entry points:** an "Ask Raiffy" bar above the tab bar on Home, "Ask Raiffy about this" links (a `#FFFDF7` row with the Raiffy avatar and the pre-generated question in quotes), and the **Raiffy cards** on Home: one `#FFFDF7` card at a time with one bloom, a small title, a figure in bold and its source in `--text-3`, moved through with a swipe or the arrow buttons next to a mono "2 of 6" counter, and a × that offers "Not interested in this" or "Don't show these". A card the customer comes back to shows a bookmark line ("You looked at this on 28 Oct") with "Not interested" (ghost) and "Continue" (ink). No floating bubble.
+  - **Routes card:** a recommendation's options as stacked rows (name, detail, figure on the right), the recommended one first with its badge and tint, then the "Why I recommend…" block and an optional handoff button.
+  - **Raiffy sheet:** full height with a grab handle, a context chip on `#FFF8DC` ("From: Overdraft · 8,000 lei used"), tap chips above the composer.
+  - **Compare on mobile:** one option per column, swiped with scroll snap, the recommended one first, with dots and "Swipe to compare".
+  - **Handoff:** an ink "Apply in Smart Mobile" button with an arrow-up-right icon, a ghost secondary, and a lock note saying the customer signs in the app.
+  - **One-time allow:** a card showing the object, with equal "Allow once" (ink) and "Not now" (ghost) buttons.
+  - **Official screens** (apply, repay): white, no blooms, no Raiffy avatar, a "Smart Mobile" lock tag and a 4-step progress bar, so the customer can see they've left the assistant. Touch targets are at least 44px.
+- **Human verification** (`chat.html`): an "Ask a specialist" `.vbtn` in each answer's footer and "Check my plan" on the simulator open an inline request panel (`.vreq`). It says what the specialist will see, has a "See what's sent" disclosure, an optional note, and the honest wait. The status comes back as a `.vstat` line: waiting (grey), confirmed or edited with the reviewer's name and time (check green), and "Changed after the specialist's check" (yellow tint) when the inputs move. Edited text shows added words on `#FFF3C4` and removed words struck through.
+- **Console** (`console.html`): Daylight only, with a 240px sidebar (nav with ink count badges for work that needs you) and a demo-only Operator/Admin switch.
+  - **Tables:** hairline rows, 11px uppercase headers, mono tabular numbers, whole rows clickable with a real link in the first cell. New rows get a 3px yellow inset on the left.
+  - **Dated-value row** (`.dv`): name and what it means, the value in mono, then the source pill, start date, owner and review date always together. Past review date gets a `--danger` pill and a `#FFFCF0` row. Pending changes show under the value.
+  - **Diffs:** added text or values on `#FFF3C4`, removed struck through in `--text-3`, never red/green.
+  - **Checks** (`.chk`): a dot (green check, yellow minus for a warning, `--danger` cross for a failure) plus a title and one line of why. A failing check disables the action it guards.
+  - **Editor sheet:** a native `<dialog>` from the right, 520px. Value, start date, required source, a note, and a live impact preview table where changed rows are tinted `#FFF8DC`.
+  - **Review workspace:** conversation, answer and "built from" columns at 1440px or more, two columns below that, one column under 960px. Masked PII is a mono chip with an eye button, and unmasking asks for a reason.
+  - **Analytics** (`admin.html#analytics`): one series per chart, in ink on a `#EFEDE8` track with 4px rounded data ends and a 2px gap between bars. Funnels are bar rows (label, bar, count, mono % of the first stage). Daily volume gets a hover tooltip and a "Data table" disclosure. Hidden counts (under the minimum group size) read `<10` in `--text-3`, never 0.
 - **Footer:** a hairline top border, 13px `--text-3`, a 2fr + 3×1fr column grid and a legal row.
 - **Focus:** `outline: 2px solid var(--ink); outline-offset: 2px` (yellow in Nocturne).
 

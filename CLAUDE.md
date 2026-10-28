@@ -21,7 +21,7 @@ Concept work for **Raiffy**, an AI financial assistant for Raiffeisen Bank Roman
 
 ## Product POC stack
 
-**HTML first.** Most of the app UI is built as self-contained HTML pages in the repo root first (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`, then `console.html` and the rest), then converted to the Next.js POC page by page. The Next.js stack below is locked. Don't propose alternatives unless asked, and don't scaffold the Next.js app until the user asks for the conversion.
+**HTML first.** Most of the app UI is built as self-contained HTML pages in the repo root first (`raiffy.html`, `login.html`, `chat.html`, `swipe.html`, `smart-mobile.html`, then `console.html` and the rest), then converted to the Next.js POC page by page. The Next.js stack below is locked. Don't propose alternatives unless asked, and don't scaffold the Next.js app until the user asks for the conversion.
 
 | Concern | Choice |
 |---|---|

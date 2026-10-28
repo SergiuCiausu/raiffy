@@ -125,6 +125,35 @@ The counter-offer log and the **win-rate KPI** (`docs/shared/pricing.md` → Log
 
 Every change, approval, rollback, unmasking and chat access: who, when, what (with the diff) and why. Filterable, exportable, never editable.
 
+### Analytics
+
+How Raiffy uses customers' account data and what comes of it. Prototype: `admin.html#analytics`. Logic: `lib/analytics/` (`summarize`, with Zod schemas and tests).
+
+- **Aggregates only.** Records carry a pseudonymous conversation key and customer key, never a name, CNP, IBAN or balance. Any count below the `analytics-min` parameter (10 in the POC) is hidden, and so is any rate or median built on a hidden count. Looking at a single chat goes through Reviews, with the usual logging.
+- Filters: date range, track, entry point (web or Smart Mobile).
+- **KPIs:** conversations, share of answers that used account data, pre-approved offer take-up (shown → applied), share of fully digital applications, money saved from the ledger.
+
+One section per account-data source:
+
+| Section | Account data | Metrics |
+| --- | --- | --- |
+| Affordability and debt | Existing loans and cards; overdraft and card limits | Checks run, run without asking the customer, credit limits changed the result; refinancing, early-repayment and cash-need answers; fixed-rate-ending reminder sent → opened → acted on |
+| Pre-approved offers | Bank-issued offers | Shown → opened → applied, by product; expired unused; average gap to the list rate; share issued by the bank (must be 100%, a hard limit) |
+| Relationship pricing | Products held | "You already qualify" conditions shown; hidden costs caught; fee explanations given |
+| Fees | Fees charged | "Why was I charged this?" questions, share answered without a handoff, most-asked fee lines |
+| Savings | Deposits and savings | Deposit goals created and shown; maturity reminder sent → opened → acted on |
+| Eligibility | Age and residency | Answers limited by maximum age at loan end or residency, by product |
+| Digital or branch | Identity verification status | Digital vs branch applications, and why customers needed a branch |
+| Applications and contracts | Application and contract events | Applied → signed → withdrawn → repaid; "Raiffeisen options only" turned on after a first signing; money-saved total, median per customer |
+
+An **assistant quality** strip sits under them: evaluator first-pass rate, safe fallbacks, escalations to a specialist, and answers blocked by stale data, linked to the stale values in Products and Rules.
+
+**Proposed definitions** (not specified elsewhere yet, confirm before building the pipeline side):
+
+- **Money-saved ledger:** one `moneySaved` entry per signed contract or early repayment, in lei, against the customer's previous or alternative option, computed by the same deterministic tools as the quote.
+- **"Raiffeisen options only" default:** after a customer's first signing, comparisons show only Raiffeisen options unless the customer asks for competitors. Each switch is logged.
+- **Reminders:** `fixedRateEnding` (lead time from the `fixed-end-lead` parameter) and `depositMaturity` (`maturity-lead`), each with sent, opened and acted stages.
+
 ## Data model (Convex)
 
 ```ts
@@ -161,6 +190,9 @@ type EvalCase = {
 };
 
 type AuditEntry = { at: string; userId: string; action: string; entity?: string; diff?: string; reason?: string };
+
+// Analytics: answerTraces and outcomeEvents, append-only. Shapes in lib/analytics/schemas.ts
+// (AnswerTrace: track, entry, intent, dataUsed[], evaluator result; OutcomeEvent: a discriminated union by kind).
 ```
 
 ## HTML prototype (`console.html`)
