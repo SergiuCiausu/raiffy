@@ -8,8 +8,13 @@ const hit = (id: string, url: string, text: string): SearchHit => ({
   chunkId: id,
   text,
   embedded: true,
-  visiblePersonal: true,
-  visibleBusiness: false,
+  bank: "raiffeisen",
+  personal_bank_product_docs: true,
+  personal_competitor_docs: false,
+  personal_banking_help: false,
+  business_bank_product_docs: false,
+  business_competitor_docs: false,
+  business_banking_help: false,
   sourceType: "product_page",
   sectionType: "interest_rates",
   url,
@@ -48,7 +53,7 @@ describe("prompt building", () => {
       "Collected on 2026-10-28.", "Depozite la termen", "Dobânzi", "3 luni: dobândă 4.70% pe an",
     ]);
     expect(result.citations).toEqual({ enabled: true });
-    expect(result.title).toBe("Depozite la termen · Dobânzi");
+    expect(result.title).toBe("Raiffeisen Bank · Depozite la termen · Dobânzi");
   });
 
   it("returns only search results in a tool result, or a note when there are none", () => {

@@ -37,14 +37,20 @@ const tool = (name: string, description: string, schema: z.ZodObject) => ({
   input_schema: z.toJSONSchema(schema),
 });
 
+export const searchKnowledgeInputSchema = z.object({
+  collection: z.enum(COLLECTIONS), query: z.string().min(1).max(1000), limit: z.number().int().min(1).max(5),
+}).strict();
+export type SearchKnowledgeInput = z.infer<typeof searchKnowledgeInputSchema>;
+
+export const getProductTermsInputSchema = z.object({
+  query: z.string().min(1).max(500), productIds: z.array(z.string().min(1)).max(6),
+}).strict();
+export type GetProductTermsInput = z.infer<typeof getProductTermsInputSchema>;
+
 /** Contracts only. The backend must implement handlers and authorize them before enabling a tool. */
 export const AGENT_TOOLS = [
-  tool("search_knowledge", "Retrieve a small set of relevant, dated passages from an allowed logical collection. Public bank documents and competitor documents explain product terms; user_memory contains only the caller's approved personal context. The host injects identity, track and organization and filters owner, active version and expiry before retrieval. It returns passage IDs, provenance, dates and coverage gaps; an unavailable collection returns unavailable, never another collection's content.", z.object({
-    collection: z.enum(COLLECTIONS), query: z.string().min(1).max(1000), limit: z.number().int().min(1).max(5),
-  }).strict()),
-  tool("get_product_terms", "Look up exact structured terms for identified bank or competitor products. Use this for rates, commissions, eligibility conditions and comparison inputs; document similarity alone cannot establish these values. The host returns versioned records with effective dates, verification deadlines and official source URLs, marking incomplete or stale terms unavailable. This is an indicative catalog lookup and cannot approve credit or create a binding offer.", z.object({
-    query: z.string().min(1).max(500), productIds: z.array(z.string().min(1)).max(6),
-  }).strict()),
+  tool("search_knowledge", "Retrieve a small set of relevant, dated passages from an allowed logical collection. Public bank documents and competitor documents explain product terms; user_memory contains only the caller's approved personal context. The host injects identity, track and organization and filters owner, active version and expiry before retrieval. It returns passage IDs, provenance, dates and coverage gaps; an unavailable collection returns unavailable, never another collection's content.", searchKnowledgeInputSchema),
+  tool("get_product_terms", "Look up exact structured terms for identified bank or competitor products. Use this for rates, commissions, eligibility conditions and comparison inputs; document similarity alone cannot establish these values. The host returns versioned records with effective dates, verification deadlines and official source URLs, marking incomplete or stale terms unavailable. This is an indicative catalog lookup and cannot approve credit or create a binding offer.", getProductTermsInputSchema),
   tool("get_expense_summary", "Read deterministic spending and income aggregates for the authenticated customer or authorized business. Use for budgeting, spending explanations and affordability inputs; do not request raw account identifiers or another customer's data. The result includes integer minor units, currency, period boundaries, completeness and source timestamp, excluding sensitive merchant details. The host supplies the owner scope and returns unavailable when the bank-data connection is missing.", z.object({
     period: z.enum(["last_complete_month", "last_three_complete_months"]),
   }).strict()),

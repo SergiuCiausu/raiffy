@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raiffeisen vs ING vs BCR</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1c1c1c;--mute:#666;--line:#e3e3df;--raiffeisen:#e6c800;--ing:#ff6200;--bcr:#0a5db8;--warn:#fff4d6;}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141414;--card:#1e1e1e;--ink:#eee;--mute:#aaa;--line:#333;--warn:#3a3217;}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.9rem;margin:.2em 0}h2{font-size:1.35rem;margin:0 0 .3em}h3{font-size:1rem;margin:1.2em 0 .4em;color:var(--mute)}
+.sub{color:var(--mute);margin:0 0 20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:18px 0;overflow-x:auto}
+.lead{color:var(--mute);margin:.2em 0 .8em}
+table{width:100%;border-collapse:collapse;min-width:640px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th,tr:first-child th{font-weight:600}th.raiffeisen{border-bottom:3px solid var(--raiffeisen)}th.ing{border-bottom:3px solid var(--ing)}th.bcr{border-bottom:3px solid var(--bcr)}
+td.small,.small{font-size:.86rem;color:var(--mute)}
+.bar{display:flex;align-items:center;gap:10px;min-width:150px}
+.track{position:relative;flex:1;height:14px;background:var(--line);border-radius:7px;overflow:hidden}
+.fill{position:absolute;top:0;bottom:0;left:0;display:block;border-radius:7px}
+.fill.raiffeisen{background:var(--raiffeisen)}.fill.ing{background:var(--ing)}.fill.bcr{background:var(--bcr)}
+.bar b{font-size:.88rem;font-weight:600;min-width:84px;white-space:nowrap}
+.big{font-size:1.5rem;font-weight:700}.big.raiffeisen{color:#a58f00}.big.ing{color:var(--ing)}.big.bcr{color:var(--bcr)}
+.warn{background:var(--warn);border-radius:10px;padding:10px 14px;margin:.6em 0 1em;font-size:.93rem}
+.note,.sources{font-size:.82rem;color:var(--mute);margin:.8em 0 0}.cond{font-size:.86rem;color:var(--mute);padding-left:18px}
+.sources a{color:inherit}b.raiffeisen{color:#a58f00}b.ing{color:var(--ing)}b.bcr{color:var(--bcr)}
+footer{color:var(--mute);font-size:.82rem;margin-top:24px}
+@media(max-width:640px){h1{font-size:1.5rem}}
+</style></head><body><main>
+<h1>Raiffeisen vs ING vs BCR</h1>
+<p class="sub">Produse pentru persoane fizice, comparate pe baza site-urilor publice ale băncilor · date colectate până la 28.10.2026</p>
+<section><h2>1 · Depozite la termen în lei</h2><p class="lead">Dobândă anuală, fixă. „Standard” = deschis oricărui client; „cu bonus” = necesită o condiție de relație cu banca.</p>
+<h3>Dobândă standard</h3><table><tr><th>Termen</th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>3 luni</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:67.1%"></span></div><b>4,70%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:50.0%"></span></div><b>3,50%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:48.6%"></span></div><b>3,40%</b></div></td></tr>
+<tr><th>6 luni *</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:71.4%"></span></div><b>5,00%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:57.1%"></span></div><b>4,00%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:54.3%"></span></div><b>3,80%</b></div></td></tr>
+<tr><th>12 luni</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:74.3%"></span></div><b>5,20%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:64.3%"></span></div><b>4,50%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:67.1%"></span></div><b>4,70%</b></div></td></tr>
+</table>
+<p class="note">* Dobânda standard Raiffeisen la 6 luni este cea a Flexidepozitului (permite depuneri ulterioare și o retragere parțială). Coloana „standard” ING reprezintă contul ING Go fără venit recurent. Termenul de 12 luni apare la ING ca „1 an”.</p>
+<h3>Cu bonus de relație</h3><table><tr><th>Termen</th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>3 luni</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:71.4%"></span></div><b>5,00%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:57.1%"></span></div><b>4,00%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:60.0%"></span></div><b>4,20%</b></div></td></tr>
+<tr><th>6 luni</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:78.6%"></span></div><b>5,50%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:64.3%"></span></div><b>4,50%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:65.7%"></span></div><b>4,60%</b></div></td></tr>
+<tr><th>12 luni</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:78.6%"></span></div><b>5,50%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:71.4%"></span></div><b>5,00%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:78.6%"></span></div><b>5,50%</b></div></td></tr>
+</table>
+<ul class="cond"><li><b class="raiffeisen">Raiffeisen:</b> 3 și 12 luni: pachet de cont curent (Gold/Zero/Premium/Standard) + încasări lunare ≥ 2.000 lei; 6 luni: pachet Premium + încasări ≥ 10.000 lei/lună. Depozitul se închide la scadență (fără reînnoire automată).</li><li><b class="ing">ING:</b> Venituri recurente ≥ 700 lei/lună în contul din pachetul ING Go și cel puțin o plată pe lună (sau Free@ING, ING More, ING Extra).</li><li><b class="bcr">BCR:</b> Venituri ≥ 1.000 lei/lună într-un cont curent BCR (în 3 din ultimele 4 luni), depozit deschis în Internet/Mobile Banking.</li></ul>
+<h3>Promoții principale (sume noi)</h3><table><tr><th></th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr><tr><th>Dobândă</th>
+<td><div class="big raiffeisen">6,20%</div><div class="small">Fresh Money, 4 luni — doar sume noi, minimum 500 lei</div></td>
+<td><div class="big ing">până la 6%</div><div class="small">Depozit Bonus, 4 luni — sume noi; 6% necesită venit recurent ≥ 700 lei/lună + o plată pe lună</div></td>
+<td><div class="big bcr">6,00%</div><div class="small">Promo 5 luni, sume noi, canal digital — 5,20% dobândă de bază + 0,8% bonus de loialitate / venit recurent</div></td>
+</tr></table><p class="note">Surse: paginile de produs Raiffeisen și ING; PDF-ul oficial BCR „Dobânzi” din 15.09.2026 (secțiunea de campanie). Dobânzile se schimbă des — verificați data de la finalul paginii.</p></section>
+<section><h2>2 · Credit de nevoi personale (fără garanții)</h2><p class="lead">Interval de dobândă fixă, așa cum e afișat. Cele mai mici dobânzi cer condiții (asigurare, salariul în bancă, perioadă de campanie).</p><table><tr><th></th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>Interval dobândă</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="left:27.7%;width:62.0%"></span></div><b>5,55% – 17,95%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="left:29.9%;width:50.0%"></span></div><b>5,99% – 15,99%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="left:31.4%;width:43.5%"></span></div><b>6,29% – 14,99%</b></div></td></tr>
+<tr><th>Sumă maximă</th><td>până la echivalentul a 50.000 euro</td><td>2.000 – 200.000 lei</td><td>până la 250.000 lei</td></tr>
+<tr><th>Perioadă</th><td>până la 5 ani (60 de luni)</td><td>1 – 5 ani</td><td>până la 5 ani (60 de luni)</td></tr>
+<tr><th>Comision de analiză</th><td>200 lei</td><td>0 lei cu convenție salarială ING; altfel 200 lei (doar dacă se acordă creditul)</td><td>200 lei</td></tr>
+<tr><th>Comision lunar de administrare</th><td>5 lei / lună</td><td>0 lei</td><td>0 lei</td></tr>
+<tr><th>DAE în exemplul băncii</th><td>9,49%</td><td>indisponibil</td><td>9,94% – 16,41%</td></tr>
+<tr><th>Observații despre DAE / dobândă</th><td class="small">Exemplu: 50.000 lei pe 5 ani la 5,55%, inclusiv prima de asigurare de viață; necesită venit recurent ≥ 2.000 lei (oferta Yellow Friday, 15.10–26.11.2026). Dobânda de 5,55% este o dobândă de campanie, limitată în timp.</td><td class="small">Calculatorul ING completează DAE cu JavaScript, deci nu apare în pagina colectată. Interval de dobândă fixă așa cum e afișat; dobânda finală depinde de profilul clientului.</td><td class="small">Exemplu: 30.000 lei pe 5 ani — 9,94% la dobândă 6,29%, 13,90% la 10%, 16,41% la 14,99%. 6,29% necesită asigurare BCR + nivel Max/Max Invest în Programul de beneficii George; intervalul standard este 7,99–14,99% (DAE 8,59–18,91%).</td></tr>
+</table><p class="sources">Surse: <b class="raiffeisen">Raiffeisen</b> <a href="https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html">raiffeisen.ro/…/credit-de-nevoi-personale-fara-ipoteca</a> · <b class="ing">ING</b> <a href="https://ing.ro/persoane-fizice/credite/ing-personal">ing.ro/…/ing-personal</a> · <b class="bcr">BCR</b> <a href="https://www.bcr.ro/ro/persoane-fizice/credite/credit-george">bcr.ro/…/credit-george</a></p></section>
+<section><h2>3 · Card de credit</h2><div class="warn"><b>Nu comparați direct DAE.</b> Exemplul reprezentativ cerut de lege folosește la fiecare bancă o altă limită de credit și un alt mix de retrageri de numerar și rate fără dobândă (DAE de 12,1% la BCR presupune că 60% din limită se rambursează în rate fără dobândă). Folosiți rândul cu ipotezele.</div><table><tr><th></th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>Produs</th><td>Card de credit Raiffeisen Standard</td><td>ING Credit Card</td><td>BCR Cardul de credit 100% online (Standard)</td></tr>
+<tr><th>DAE în exemplul băncii</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:81.0%"></span></div><b>32,40%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:70.2%"></span></div><b>28,07%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:30.2%"></span></div><b>12,1%</b></div></td></tr>
+<tr><th>Ipotezele exemplului</th><td class="small">Limită 5.367 lei, folosită integral pentru plăți la comercianți, rambursată în 12 rate lunare egale, cu dobândă de 26%</td><td class="small">Limită 9.600 lei pe 1 an, dobândă fixă 25,00%, rată lunară 912 lei</td><td class="small">Limită 5.367 lei, 40% retragere de numerar + 60% plătit în rate fără dobândă</td></tr>
+<tr><th>Comisioane</th><td class="small">Nu apar pe pagina produsului (sunt în PDF-ul de tarife)</td><td class="small">Emitere 0 lei; administrare anuală 35 lei/an (perceput la începutul anului următor)</td><td class="small">Emitere 20 lei (0 la nivelul Pro din George); anual 45 lei/an (0 în primul an la nivelul Pro)</td></tr>
+<tr><th>Perioadă de grație</th><td class="small">nu apare pe pagină</td><td class="small">Până la 45 de zile</td><td class="small">Până la 55 de zile</td></tr>
+<tr><th>Rate fără dobândă</th><td class="small">Până la 9 rate fără dobândă oriunde în lume (3 rate pentru orice sumă; 6 de la 500 lei; 9 de la 1.000 lei)</td><td class="small">3 rate fără dobândă oriunde în lume (cumpărături peste 500 lei); până la 24 de rate la comercianți parteneri</td><td class="small">Până la 12 rate fără dobândă oriunde în lume (cumpărături de la 600 lei)</td></tr>
+<tr><th>Limită de credit</th><td class="small">700 – 50.000 lei</td><td class="small">nu apare pe pagină</td><td class="small">nu apare pe pagină</td></tr>
+</table><p class="sources">Surse: <b class="raiffeisen">Raiffeisen</b> <a href="https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/carduri/cardul-de-cumparaturi-standard.html">raiffeisen.ro/…/cardul-de-cumparaturi-standard</a> · <b class="ing">ING</b> <a href="https://ing.ro/persoane-fizice/credite/credit-card">ing.ro/…/credit-card</a> · <b class="bcr">BCR</b> <a href="https://www.bcr.ro/ro/persoane-fizice/carduri-de-cumparaturi/cardul-de-credit-online">bcr.ro/…/cardul-de-credit-online</a></p></section>
+<section><h2>4 · Credit ipotecar</h2><p class="lead">Perioadă inițială cu dobândă fixă, apoi variabilă (IRCC + marjă). Dobânzile „de la” sunt cazul cel mai favorabil și cer condiții.</p><table><tr><th></th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>Produs</th><td>Casa Ta</td><td>ING Ipotecar</td><td>Casa Mea</td></tr>
+<tr><th>Fixă 3 ani</th><td><div class="bar"><div class="track"><span class="fill raiffeisen" style="width:63.1%"></span></div><b>de la 5,05%</b></div></td><td><div class="bar"><div class="track"><span class="fill ing" style="width:59.9%"></span></div><b>4,79% – 6,59%</b></div></td><td><div class="bar"><div class="track"><span class="fill bcr" style="width:62.4%"></span></div><b>de la 4,99%</b></div></td></tr>
+<tr><th>Fixă 5 ani</th><td class="small">de la 5,65%</td><td class="small">5,29% – 7,09%</td><td class="small">nu apare pe pagină</td></tr>
+<tr><th>Apoi</th><td class="small">IRCC + 2,30%</td><td class="small">IRCC + 1,89%</td><td class="small">IRCC + 2,3%</td></tr>
+<tr><th>Avans minim</th><td class="small">15%</td><td class="small">15%</td><td class="small">nespecificat pe pagină (maximum 85% din valoarea investiției)</td></tr>
+<tr><th>Perioadă</th><td class="small">3 – 30 de ani</td><td class="small">nespecificată pe pagină (maximum 85% din valoarea evaluată)</td><td class="small">până la 30 de ani</td></tr>
+<tr><th>Observații</th><td class="small">Casa Ta Verde pornește de la 4,85% în primii 3 ani.</td><td class="small">Se adaugă: +0,3% fără asigurare de viață, +0,4% dacă imobilul nu are certificat energetic A/A+, +0,5% dacă veniturile nu sunt aduse la ING.</td><td class="small">4,99% necesită venit ≥ 10.000 lei și nivel Max/Max Invest în George; standard 6,19% (venit ≥ 10.000 lei) sau 6,39% (&lt; 10.000 lei).</td></tr>
+</table><p class="sources">Surse: <b class="raiffeisen">Raiffeisen</b> <a href="https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-imobiliar-casa-ta.html">raiffeisen.ro/…/credit-imobiliar-casa-ta</a> · <b class="ing">ING</b> <a href="https://ing.ro/persoane-fizice/credite/ipotecar">ing.ro/…/ipotecar</a> · <b class="bcr">BCR</b> <a href="https://www.bcr.ro/ro/persoane-fizice/credite/credite-pentru-casa/casa-mea-bcr">bcr.ro/…/casa-mea-bcr</a></p></section>
+<section><h2>Baza de date</h2><table><tr><th></th><th class="raiffeisen">Raiffeisen</th><th class="ing">ING</th><th class="bcr">BCR</th></tr>
+<tr><th>Pagini de produs colectate</th><td>208</td><td>84</td><td>261</td></tr>
+<tr><th>Pagini cu FAQ</th><td>50</td><td>53</td><td>230</td></tr>
+<tr><th>PDF-uri descărcate și citite</th><td>392</td><td>0</td><td>127</td></tr>
+<tr><th>Linkuri PDF blocate de robots.txt</th><td>0</td><td>59</td><td>1</td></tr>
+</table><p class="note">Cifrele arată ce a acoperit scraperul, nu mărimea catalogului fiecărei bănci. ING interzice în robots.txt colectarea PDF-urilor, deci listele complete de comisioane și dobânzi ING nu sunt în date.</p></section>
+<footer><b>De citit înainte de prezentare:</b> instantaneu al paginilor publice din 28.10.2026; dobânzile și campaniile se schimbă.
+Dobânzile afișate sunt cazul cel mai favorabil și condiționate, exemplele reprezentative diferă între bănci, iar documentul nu reprezintă
+consultanță financiară. Fiecare cifră trimite la pagina sursă; lista completă, cu condiții, este în <code>comparatie.csv</code>.</footer>
+</main></body></html>

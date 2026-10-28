@@ -4,6 +4,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { EMBEDDING_MODEL, embedTexts } from "./openai";
 
 const BATCH = 64;
+const SAVE_BATCH = 16;
 /** Stop well before the action time limit and continue in a fresh scheduled run. */
 const TIME_BUDGET_MS = 5 * 60 * 1000;
 
@@ -49,10 +50,14 @@ export const embedPending = internalAction({
       const batch = await ctx.runQuery(internal.embeddings.pendingBatch, { limit: BATCH });
       if (batch.length === 0) return { embedded, scheduledMore: false };
       const vectors = await embedTexts(batch.map((doc) => doc.text));
-      await ctx.runMutation(internal.embeddings.saveEmbeddings, {
-        model: EMBEDDING_MODEL,
-        items: batch.map((doc, i) => ({ id: doc._id, embedding: vectors[i]! })),
-      });
+      const items = batch.map((doc, i) => ({ id: doc._id, embedding: vectors[i]! }));
+      // Each vector write also updates the vector index and its six filter fields: keep transactions small.
+      for (let start = 0; start < items.length; start += SAVE_BATCH) {
+        await ctx.runMutation(internal.embeddings.saveEmbeddings, {
+          model: EMBEDDING_MODEL,
+          items: items.slice(start, start + SAVE_BATCH),
+        });
+      }
       embedded += batch.length;
     }
     await ctx.scheduler.runAfter(0, internal.embeddings.embedPending, {});

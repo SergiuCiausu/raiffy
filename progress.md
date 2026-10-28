@@ -35,6 +35,15 @@ Last updated: 2026-10-28 (backend integration review). Branch: `codex/backend-in
 - Validation: generated setup matches its sources; TypeScript checks pass. Unit tests cover routing, risk overrides, capability checks and memory isolation. No live provider or in-app acceptance run yet.
 - **Memory candidates from Jev (policy `raiffy-agent@2`).** Jev now also asks what the customer stated about themselves (`memory_candidate`: goal, preference, constraint, stated figure), whether it is durable and whether the message has special-category or third-party details. `scoreMemoryCandidate` in `lib/agent/memory.ts` accepts a candidate when P(kind) × P(durable) ≥ 0.6 and no risk, special-category or explicit memory operation applies. The route planner then adds `propose_memory_change` to the normal answer without changing the handler or model. The customer confirms every memory; persistence stays disabled. Thresholds are provisional; new labeled cases are in `evals/agent-routing.json`.
 
+## Task 2: retrieval and catalog (Andrei), 2026-10-28
+
+- Plan agreed: `raiffy-spec/docs/plans/retrieval.md`. It uses Denis's architecture and contracts (`search_knowledge`, `get_product_terms`), OpenAI embeddings, `banks-data-package/` as the single data source (Raiffeisen, ING, BCR) and `comparatie.csv` as the catalog seed.
+- Added `banks-data-package/` (10,100 chunks, snapshot 2026-10-28). Scope rule confirmed: tools get their scope only from a server-side `resolveScope`; Denis's auth work (task 1) plugs in there once it's on GitHub.
+- Step 1 in progress: three-bank schemas, segment-to-track mapping (incl. BCR `micro` and `business (micro, IMM, corporate)`), six track-by-collection filter fields, provenance and freshness rules (`lib/rag/provenance.ts`), and the import builder. The import has 9,334 docs (37 withdrawn and 729 corporate chunks left out).
+- Step 1 done: all 9,334 docs are re-imported into Convex and embedded with OpenAI. Personal: 2,308 bank, 3,906 competitor, 255 banking help. Business: 761 bank, 2,502 competitor, 50 banking help. Retrieval on the bank collection, hit@5: 8/8 original, 26/33 extended, 31/41 English (before: 8/8, 27/33, 30/41).
+- Fix: `embeddings:saveEmbeddings` now writes 16 vectors per transaction. 64 hit Convex's "too many system operations" limit once there were six filter fields.
+- Fixed `pnpm agent:check-setup` on Windows: `.gitattributes` keeps `agents/` in LF.
+
 ## Decisions so far
 
 | Date | Decision | Source |

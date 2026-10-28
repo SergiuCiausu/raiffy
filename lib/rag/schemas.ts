@@ -1,10 +1,15 @@
 import { z } from "zod";
 
+export const BANKS = ["raiffeisen", "ing", "bcr"] as const;
+
 export const SEGMENTS = [
   "persoane fizice",
   "premium banking",
   "private banking",
   "IMM",
+  "micro",
+  "business",
+  "business (micro, IMM, corporate)",
   "corporate",
 ] as const;
 
@@ -14,6 +19,8 @@ export const SECTION_TYPES = [
   "description",
   "fees",
   "fee_table",
+  "rate_table",
+  "table",
   "interest_rates",
   "eligibility",
   "required_documents",
@@ -22,29 +29,40 @@ export const SECTION_TYPES = [
   "pdf",
 ] as const;
 
-export const DOC_TYPES = ["tarife", "contract", "fisa", "regulament", "ghid", "termeni", "altele"] as const;
+export const DOC_TYPES = ["tarife", "dobanzi", "contract", "fisa", "regulament", "ghid", "termeni", "altele"] as const;
 
 export const TRACKS = ["personal", "business"] as const;
 
+/** The public logical collections of the agent route plan (lib/agent/route.ts). `user_memory` is private. */
+export const PUBLIC_COLLECTIONS = ["bank_product_docs", "competitor_docs", "banking_help"] as const;
+
+export const bankSchema = z.enum(BANKS);
 export const segmentSchema = z.enum(SEGMENTS);
 export const sectionTypeSchema = z.enum(SECTION_TYPES);
 export const docTypeSchema = z.enum(DOC_TYPES);
 export const trackSchema = z.enum(TRACKS);
+export const publicCollectionSchema = z.enum(PUBLIC_COLLECTIONS);
 
+export type Bank = z.infer<typeof bankSchema>;
 export type Segment = z.infer<typeof segmentSchema>;
 export type SectionType = z.infer<typeof sectionTypeSchema>;
 export type DocType = z.infer<typeof docTypeSchema>;
 export type Track = z.infer<typeof trackSchema>;
+export type PublicCollection = z.infer<typeof publicCollectionSchema>;
 
-/** One line of raiffeisen-rag-package/data/chunks.jsonl (see its SCHEMA.md). */
+/** One line of banks-data-package/data/chunks.jsonl (see its SCHEMA.md). */
 export const rawChunkSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1),
   metadata: z.object({
+    bank: bankSchema,
+    bank_name: z.string().min(1),
     source_type: z.enum(["product_page", "pdf"]),
     section_type: sectionTypeSchema,
     url: z.url(),
     scraped_at: z.iso.datetime({ offset: true }),
+    status: z.enum(["active", "withdrawn"]).optional(),
+    page_type: z.string().optional(),
     product_id: z.string().optional(),
     product: z.string().optional(),
     segment: segmentSchema.optional(),
@@ -64,22 +82,42 @@ export const rawChunkSchema = z.object({
 export type RawChunk = z.infer<typeof rawChunkSchema>;
 
 /**
+ * Where a chunk can be found: one boolean per track and public collection. Convex vector filters can't AND two
+ * fields, so each combination is its own filter field (see `scopeField`).
+ */
+export const scopeFlagsSchema = z.object({
+  personal_bank_product_docs: z.boolean(),
+  personal_competitor_docs: z.boolean(),
+  personal_banking_help: z.boolean(),
+  business_bank_product_docs: z.boolean(),
+  business_competitor_docs: z.boolean(),
+  business_banking_help: z.boolean(),
+});
+export type ScopeFlags = z.infer<typeof scopeFlagsSchema>;
+export type ScopeField = keyof ScopeFlags;
+
+export function scopeField(track: Track, collection: PublicCollection): ScopeField {
+  return `${track}_${collection}`;
+}
+
+/**
  * A chunk as stored in the Convex `ragChunks` table. Optional fields are omitted, never null.
  * Chunks are imported without a vector; `embeddings:embedPending` fills `embedding` in Convex.
  */
 export const ragChunkDocSchema = z.object({
   chunkId: z.string().min(1),
+  bank: bankSchema,
   text: z.string().min(1),
   searchText: z.string().min(1),
   embedding: z.array(z.number()).min(1).optional(),
   embeddingModel: z.string().min(1).optional(),
   embedded: z.boolean(),
-  visiblePersonal: z.boolean(),
-  visibleBusiness: z.boolean(),
+  ...scopeFlagsSchema.shape,
   sourceType: z.enum(["product_page", "pdf"]),
   sectionType: sectionTypeSchema,
   url: z.url(),
   scrapedAt: z.iso.datetime({ offset: true }),
+  pageType: z.string().optional(),
   segment: segmentSchema.optional(),
   product: z.string().optional(),
   productId: z.string().optional(),
@@ -110,6 +148,7 @@ export type SearchFocus = z.infer<typeof searchFocusSchema>;
 export const searchArgsSchema = z.object({
   question: z.string().trim().min(1).max(2000),
   track: trackSchema,
+  collection: publicCollectionSchema.default("bank_product_docs"),
   k: z.number().int().min(1).max(20).default(5),
   focus: searchFocusSchema.default("any"),
 });
