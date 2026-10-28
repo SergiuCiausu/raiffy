@@ -1,0 +1,40 @@
+/*
+ * Tailwind v4 without preflight: the ported pages bring their own resets (styles/generated/*.css),
+ * and preflight would change them. Theme tokens mirror DESIGN.md for new UI written with utilities.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme inline {
+  --font-sans: var(--font-geist), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-ink: #1A1A1A;
+  --color-accent-a: #FFD23F;
+  --color-accent-b: #FF9A3D;
+  --color-bg: #FAF9F7;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F4F3F0;
+  --color-text-1: #1A1A1A;
+  --color-text-2: #5C5C5F;
+  --color-text-3: #8E8E93;
+  --color-nocturne: #08080B;
+  --color-check: #2E7D4F;
+
+  --radius-card: 20px;
+  --radius-inner: 12px;
+  --radius-btn: 10px;
+
+  --text-h1: 36px;
+  --text-h2: 28px;
+  --text-h3: 20px;
+  --text-h4: 16px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: #FAF9F7; color: #1A1A1A; font-family: var(--font-geist), system-ui, sans-serif; }
