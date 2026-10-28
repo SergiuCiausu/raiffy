@@ -9,7 +9,7 @@ async function openSidebar(page: Page) {
 }
 
 test.describe("chat", () => {
-  test.beforeEach(async ({ page }) => { await page.goto("/chat"); });
+  test.beforeEach(async ({ page }) => { await page.goto("/chat/demo"); });
 
   test("opens on the seeded comparison with its cards and follow-ups", async ({ page }) => {
     await expect(page.locator("#title")).toHaveText("Loan or overdraft for 8,000 lei");

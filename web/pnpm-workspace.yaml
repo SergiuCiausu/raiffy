@@ -1,4 +1,6 @@
 allowBuilds:
+  # Only the Convex CLI bundles with esbuild, and it runs from the repo root; the web app needs just the client
+  esbuild: false
   sharp: false
   unrs-resolver: false
 

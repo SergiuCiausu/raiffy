@@ -1,17 +1,18 @@
 "use client";
 
 import {
-  useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore,
-  type FormEvent, type KeyboardEvent, type MouseEvent, type ReactNode,
+  useEffect, useEffectEvent, useLayoutEffect, useRef, useState,
+  type FormEvent, type KeyboardEvent, type MouseEvent,
 } from "react";
 import Link from "next/link";
 import {
-  ArrowDownIcon, ArrowUpIcon, CalculatorIcon, ChevronRightIcon, CompassIcon, CopyIcon, CreditCardIcon, FileBadgeIcon,
+  ArrowDownIcon, ArrowUpIcon, CalculatorIcon, CompassIcon, CopyIcon, CreditCardIcon, FileBadgeIcon,
   FileTextIcon, HeadsetIcon, LogOutIcon, MenuIcon, PanelRightIcon, PaperclipIcon, PencilIcon, PiggyBankIcon, PinIcon, SearchIcon,
   ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon, ThumbsUpIcon, WalletIcon, XIcon,
 } from "lucide-react";
 import { ChatStarters } from "@/components/generated/ChatStarters";
 import { AnswerCard } from "./cards";
+import { GroupList, Thinking, ThinkLines, useIsMac, useMedia } from "./parts";
 import {
   FLOWS, GROUPS, INITIAL_PERMS, NEW_CHAT_ICON, PIN_META, SAVED_SIMS, SEED_CONVS, SEED_PINS, SOURCES, route,
   type Card, type Conv, type FlowKey, type PermKey, type Perms, type Pin, type RaiffyMsg, type SourceKey, type UserMsg,
@@ -44,16 +45,6 @@ const chipsFor = (c: Conv, perms: Perms) => {
 };
 const noEnter = (cs: Conv[]) => cs.map((c) => ({ ...c, messages: c.messages.map((m) => (m.enter ? { ...m, enter: false } : m)) }));
 
-function useMedia(query: string) {
-  return useSyncExternalStore(
-    (cb) => { const m = matchMedia(query); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); },
-    () => matchMedia(query).matches,
-    () => false,
-  );
-}
-const isMac = () => /Mac|iPhone|iPad/.test(navigator.platform);
-const noop = () => () => {};
-
 export function ChatApp() {
   const [convs, setConvs] = useState<Conv[]>(SEED_CONVS);
   const [active, setActive] = useState("c1");
@@ -75,7 +66,7 @@ export function ChatApp() {
 
   const narrowCtx = useMedia("(max-width: 1199px)");
   const narrowSide = useMedia("(max-width: 859px)");
-  const mac = useSyncExternalStore(noop, isMac, () => false);
+  const mac = useIsMac();
 
   const scroller = useRef<HTMLDivElement>(null);
   const jumpBtn = useRef<HTMLButtonElement>(null);
@@ -573,10 +564,6 @@ export function ChatApp() {
   );
 }
 
-function GroupList({ label, children }: { label: string; children: ReactNode }) {
-  return <><span className="grp eyebrow">{label}</span>{children}</>;
-}
-
 function RenameInput({ title, onClose }: { title: string; onClose: (value: string | null) => void }) {
   const el = useRef<HTMLInputElement>(null);
   const closed = useRef(false);
@@ -599,26 +586,6 @@ function UserMessage({ m }: { m: UserMsg }) {
       {m.file && <span className="file-chip"><span className="ft"><FileTextIcon /></span>{m.file} <small>PDF</small></span>}
       {m.text && <div className="bubble">{m.text}</div>}
     </div>
-  );
-}
-
-function ThinkLines({ lines, live }: { lines: string[]; live?: boolean }) {
-  return lines.map((t, i) => {
-    const on = live && i === lines.length - 1;
-    return (
-      <li key={i} className={on ? "think-line on" : "think-line"}>
-        {on && <span className="dots" aria-hidden="true"><i /><i /><i /></span>}<span>{t}</span>
-      </li>
-    );
-  });
-}
-
-function Thinking({ lines }: { lines: string[] }) {
-  return (
-    <details className="think">
-      <summary><ChevronRightIcon />How I worked this out · {lines.length}{lines.length === 1 ? " step" : " steps"}</summary>
-      <ol className="think-lines"><ThinkLines lines={lines} /></ol>
-    </details>
   );
 }
 

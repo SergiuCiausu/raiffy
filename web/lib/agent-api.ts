@@ -1,0 +1,55 @@
+import { makeFunctionReference } from "convex/server";
+import type { GenericId } from "convex/values";
+
+/*
+ * Typed references to the agent functions in ../convex/agent.ts. The web app is built on its own (turbopack.root
+ * is web/), so it can't import Convex's generated `api`; these mirror the function signatures instead.
+ * Keep them in step with convex/agent.ts.
+ */
+
+export type Track = "personal" | "business";
+export type ThreadId = GenericId<"ragThreads">;
+export type MessageId = GenericId<"ragMessages">;
+
+export type Source = {
+  id: string;
+  url: string;
+  title: string;
+  /** YYYY-MM-DD */
+  collectedOn: string;
+  sectionType: string;
+  docType?: string;
+};
+
+/** The parts of lib/rag/answer.ts's RagAnswer the chat shows. */
+export type Answer = {
+  status: "answered" | "no_results" | "refused" | "failed_checks";
+  text: string;
+  segments: { text: string; sourceIds: string[] }[];
+  sources: Source[];
+  searches: { query: string; focus: string; results: number }[];
+};
+
+export type Step = { query: string; focus: string; results?: number };
+
+export type Message = {
+  _id: MessageId;
+  _creationTime: number;
+  threadId: ThreadId;
+  role: "user" | "assistant";
+  text: string;
+  answer?: Answer;
+  /** Absent on rows written before streaming existed: those are done. */
+  status?: "streaming" | "done" | "stopped" | "failed";
+  steps?: Step[];
+  error?: string;
+};
+
+export type ThreadSummary = { _id: ThreadId; _creationTime: number; title: string; track: Track };
+
+export const agentApi = {
+  send: makeFunctionReference<"mutation", { question: string; track: Track; threadId?: ThreadId }, { threadId: ThreadId; messageId: MessageId }>("agent:send"),
+  stop: makeFunctionReference<"mutation", { messageId: MessageId }, null>("agent:stop"),
+  listThreads: makeFunctionReference<"query", { limit?: number }, ThreadSummary[]>("agent:listThreads"),
+  listMessages: makeFunctionReference<"query", { threadId: ThreadId }, Message[]>("agent:listMessages"),
+};

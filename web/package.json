@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "sync:prototypes": "node scripts/sync-prototypes.mjs"
+    "sync:prototypes": "node scripts/sync-prototypes.mjs",
+    "test:live": "playwright test -c playwright.live.config.ts"
   },
   "dependencies": {
+    "convex": "1.48.0",
     "lucide-react": "0.468.0",
     "next": "16.4.3",
     "react": "19.3.0",

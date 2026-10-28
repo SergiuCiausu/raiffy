@@ -1,0 +1,56 @@
+/*
+ * The live agent chat (components/agent/AgentChat.tsx): the few pieces chat.html doesn't have.
+ * Hand-written, scoped under .pg-chat like styles/generated/chat.css, and built from its tokens (DESIGN.md).
+ */
+
+.pg-chat .answer { white-space: pre-line; }
+
+/* Citation marker: the number of the source chip under the answer. Ink on the surface tint, warm on hover. */
+.pg-chat .cite {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 3px; vertical-align: 2px;
+  border-radius: 999px; background: var(--surface-2); color: var(--text-2); font: 500 10px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums; text-decoration: none; transition: background-color 150ms ease, color 150ms ease;
+}
+.pg-chat .cite:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .pg-chat .cite:hover { background: #FFF3C4; color: var(--ink); } }
+
+/* Source chips link out to the page they cite */
+.pg-chat a.src { max-width: 300px; color: var(--text-2); text-decoration: none; }
+.pg-chat .src-n { font: 500 10px/1 var(--font-mono); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pg-chat .src-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-chat .src-item a { color: inherit; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .pg-chat .src-item a:hover b { text-decoration: underline; text-underline-offset: 2px; } }
+
+/* The query Raiffy searched for, inside the thinking panel */
+.pg-chat .think-line .q { font-weight: 500; color: var(--text-2); }
+
+/* "For me" / "My business": a segmented control; the active segment is ink, as everywhere else */
+.pg-chat .track-pick { display: inline-flex; gap: 4px; padding: 4px; margin: -12px 0 20px; border-radius: 12px; background: var(--surface-2); }
+.pg-chat .track-pick button {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: transparent;
+  font: 500 13px/1 var(--font-sans); color: var(--text-2); cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+}
+.pg-chat .track-pick button svg { width: 14px; height: 14px; }
+.pg-chat .track-pick button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.pg-chat .track-pick button:active { transform: scale(.97); }
+.pg-chat .track-pick button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .pg-chat .track-pick button:not([aria-pressed="true"]):hover { color: var(--text-1); } }
+
+/* Starter vignette: the search Raiffy would run */
+.pg-chat .mini-line .mini-ic { width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; }
+
+.pg-chat .track-note { font-size: 12px; color: var(--text-3); padding-left: 4px; }
+
+.pg-chat .failed { color: var(--text-2); }
+.pg-chat .retry {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding: 0; border: 0; background: none;
+  font: 500 12px/1 var(--font-sans); color: var(--text-1); text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.pg-chat .retry svg { width: 12px; height: 12px; }
+.pg-chat .retry:disabled { color: var(--text-3); cursor: default; }
+.pg-chat .send-error { padding-left: 38px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-chat .track-pick button { transition: none; }
+}
