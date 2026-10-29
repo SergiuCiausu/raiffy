@@ -1,0 +1,22 @@
+{
+  "vibevoice": {
+    "repository": "https://github.com/microsoft/VibeVoice.git",
+    "revision": "16fb2cb1217c9934a886e1948ffb06120caa2df5"
+  },
+  "vibeasr": {
+    "repository": "https://github.com/microsoft/VibeASR.cpp.git",
+    "revision": "c4334009c88060f86cdbbd684b62662f710b6c20"
+  },
+  "stt": {
+    "repository": "microsoft/VibeVoice-ASR-BitNet",
+    "revision": "66e78021ab8f5f06133d1ab421ba4d348bda97c9"
+  },
+  "tts": {
+    "repository": "microsoft/VibeVoice-Realtime-0.5B",
+    "revision": "6bce5f06044837fe6d2c5d7a71a84f0416bd57e4"
+  },
+  "ttsPreset": {
+    "path": "demo/voices/streaming_model/en-Carter_man.pt",
+    "sha256": "a7bfdf1cd4939c22469bcfc6f427ae9c4467b3df46c2c14303a39c294cfc6897"
+  }
+}

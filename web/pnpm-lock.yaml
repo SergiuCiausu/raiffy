@@ -20,6 +20,9 @@ importers:
       next:
         specifier: 16.4.3
         version: 16.4.3(@babel/core@7.29.7(supports-color@8.1.1))(@playwright/test@1.64.1)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      phonon-tts:
+        specifier: 0.5.0
+        version: 0.5.0
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -2979,6 +2982,9 @@ packages:
   path-type@4.0.0:
     resolution: {integrity: sha512-gDKb8aZMDeD/tZWs9P6+q0J9Mwkdl6xMV8TjnGP3qJVJ06bdMgkbBlLU8IdfOsIsFz2BW1rNVT3XuNEl8zPAvw==}
     engines: {node: '>=8'}
+
+  phonon-tts@0.5.0:
+    resolution: {integrity: sha512-5t41M28QW89ezw3rHlJdsYkiFcAsLAabEMBP2rqaTYIWWb5eA6J4B3UOMBNFHwRCC6K2q5eWj3FAJ48QimsOHg==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -6594,6 +6600,8 @@ snapshots:
   path-parse@1.0.7: {}
 
   path-type@4.0.0: {}
+
+  phonon-tts@0.5.0: {}
 
   picocolors@1.1.1: {}
 

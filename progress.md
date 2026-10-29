@@ -4,6 +4,13 @@ Tracks what has been built, what's in progress, and what's next. Update it whene
 
 Last updated: 2026-10-29 (merge of `main`'s demo fixes into `starter-vignette-motion`, PR #9). Branch: `starter-vignette-motion`.
 
+## Latest main retained, voice added 2026-10-29
+
+- Replaced the interrupted merge with a clean branch based on current `origin/main` at `131fe19` (PR #9). `convex/`, backend `lib/`, catalog, agent configuration, authentication and the newest chat cards remain identical to main. The full previous local UI/voice checkpoint is preserved at `81553c3`; the paused merge and lockfiles are also backed up under `/tmp/raiffy-main-voice-20261029`.
+- Added only the local voice runtime/assets and controls to the current authenticated `AgentChat`. Dictation and hands-free sends use the existing send/run API. Narration follows the exact allocated, checked assistant reply and cancels on Stop or navigation. Read-aloud remains Phonon/Preston on-device; STT remains local VibeVoice. No Convex deployment, import or provider call was performed for this integration.
+- Validation: 693 backend tests pass with one existing skip; 90 web tests, 10 Python guards, root/Convex/web TypeScript, scoped frontend lint, and the production build pass. Synthetic browser QA exercised transcription → current chat send → checked-answer playback → Stop without a physical microphone or paid model calls. Real microphone/provider acceptance was not repeated.
+- The existing generated-agent-setup consistency check fails on main (`agents/raiffy.agent.yaml` is stale). That upstream configuration was intentionally retained, rather than changing backend behavior during the voice merge.
+
 ## Merge with main (PR #8 demo fixes), 2026-10-29
 
 The branch's agent pipeline is the base; main's features are ported into it.
