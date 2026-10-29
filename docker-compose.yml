@@ -1,0 +1,29 @@
+# Raiffy in containers. Convex (database, vector search, agent functions) runs in a Convex cloud deployment;
+# these services build and serve the app and reproduce the backend checks and deployment.
+#
+#   docker compose --env-file web/.env.local up --build web     the app on http://localhost:3000
+#   docker compose run --rm checks                               every backend test and type check
+#   CONVEX_DEPLOY_KEY=... docker compose --profile deploy run --rm convex-deploy
+#                                                                push the functions to that deployment
+services:
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+    env_file:
+      - path: ./web/.env.local
+        required: false
+    ports:
+      - "3000:3000"
+
+  checks:
+    build: .
+
+  convex-deploy:
+    build: .
+    profiles: ["deploy"]
+    environment:
+      CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY:-}
+    command: ["pnpm", "exec", "convex", "deploy"]

@@ -1,0 +1,15 @@
+**/node_modules
+web
+.git
+.github
+.claude
+.convex
+.clerk
+.gstack
+.env*
+!.env.example
+*.zip
+*.log
+*.docx
+design-references
+raiffeisen-rag-package/.venv
