@@ -1,0 +1,94 @@
+.siri-orb {
+  display: grid;
+  grid-template-areas: "stack";
+  overflow: hidden;
+  border-radius: 50%;
+  position: relative;
+  flex: none;
+  isolation: isolate;
+  --angle: 0deg;
+  transform: scale(var(--voice-scale, 1));
+  box-shadow: 0 0 16px #ffd23f30;
+}
+
+.siri-orb::before,
+.siri-orb::after {
+  content: "";
+  display: block;
+  grid-area: stack;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.siri-orb::before {
+  background:
+    conic-gradient(
+      from calc(var(--angle) * 2) at 25% 70%,
+      var(--c3),
+      transparent 20% 80%,
+      var(--c3)
+    ),
+    conic-gradient(
+      from calc(var(--angle) * 2) at 45% 75%,
+      var(--c2),
+      transparent 30% 60%,
+      var(--c2)
+    ),
+    conic-gradient(
+      from calc(var(--angle) * -3) at 80% 20%,
+      var(--c1),
+      transparent 40% 60%,
+      var(--c1)
+    ),
+    conic-gradient(
+      from calc(var(--angle) * 2) at 15% 5%,
+      var(--c2),
+      transparent 10% 90%,
+      var(--c2)
+    ),
+    conic-gradient(
+      from calc(var(--angle) * 1) at 20% 80%,
+      var(--c1),
+      transparent 10% 90%,
+      var(--c1)
+    ),
+    conic-gradient(
+      from calc(var(--angle) * -2) at 85% 10%,
+      var(--c3),
+      transparent 20% 80%,
+      var(--c3)
+    );
+  box-shadow: inset var(--bg) 0 0 var(--shadow-spread)
+    calc(var(--shadow-spread) * 0.2);
+  filter: blur(var(--blur-amount)) contrast(var(--contrast-amount));
+}
+
+.siri-orb::after {
+  background-image: radial-gradient(
+    circle at center,
+    var(--bg) var(--dot-size),
+    transparent var(--dot-size)
+  );
+  background-size: calc(var(--dot-size) * 2) calc(var(--dot-size) * 2);
+  backdrop-filter: blur(calc(var(--blur-amount) * 2))
+    contrast(calc(var(--contrast-amount) * 2));
+  mix-blend-mode: overlay;
+}
+
+.siri-orb[style*="--mask-radius: 0%"]::after {
+  mask-image: none;
+}
+
+.siri-orb:not([style*="--mask-radius: 0%"])::after {
+  mask-image: radial-gradient(
+    black var(--mask-radius),
+    transparent 75%
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .siri-orb::before { animation: siri-orbit var(--animation-duration) linear infinite; }
+  .siri-orb[data-paused="true"]::before { animation-play-state: paused; }
+}
+@keyframes siri-orbit { to { transform: rotate(360deg); } }

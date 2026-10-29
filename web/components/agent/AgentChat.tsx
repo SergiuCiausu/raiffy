@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import {
-  ArrowDownIcon, ArrowUpIcon, BriefcaseIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon,
+  ArrowDownIcon, ArrowUpIcon, BriefcaseIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon, MicIcon, Volume2Icon,
   MessageCircleIcon, PanelRightCloseIcon, PanelRightOpenIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserIcon, XIcon,
 } from "lucide-react";
@@ -22,6 +22,9 @@ import { listTitle, parseAnswer, segmentCites, splitItem, withoutShown, type Blo
 import { MemoryPanel, MemoryProposals } from "./Memory";
 import { AdviserHandoff } from "./Handoff";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
+import { useVoice } from "@/components/chat/useVoice";
+import { VoiceStatus } from "@/components/chat/VoiceStatus";
+import { spokenAnswer, voiceReplyDecision } from "@/lib/voice-replies";
 
 /*
  * The live chat uses authenticated Convex requests and reactive progress. Checked final text reveals word by
@@ -81,6 +84,7 @@ export function AgentChat() {
   // New chats are personal; the business track returns with Clerk Organizations (it needs an org_id)
   const track: Track = "personal";
   const [input, setInput] = useState("");
+  const [voiceDraft, setVoiceDraft] = useState(false);
   const [pending, setPending] = useState<{ text: string; base: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -125,6 +129,31 @@ export function AgentChat() {
   const streaming = list.findLast((m) => m.role === "assistant" && m.status === "streaming");
   const busy = showPending || !!streaming;
   const empty = !threadId && !showPending;
+  const pendingVoice = useRef<{ token: symbol; messageId: string } | null>(null);
+  const voice = useVoice((text, automatic) => {
+    if (automatic) {
+      if (busy) { cancelVoice(); return; }
+      void send(text, undefined, true, true);
+      return;
+    }
+    setInput(draft => draft.trim() ? `${draft.trimEnd()} ${text}` : text);
+    setVoiceDraft(true);
+    inputEl.current?.focus();
+    announce("Dictation added to your draft. Review it before sending. Raiffy will read its reply aloud.");
+  });
+  const dictating = ["requesting", "listening", "transcribing"].includes(voice.phase);
+  function cancelVoice() { pendingVoice.current = null; voice.cancel(); }
+
+  const receiveVoiceReply = useEffectEvent(() => {
+    const waiting = pendingVoice.current;
+    if (!waiting) return;
+    const decision = voiceReplyDecision(waiting.messageId, list);
+    if (decision.kind === "wait") return;
+    pendingVoice.current = null;
+    if (decision.kind === "cancel") voice.cancelReply(waiting.token);
+    else void voice.readReply(waiting.token, decision.messageId, decision.text);
+  });
+  useEffect(() => { receiveVoiceReply(); }, [messages]);
 
   function announce(msg: string) { setLiveMsg(""); window.setTimeout(() => setLiveMsg(msg), 60); }
 
@@ -177,9 +206,12 @@ export function AgentChat() {
   }, [messages]);
 
   /* ───────────── Sending ───────────── */
-  async function send(text: string, reply?: Reply) {
+  async function send(text: string, reply?: Reply, readAloud = false, automatic = false) {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || (dictating && !automatic)) return;
+    const voiceToken = readAloud ? voice.prepareReply() : undefined;
+    if (!readAloud) cancelVoice();
+    setVoiceDraft(false);
     setSendError(null);
     setPending({ text: question, base: list.length });
     setInput("");
@@ -187,25 +219,29 @@ export function AgentChat() {
     try {
       const r = await sendMutation({ question, track: activeTrack, ...(threadId ? { threadId } : {}), ...(reply && threadId ? { reply } : {}) });
       if (!threadId) { announced.current = null; setThreadId(r.threadId); }
+      if (voiceToken) pendingVoice.current = { token: voiceToken, messageId: r.messageId };
       startedHere.current.add(r.messageId);
       void runAction({ messageId: r.messageId }).catch((error: unknown) => {
+        if (pendingVoice.current?.messageId === r.messageId) cancelVoice();
         logChatError("agent:run failed", { threadId: r.threadId, messageId: r.messageId, ...errorInfo(error) });
         setSendError("The reply was interrupted. Stop it and try again.");
       });
     } catch (error) {
+      if (voiceToken) voice.cancelReply(voiceToken);
       logChatError("agent:send failed", { threadId, hasReply: !!reply, ...errorInfo(error) });
       setPending(null);
       setInput(question);
       setSendError("Your question didn't reach Raiffy. Check your connection and try again.");
     }
   }
-  function stop() { if (streaming) void stopMutation({ messageId: streaming._id }); }
+  function stop() { cancelVoice(); if (streaming) void stopMutation({ messageId: streaming._id }); }
 
   function onComposerKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input); }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input, undefined, voiceDraft); }
   }
 
   function openThread(id: ThreadId | null) {
+    cancelVoice(); setVoiceDraft(false);
     setThreadId(id);
     setPending(null);
     setSendError(null);
@@ -382,7 +418,8 @@ export function AgentChat() {
                     }}
                     onCopy={() => { navigator.clipboard?.writeText(m.text).catch(() => {}); announce("Answer copied."); }}
                     onRetry={() => { const qn = list[i - 1]; if (qn?.role === "user") void send(qn.text); }}
-                    retryDisabled={busy} />))}
+                    retryDisabled={busy} reading={voice.messageId === m._id && ["preparing", "speaking"].includes(voice.phase)}
+                    onRead={() => { if (voice.messageId === m._id && voice.active) cancelVoice(); else { pendingVoice.current = null; void voice.speak(m._id, spokenAnswer(m.answer?.text ?? m.text)); } }} />))}
               {showPending && (
                 <>
                   <UserBubble text={pending.text} enter />
@@ -429,17 +466,30 @@ export function AgentChat() {
               jumpBtn.current!.hidden = true;
               inputEl.current?.focus();
             }}><ArrowDownIcon />Jump to latest</button>
-            <form className="composer" id="composer" onSubmit={(e) => { e.preventDefault(); if (streaming) stop(); else void send(input); }}>
+            <VoiceStatus voice={{ ...voice, cancel: cancelVoice }} />
+            <form className="composer" id="composer" onSubmit={(e) => { e.preventDefault(); if (streaming) stop(); else void send(input, undefined, voiceDraft); }}>
               <label className="sr-only" htmlFor="input">Message Raiffy</label>
               <textarea id="input" ref={inputEl} rows={1} enterKeyHint="send" value={input} maxLength={2000}
                 placeholder={threadId ? "Ask a follow-up" : activeTrack === "business" ? "Ask about a product for your business…" : "Ask about an account, a card, a loan, your savings…"}
-                onChange={(e) => setInput(e.target.value)} onKeyDown={onComposerKey} />
+                onChange={(e) => { if (voice.handsFree) cancelVoice(); setInput(e.target.value); if (!e.target.value.trim()) setVoiceDraft(false); }} onKeyDown={onComposerKey} />
               <div className="comp-row">
                 <span className="track-note">{TRACKS.find((t) => t.k === activeTrack)?.label ?? "Business profile"}</span>
+                <div className="voice-composer-actions">
+                  <button type="button" className="icon-btn voice-mic" id="voice-mic"
+                    aria-label={voice.handsFree ? "End voice conversation" : voice.phase === "listening" ? "Finish dictation" : input.trim() ? "Dictate a message" : "Start voice conversation"}
+                    aria-pressed={voice.handsFree || voice.phase === "listening"} title={input.trim() ? "Dictate in English" : "Hands-free conversation in English"}
+                    disabled={!voice.handsFree && (busy || voice.phase === "requesting" || voice.phase === "transcribing")}
+                    onClick={() => {
+                      if (voice.handsFree) cancelVoice();
+                      else if (voice.phase === "listening") voice.finishRecording();
+                      else if (input.trim()) void voice.record();
+                      else voice.startConversation();
+                    }}>{voice.handsFree || voice.phase === "listening" ? <SquareIcon /> : <MicIcon />}</button>
                 <button type="submit" className={streaming ? "btn btn-dark send is-stop" : "btn btn-dark send"} id="send"
-                  aria-label={streaming ? "Stop reply" : "Send message"} disabled={!streaming && (showPending || !input.trim())}>
+                  aria-label={streaming ? "Stop reply" : voiceDraft ? "Send message and read reply aloud" : "Send message"} disabled={!streaming && (dictating || showPending || !input.trim())}>
                   <span className="i-send"><ArrowUpIcon /></span><span className="i-stop"><SquareIcon /></span>
                 </button>
+                </div>
               </div>
             </form>
             <p className="disclaimer">AI-generated from dated public bank sources. Information may have changed and isn’t a binding offer.</p>
@@ -510,7 +560,7 @@ type AssistantProps = {
   m: Message; onGrow: () => void; vote?: "up" | "down"; onVote: (v: "up" | "down") => void; onCopy: () => void;
   why?: VoteReason; onWhy: (reason: VoteReason) => void;
   onRetry: () => void; retryDisabled: boolean; onFollowUp: (prompt: string, reply?: Reply) => void; latest: boolean;
-  threadId: ThreadId | null;
+  threadId: ThreadId | null; reading: boolean; onRead: () => void;
   track: Track; memory?: { pendingIds: ReadonlySet<string>; savedTexts: ReadonlySet<string> };
 };
 
@@ -519,7 +569,7 @@ function replyFor(a: UiAction): Reply | undefined {
   return a.kind === "choose" ? { kind: "choose", inquiry: a.inquiry } : a.kind === "skip_inputs" ? { kind: "skip_inputs" } : undefined;
 }
 
-function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory }: AssistantProps) {
+function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory, reading, onRead }: AssistantProps) {
   const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
   const handoff = m.answer?.ui?.actions.find((a) => a.kind === "handoff");
   const steps = m.answer?.searches ?? m.steps ?? [];
@@ -587,6 +637,8 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
             {m.answer?.ui?.actions.map(a => a.kind !== "handoff" && <button key={a.prompt} className="qbtn" disabled={retryDisabled || (a.kind !== "followup" && !latest)}
               onClick={() => onFollowUp(a.prompt, replyFor(a))}>{a.label}</button>)}
             <div className="acts">
+              <button type="button" className="icon-btn voice-read" aria-label={reading ? "Stop reading answer" : "Read answer aloud"}
+                aria-pressed={reading} onClick={onRead} disabled={retryDisabled && !reading}>{reading ? <SquareIcon /> : <Volume2Icon />}</button>
               <button type="button" className="icon-btn" aria-label="Copy answer" onClick={onCopy}><CopyIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "up"} aria-label="Helpful" onClick={() => onVote("up")}><ThumbsUpIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "down"} aria-label="Not helpful" onClick={() => onVote("down")}><ThumbsDownIcon /></button>

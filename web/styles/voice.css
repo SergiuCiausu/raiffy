@@ -1,0 +1,39 @@
+.pg-chat .voice-composer-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.pg-chat .voice-composer-actions .send { margin-left: 0; }
+.pg-chat .voice-mic { width: 34px; height: 34px; flex: none; border-radius: 10px; }
+.pg-chat .voice-mic svg { width: 17px; height: 17px; }
+.pg-chat .voice-mic[aria-pressed="true"] { background: var(--tint-rec); color: var(--ink); box-shadow: 0 0 0 3px var(--border-strong); }
+.pg-chat .voice-mic:disabled { opacity: .35; cursor: default; }
+.pg-chat .voice-status {
+  display: flex; align-items: center; gap: 10px; max-width: 760px;
+  min-height: 64px; margin: 0 auto 10px; padding: 8px 10px 8px 12px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
+}
+.pg-chat .voice-status[data-phase="speaking"] { background: var(--surface); border-color: var(--border-strong); }
+.pg-chat .voice-status-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; color: var(--text-2); }
+.pg-chat .voice-status-icon svg { width: 18px; height: 18px; }
+.pg-chat .voice-status[data-phase="listening"] .voice-status-icon { border-radius: 50%; background: var(--tint-rec); color: var(--ink); }
+.pg-chat .voice-status-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.pg-chat .voice-status-title { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--ink); }
+.pg-chat .voice-status-detail { font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.pg-chat .voice-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pg-chat .voice-done { flex: none; min-height: 34px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.pg-chat .voice-dismiss { flex: none; width: 34px; height: 34px; border-radius: 10px; }
+.pg-chat .voice-dismiss svg { width: 15px; height: 15px; }
+.pg-chat .voice-read[aria-pressed="true"] { background: var(--tint-rec); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .pg-chat .voice-done:hover { background: var(--bg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pg-chat .voice-mic, .pg-chat .voice-done, .pg-chat .voice-dismiss { transition: background-color 160ms ease, border-color 160ms ease; }
+  .pg-chat .voice-status { animation: voice-appear 160ms cubic-bezier(.23, 1, .32, 1); }
+}
+@keyframes voice-appear { from { opacity: 0; } }
+@media (pointer: coarse) {
+  .pg-chat .voice-mic, .pg-chat .voice-dismiss, .pg-chat .voice-done { min-width: 44px; min-height: 44px; }
+  .pg-chat .voice-read { min-width: 44px; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  .pg-chat .voice-status { gap: 6px; padding-left: 8px; }
+  .pg-chat .voice-time { display: none; }
+}

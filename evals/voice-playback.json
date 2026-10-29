@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "scope": "Browser voice reply behavior; no paid provider calls",
+  "testFile": "web/e2e/voice.e2e.ts",
+  "cases": [
+    {
+      "id": "hands_free_turn_loop",
+      "actions": ["start voice conversation", "speak", "pause for 1.2 seconds", "hear completed reply", "ask a follow-up"],
+      "expected": ["question is sent without a click", "microphone is stopped during playback", "Siri orb appears only during playback", "listening resumes after playback", "one unlocked audio context serves both turns"],
+      "test": "hands-free sends on a pause, speaks with the orb, then listens for the next turn"
+    },
+    {
+      "id": "hands_free_no_speech",
+      "actions": ["start voice conversation", "remain silent for 10 seconds"],
+      "expected": ["no transcription request or message", "microphone and audio context released"],
+      "test": "hands-free silence times out without transcribing or sending"
+    },
+    {
+      "id": "hands_free_late_transcript",
+      "actions": ["speak a question", "end voice during transcription", "transcription resolves"],
+      "expected": ["late transcript is discarded", "no message is sent", "listening does not restart"],
+      "test": "ending hands-free during transcription discards a late transcript"
+    },
+    {
+      "id": "hands_free_chat_switch",
+      "actions": ["speak a question", "switch chats during thinking"],
+      "expected": ["queued speech is cancelled", "new chat never starts listening"],
+      "test": "switching chats ends hands-free and prevents a late reply from restarting it"
+    },
+    {
+      "id": "hands_free_manual_or_hidden",
+      "actions": ["start voice", "type a draft", "start voice again", "hide the tab"],
+      "expected": ["typing ends voice mode", "hidden tabs end voice mode", "microphone and audio contexts released"],
+      "test": "typing or hiding the tab ends hands-free recording"
+    },
+    {
+      "id": "hands_free_speech_error",
+      "actions": ["speak a question", "selected voice file fails validation"],
+      "expected": ["error shown", "voice mode ends", "microphone does not reopen"],
+      "test": "a speech error ends hands-free instead of silently reopening the microphone"
+    },
+    {
+      "id": "voice_reply_after_completion",
+      "actions": ["start voice", "choose Review draft", "dictate a question", "send", "wait for the complete reply"],
+      "expected": ["draft is never auto-sent", "audio is prepared from the Send gesture", "only the completed reply is spoken", "Siri orb appears during playback"],
+      "test": "a voice-submitted question reads its completed reply, while the next typed question stays silent"
+    },
+    {
+      "id": "typed_reply_manual",
+      "actions": ["finish a voice reply", "type and send a new question"],
+      "expected": ["the new typed question does not trigger narration", "the manual speaker action remains available"],
+      "test": "a voice-submitted question reads its completed reply, while the next typed question stays silent"
+    },
+    {
+      "id": "stopped_voice_reply",
+      "actions": ["send a dictated question", "stop the reply before completion"],
+      "expected": ["no partial or late narration", "prepared audio context is closed"],
+      "test": "stopping a voice-triggered reply cancels its queued narration and closes prepared audio"
+    },
+    {
+      "id": "voice_reply_chat_switch",
+      "actions": ["send a dictated question", "switch chats before completion"],
+      "expected": ["no narration leaks into the new chat", "prepared audio context is closed"],
+      "test": "switching chats drops a queued voice reply"
+    },
+    {
+      "id": "cleared_voice_draft",
+      "actions": ["dictate a question", "clear the draft", "type and send a replacement"],
+      "expected": ["replacement is treated as typed input", "reply playback is manual"],
+      "test": "clearing a dictated draft restores manual playback for typed questions"
+    }
+  ]
+}

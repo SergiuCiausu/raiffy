@@ -16,7 +16,16 @@
     "memory:check-mcp": "tsx scripts/check-memory-mcp.ts",
     "convex:typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "catalog:build-import": "tsx scripts/build-catalog-import.ts",
-    "catalog:build-products": "tsx scripts/build-products-import.ts"
+    "catalog:build-products": "tsx scripts/build-products-import.ts",
+    "voice:setup": "python3 tools/voice/setup.py",
+    "voice:garrett": "python3 tools/voice/garrett.py",
+    "voice:check-browser": "node tools/voice/check-phonon-browser.mjs",
+    "voice:check-reply": "node tools/voice/check-phonon-browser.mjs --voice-reply",
+    "voice:check-hands-free": "node tools/voice/check-phonon-browser.mjs --hands-free",
+    "voice:transcribe": "python3 tools/voice/local.py transcribe",
+    "voice:speak": "python3 tools/voice/local.py speak",
+    "voice:smoke": "python3 tools/voice/local.py smoke",
+    "voice:test": "python3 -m unittest discover -s tools/voice -p 'test_*.py'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

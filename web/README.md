@@ -77,3 +77,10 @@ Generated files are overwritten on every sync, so don't edit them. Interactive p
 The maths lives in `lib/finance.ts`: pure functions with Zod types, rates passed in from `lib/demo-terms.ts`, and Vitest tests. The recommendation rule is deterministic and runs in code, never in the LLM.
 
 The prototype descriptions above apply to the scripted demo and visual sources. Live chat wiring is described at the top of this file.
+
+
+## Local voice on the current live chat
+
+The microphone in `/chat` adds English dictation to a reviewable draft, or starts a hands-free conversation when the composer is empty. Dictated submissions use the same authenticated Convex send/run path as typed text. A voice reply plays only after the server has published its checked final answer; historical messages, failed drafts and stopped replies never trigger automatic narration. Stop, Escape and switching chats cancel speech. Typed answers have a separate Read answer aloud action.
+
+Read-aloud runs on-device through the pinned Phonon 31m English model and the public Preston voice. First use downloads model assets. Transcription requires the existing local VibeVoice environment in `.local/voice/`, so the Python endpoint rejects production, non-loopback and cross-origin requests. The voice layer does not alter Convex functions or enable another provider. Setup and previous model acceptance limits: `../tools/voice/README.md`.

@@ -5,6 +5,8 @@ import { AgentChat } from "@/components/agent/AgentChat";
 import { ConvexClientProvider } from "@/components/agent/ConvexClientProvider";
 import "@/styles/generated/chat.css";
 import "@/styles/agent.css";
+import "@/styles/voice.css";
+import "@/components/ui/siri-orb.css";
 import { logChatError, logChatWarning } from "@/lib/chat-log";
 
 export const metadata: Metadata = {

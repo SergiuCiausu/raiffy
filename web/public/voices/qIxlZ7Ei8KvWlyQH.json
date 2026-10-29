@@ -1,0 +1,13 @@
+{
+  "name": "Preston",
+  "voiceId": "qIxlZ7Ei8KvWlyQH",
+  "language": "en",
+  "locale": "en-us",
+  "temporary": true,
+  "repository": "gradium/phonon-voices",
+  "revision": "0ee17205f254b5abc43b266c8a0f215565c352f7",
+  "sourceUrl": "https://huggingface.co/gradium/phonon-voices/resolve/0ee17205f254b5abc43b266c8a0f215565c352f7/voices/qIxlZ7Ei8KvWlyQH.safetensors",
+  "license": "Apache-2.0",
+  "sha256": "6e04b84d3ae8751b22bca0a4f63936f9cb648f4f2182b2d0788071ea1c0b68a1",
+  "bytes": 256136
+}
