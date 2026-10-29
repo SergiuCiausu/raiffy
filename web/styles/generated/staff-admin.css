@@ -67,7 +67,7 @@
   .pg-staff-admin .link:hover { text-decoration-color: var(--ink); }
 }
 
-.pg-staff-admin .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; line-height: 1.5;
+.pg-staff-admin .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; line-height: 1.5;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
 .pg-staff-admin .pill svg { width: 11px; height: 11px; }
 .pg-staff-admin .pill.p-pending { --c: #8A6A00; background: #FFF3C4; }
@@ -91,7 +91,7 @@
 .pg-staff-admin .err svg { width: 13px; height: 13px; flex: none; margin-top: 1px; }
 .pg-staff-admin .ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
   background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
-.pg-staff-admin .ava.sm { width: 20px; height: 20px; font-size: 9px; }
+.pg-staff-admin .ava.sm { width: 20px; height: 20px; font-size: 11px; }
 .pg-staff-admin .who { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* Segmented control: selection in ink */
@@ -132,7 +132,7 @@
   transition: background-color 150ms ease, color 150ms ease; }
 .pg-staff-admin .nav-item > svg { width: 15px; height: 15px; flex: none; color: var(--text-3); }
 .pg-staff-admin .nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pg-staff-admin .nav-item small { flex: none; min-width: 18px; padding: 0 5px; border-radius: 999px; text-align: center; font: 500 10.5px/18px var(--font-mono); color: var(--text-3); }
+.pg-staff-admin .nav-item small { flex: none; min-width: 18px; padding: 0 5px; border-radius: 999px; text-align: center; font: 500 11px/18px var(--font-mono); color: var(--text-3); }
 .pg-staff-admin .nav-item small.hot { background: #FFF3C4; color: #7A5A00; }
 .pg-staff-admin .nav-item small.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .pg-staff-admin .nav-item[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
@@ -252,6 +252,32 @@
 }
 .pg-staff-admin .tbl td.go { width: 36px; color: var(--text-3); }
 .pg-staff-admin .tbl td.go svg { width: 15px; height: 15px; }
+/* The other tables follow the same phone-first card (§12): the first cell as the title, the rest label over value
+   (labelCells() copies the column headers into data-label); from 640px it's the table. Users and roles has its own above. */
+.pg-staff-admin .tbl:not(.usr-tbl) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.pg-staff-admin .tbl:not(.usr-tbl) tr:first-child { border-top: 0; }
+.pg-staff-admin .tbl:not(.usr-tbl) td { min-width: 0; padding: 0; border: 0; }
+.pg-staff-admin .tbl:not(.usr-tbl) td:first-child, .pg-staff-admin .tbl:not(.usr-tbl) td[colspan] { grid-column: 1 / -1; }
+.pg-staff-admin .tbl:not(.usr-tbl) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11.5px; color: var(--text-3); }
+.pg-staff-admin .tbl:not(.usr-tbl) .r { text-align: left; }
+.pg-staff-admin .tbl:not(.usr-tbl) td.go { display: none; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr.hl { background: #FFF8DC; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr.click { position: relative; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr.click td:first-child a { position: static; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr.click td:first-child a::before { content: ""; position: absolute; inset: 0; }
+.pg-staff-admin .tbl:not(.usr-tbl) tr.click :is(button, td:not(:first-child) a) { position: relative; z-index: 1; }
+@media (min-width: 640px) {
+  .pg-staff-admin .tbl:not(.usr-tbl) thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .pg-staff-admin .tbl:not(.usr-tbl) tr { display: table-row; padding: 0; border-top: 0; }
+  .pg-staff-admin .tbl:not(.usr-tbl) tr.hl { background: none; }
+  .pg-staff-admin .tbl:not(.usr-tbl) td { padding: 11px 14px; border-top: 1px solid var(--border); }
+  .pg-staff-admin .tbl:not(.usr-tbl) tr:first-child td { border-top: 0; }
+  .pg-staff-admin .tbl:not(.usr-tbl) td[data-label]:not(:first-child)::before { content: none; }
+  .pg-staff-admin .tbl:not(.usr-tbl) .r { text-align: right; }
+  .pg-staff-admin .tbl:not(.usr-tbl) td.go { display: table-cell; }
+  .pg-staff-admin .tbl:not(.usr-tbl) tr.click td:first-child a::before { content: none; }
+}
 @media (hover: hover) and (pointer: fine) { .pg-staff-admin .tbl tr.click:hover td { background: #FBFAF8; } }
 .pg-staff-admin .pills { display: flex; flex-wrap: wrap; gap: 4px; }
 .pg-staff-admin .empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
@@ -333,7 +359,7 @@
 .pg-staff-admin .hl h4 { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .pg-staff-admin .hl p { margin-top: 2px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
 .pg-staff-admin .hl .evs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-.pg-staff-admin .ev { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border); font: 400 10.5px var(--font-mono); color: var(--text-2); }
+.pg-staff-admin .ev { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border); font: 400 11px var(--font-mono); color: var(--text-2); }
 .pg-staff-admin .prm-ed td { background: #FBFAF8; }
 .pg-staff-admin .prm-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .pg-staff-admin .prm-form .wide { grid-column: span 2; }
@@ -372,7 +398,7 @@
 .pg-staff-admin .check-line.bad { background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
 
 .pg-staff-admin .vol { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; }
-.pg-staff-admin .vol-y { position: relative; height: 180px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.pg-staff-admin .vol-y { position: relative; height: 180px; font: 400 11px var(--font-mono); color: var(--text-3); }
 .pg-staff-admin .vol-y span { position: absolute; right: 0; translate: 0 -50%; }
 .pg-staff-admin .vol-plot { position: relative; height: 180px; }
 .pg-staff-admin .vol-plot .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--border); }
@@ -381,7 +407,7 @@
 .pg-staff-admin .vol-bars b i { display: block; width: 100%; height: var(--h); background: var(--ink); border-radius: 3px 3px 0 0; transition: opacity 150ms ease; }
 .pg-staff-admin .vol-bars.hovering b i { opacity: .35; }
 .pg-staff-admin .vol-bars.hovering b.on i { opacity: 1; }
-.pg-staff-admin .vol-x { grid-column: 2; display: flex; justify-content: space-between; margin-top: 6px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.pg-staff-admin .vol-x { grid-column: 2; display: flex; justify-content: space-between; margin-top: 6px; font: 400 11px var(--font-mono); color: var(--text-3); }
 .pg-staff-admin .tip { position: absolute; z-index: 5; pointer-events: none; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #fff; box-shadow: var(--shadow-float);
   font-size: 12px; line-height: 1.45; white-space: nowrap; }
 .pg-staff-admin .tip b { display: block; font-weight: 600; }
@@ -435,3 +461,24 @@
   .pg-staff-admin .page.enter > * { animation: pg-staff-admin-fade 200ms ease backwards; }
   .pg-staff-admin .side { transition-duration: 0s !important; }
 }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  .pg-staff-admin :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  .pg-staff-admin :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  .pg-staff-admin :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  .pg-staff-admin :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  .pg-staff-admin input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .pg-staff-admin .icon-btn { width: 36px; height: 36px; }
+  /* Segmented filters draw at 40px; the 2px padding around them holds the rest of the hit area */
+  .pg-staff-admin .seg button { height: 40px; min-width: 44px; }
+  .pg-staff-admin .input { height: 44px; }
+  .pg-staff-admin .tog { height: 40px; }
+}
+/* §12-touch:end */

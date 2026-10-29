@@ -142,6 +142,8 @@ function inspectPage() {
     targets.push(target);
   }
   const small = [];
+  // Probing scrolls the page and inner scrollers; note where they were so the screenshot shows the page as it loaded
+  const scrolled = [...document.querySelectorAll("*")].filter((e) => e.scrollTop || e.scrollLeft).map((e) => [e, e.scrollTop, e.scrollLeft]);
   const startY = window.scrollY;
   for (const el of targets) {
     el.scrollIntoView({ block: "center", inline: "center" });
@@ -160,6 +162,8 @@ function inspectPage() {
     if (!okX || !okY) small.push(`${label(el)} ${Math.round(r.width)}×${Math.round(r.height)}${blocker ? ` (overlapped by ${label(blocker).split(" ")[0]})` : ""}`);
   }
   window.scrollTo(0, startY);
+  for (const e of document.querySelectorAll("*")) if (e.scrollTop || e.scrollLeft) { e.scrollTop = 0; e.scrollLeft = 0; }
+  for (const [e, top, left] of scrolled) { e.scrollTop = top; e.scrollLeft = left; }
 
   /* 3. Text size: any text under 11px fails, any sentence under 13px warns */
   const tiny = [], smallSentences = [];

@@ -182,7 +182,7 @@
 .pg-landing .g-card { width: 196px; padding: 12px; display: grid; gap: 10px; }
 .pg-landing .g-card .t { font-size: 12px; line-height: 1.35; color: rgba(255,240,215,.52); }
 .pg-landing .g-tags { display: flex; gap: 6px; }
-.pg-landing .g-tags span { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,225,175,.2); font-size: 10px; }
+.pg-landing .g-tags span { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,225,175,.2); font-size: 11px; }
 .pg-landing .g-foot { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(255,225,175,.1); }
 .pg-landing .g-foot .n { margin-left: auto; }
 .pg-landing .g-list { width: 196px; display: grid; gap: 6px; }
@@ -297,10 +297,10 @@
 .pg-landing .frag { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-float); font-size: 12px; }
 .pg-landing .cursor { position: absolute; width: 16px; height: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); z-index: 3; }
 .pg-landing .micro { font-size: 11px; color: var(--text-3); }
-.pg-landing .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+.pg-landing .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); }
 .pg-landing .pill svg { width: 11px; height: 11px; }
-.pg-landing .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
+.pg-landing .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
 .pg-landing .ava-raiffy { background: var(--ink); color: var(--accent-a); }
 .pg-landing .ava-raiffy svg { width: 12px; height: 12px; stroke-width: 2.2; }
 
@@ -321,7 +321,7 @@
 .pg-landing .mtable .rc.on { background: #FFF3C4; }
 /* Recommended option: ink on the yellow tint with the halo, never a different hue */
 .pg-landing .rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 18px; padding: 0 7px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
-  font-size: 10px; font-weight: 600; letter-spacing: .01em; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+  font-size: 11px; font-weight: 600; letter-spacing: .01em; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
 .pg-landing .rec-badge svg { width: 10px; height: 10px; stroke-width: 2.4; }
 .pg-landing .rec-badge[hidden] { display: none; }
 .pg-landing .mtable .th .rec-badge { height: 16px; margin: -2px 0 -2px 6px; padding: 0 6px; vertical-align: 1px; }
@@ -368,7 +368,7 @@
 .pg-landing .stmt-h b { color: var(--text-1); font-weight: 600; font-size: 12px; }
 .pg-landing .line { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; font-size: 12px; }
 .pg-landing .line .amt { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); }
-.pg-landing .line .dsc { display: block; font-size: 10.5px; color: var(--text-3); }
+.pg-landing .line .dsc { display: block; font-size: 11px; color: var(--text-3); }
 .pg-landing .line.sel { background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.3); }
 .pg-landing .pop { left: 300px; top: 112px; width: 260px; padding: 14px; display: grid; gap: 8px; border-radius: 12px;
   box-shadow: 0 12px 34px rgba(20,20,40,.1); }
@@ -389,7 +389,7 @@
 .pg-landing .ck .bx { width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; border: 1px solid var(--border-strong); }
 .pg-landing .ck .bx.ok { background: var(--ink); border-color: var(--ink); }
 .pg-landing .ck .bx svg { width: 11px; height: 11px; color: #fff; stroke-width: 3; }
-.pg-landing .ck small { display: block; font-size: 10.5px; color: var(--text-3); }
+.pg-landing .ck small { display: block; font-size: 11px; color: var(--text-3); }
 .pg-landing .up { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 4px 8px; border-radius: 6px; border: 1px dashed var(--border-strong); color: var(--text-2); }
 .pg-landing .up svg { width: 11px; height: 11px; }
 .pg-landing .handoff { left: 410px; top: 64px; width: 330px; padding: 16px; display: grid; gap: 12px; }
@@ -491,8 +491,8 @@
 .pg-landing .hchart i.in { background: #D9D5CB; }
 .pg-landing .hband { position: absolute; top: -14px; bottom: 0; left: calc(9 / 24 * 100%); width: calc(8 / 24 * 100%); border-radius: 6px;
   background: rgba(20,20,20,.035); border: 1px dashed rgba(20,20,20,.14); }
-.pg-landing .hband span { position: absolute; top: 4px; left: 6px; font-size: 10px; color: var(--text-3); white-space: nowrap; }
-.pg-landing .haxis { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+.pg-landing .hband span { position: absolute; top: 4px; left: 6px; font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.pg-landing .haxis { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
 
 .pg-landing .onb { left: 24px; right: 24px; top: 28px; padding: 14px 16px; display: grid; gap: 10px; }
 .pg-landing .step { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; font-size: 12px; position: relative; }
@@ -508,7 +508,7 @@
 .pg-landing .why-h { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; }
 .pg-landing .why-row { display: grid; grid-template-columns: 16px 1fr; gap: 8px; font-size: 11.5px; color: var(--text-2); line-height: 1.45; }
 .pg-landing .why-row svg { width: 14px; height: 14px; color: #2E7D4F; margin-top: 1px; }
-.pg-landing .why-foot { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); padding-top: 8px; border-top: 1px solid var(--border); }
+.pg-landing .why-foot { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); padding-top: 8px; border-top: 1px solid var(--border); }
 .pg-landing .why-dim { left: 40px; right: 8px; top: 12px; height: 180px; }
 
 .pg-landing .kpis { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
@@ -622,3 +622,23 @@
   .pg-landing.js .reveal.in .why-row:nth-of-type(3) { animation-delay: 360ms; }
   .pg-landing.js .reveal.in .why-row:nth-of-type(4) { animation-delay: 420ms; }
 }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  .pg-landing :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  .pg-landing :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  .pg-landing :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  .pg-landing :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  .pg-landing input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  /* Stacked targets sit at least 44px apart, centre to centre */
+  .pg-landing .explain .q { gap: 16px 8px; }
+  .pg-landing .foot ul { gap: 0; }
+  .pg-landing .foot ul a { display: block; padding: 14px 0; }
+}
+/* §12-touch:end */

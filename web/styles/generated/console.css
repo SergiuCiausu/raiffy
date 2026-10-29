@@ -68,7 +68,7 @@
 .pg-console .ava-raiffy svg { width: 11px; height: 11px; stroke-width: 2.2; }
 .pg-console .ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
   background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
-.pg-console .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+.pg-console .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
 .pg-console .pill svg { width: 11px; height: 11px; }
 .pg-console .pill.amber { --c: #8A6A00; background: #FFF3C4; }
@@ -91,7 +91,7 @@
 .pg-console .nav a svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
 .pg-console .nav a span { flex: 1; }
 .pg-console .nav a small { font: 500 11px var(--font-mono); color: var(--text-3); }
-.pg-console .nav a small.due { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 10.5px; }
+.pg-console .nav a small.due { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 11px; }
 .pg-console .nav a[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
 .pg-console .nav a[aria-current="page"] svg { color: var(--text-1); }
 .pg-console .nav .later { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px; font-size: 12.5px; color: var(--text-3); }
@@ -106,7 +106,7 @@
 .pg-console .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(20,20,20,.05); }
 .pg-console .seg button { height: 28px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease; }
 .pg-console .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
-.pg-console .demo-note { font-size: 10.5px; color: var(--text-3); line-height: 1.4; }
+.pg-console .demo-note { font-size: 11px; color: var(--text-3); line-height: 1.4; }
 
 .pg-console .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .pg-console .top { flex: none; display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
@@ -126,9 +126,18 @@
 
 /* Chips (filters) */
 .pg-console .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Phone first (§12): one row that scrolls sideways, bleeding to the screen edge, with room above and below for
+   44px hit areas and a fade on the edge that has more (chipEdges()); from 640px the chips wrap */
+.pg-console .toolbar .chips { display: flex; flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; gap: 8px; margin: 0 -16px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding-inline: 16px; }
+.pg-console .toolbar .chips::-webkit-scrollbar { display: none; }
+.pg-console .toolbar .chips > * { flex: none; scroll-snap-align: start; }
+.pg-console .toolbar .chips.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+.pg-console .toolbar .chips.more-l { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px); mask-image: linear-gradient(to right, transparent, #000 24px); }
+.pg-console .toolbar .chips.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+@media (min-width: 640px) { .pg-console .toolbar .chips { flex: initial; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; } }
 .pg-console .qbtn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
   cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
-.pg-console .qbtn small { font: 500 10.5px var(--font-mono); color: var(--text-3); }
+.pg-console .qbtn small { font: 500 11px var(--font-mono); color: var(--text-3); }
 .pg-console .qbtn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .pg-console .qbtn[aria-pressed="true"] small { color: rgba(255,255,255,.6); }
 @media (hover: hover) and (pointer: fine) { .pg-console .qbtn:not([aria-pressed="true"]):hover { border-color: rgba(20,20,20,.24); color: var(--text-1); } }
@@ -158,6 +167,35 @@
 .pg-console .tbl .t-sub { display: block; font-size: 11.5px; color: var(--text-3); }
 .pg-console .tbl a.t-main { text-decoration: none; }
 .pg-console .tbl a.t-main:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Phone first (§12): each row is a stacked card, the first cell as its title and the others label over value
+   (labelCells() copies the column headers into data-label); from 640px it's the table. The schedule stays a table. */
+.pg-console .tbl:not(.sched) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pg-console .tbl:not(.sched) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.pg-console .tbl:not(.sched) tr:last-child { border-bottom: 0; }
+.pg-console .tbl:not(.sched) td { min-width: 0; padding: 0; border: 0; }
+.pg-console .tbl:not(.sched) td:first-child, .pg-console .tbl:not(.sched) td[colspan] { grid-column: 1 / -1; }
+.pg-console .tbl:not(.sched) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11.5px; color: var(--text-3); }
+.pg-console .tbl:not(.sched) .r { text-align: left; }
+.pg-console .tbl:not(.sched) td.mono { white-space: nowrap; }
+.pg-console .tbl:not(.sched) tr.is-new { box-shadow: inset 3px 0 0 var(--accent-a); }
+.pg-console .tbl:not(.sched) tr.is-new td:first-child { box-shadow: none; }
+.pg-console .tbl:not(.sched) .empty-row { padding: 16px 0; }
+.pg-console .tbl:not(.sched) tr.rowlink { position: relative; }
+.pg-console .tbl:not(.sched) tr.rowlink a.t-main { position: static; }
+.pg-console .tbl:not(.sched) tr.rowlink a.t-main::before { content: ""; position: absolute; inset: 0; }
+.pg-console .tbl:not(.sched) tr.rowlink :is(button, a:not(.t-main)) { position: relative; z-index: 1; }
+@media (min-width: 640px) {
+  .pg-console .tbl:not(.sched) thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .pg-console .tbl:not(.sched) tr { display: table-row; padding: 0; border-bottom: 0; }
+  .pg-console .tbl:not(.sched) tr.is-new { box-shadow: none; }
+  .pg-console .tbl:not(.sched) tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--accent-a); }
+  .pg-console .tbl:not(.sched) td { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  .pg-console .tbl:not(.sched) tr:last-child td { border-bottom: 0; }
+  .pg-console .tbl:not(.sched) td[data-label]:not(:first-child)::before { content: none; }
+  .pg-console .tbl:not(.sched) .r { text-align: right; }
+  .pg-console .tbl:not(.sched) .empty-row { padding: 28px 16px; }
+  .pg-console .tbl:not(.sched) tr.rowlink a.t-main::before { content: none; }
+}
 .pg-console .empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
 .pg-console .wait { font: 500 12px var(--font-mono); }
 .pg-console .wait.late { color: var(--danger); }
@@ -234,7 +272,7 @@
 .pg-console .cmp .rc.on { background: #FFF3C4; }
 .pg-console .cmp .na { color: var(--text-3); }
 .pg-console .rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; margin-top: 6px; padding: 0 8px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
-  font-size: 10.5px; font-weight: 600; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+  font-size: 11px; font-weight: 600; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
 .pg-console .rec-badge svg { width: 11px; height: 11px; stroke-width: 2.4; }
 .pg-console .srcs { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-console .src { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 11.5px; color: var(--text-2); text-decoration: none; }
@@ -498,3 +536,27 @@
   @keyframes pg-console-slide { from { transform: translateX(24px); opacity: 0; } }
 }
 @media (prefers-reduced-motion: reduce) { .pg-console .side { transition-duration: 0s !important; } }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  .pg-console :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  .pg-console :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  .pg-console :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  .pg-console :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  .pg-console input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .pg-console .icon-btn { width: 36px; height: 36px; }
+  /* The crumbs clip their overflow, so they fill the header's height to leave room for the links' hit areas */
+  .pg-console .crumbs { align-self: stretch; }
+  .pg-console .crumbs a { position: relative; }
+  .pg-console .crumbs a::before { content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  .pg-console .seg button { height: 40px; }
+  /* Up to 4 chips may wrap (§12): rows 16px apart so their hit areas don't overlap */
+  .pg-console .chips { row-gap: 16px; }
+}
+/* §12-touch:end */

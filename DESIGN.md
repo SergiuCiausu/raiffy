@@ -34,7 +34,7 @@ Never use pure black or pure white for text. Use three levels: primary, secondar
 - On Daylight, the accent is **light, never text**: blooms, focus halos (`0 0 0 4px rgba(255,210,63,.35)`), highlighted rows (`#FFF8DC`, `#FFF3C4`) and the logo mark.
 - **The primary "ink" is `#1A1A1A`.** Daylight uses it for filled buttons, active segments, checkboxes and chart bars.
 - **Slider fills are yellow light** (`--accent-a`), with a 1px `--accent-b` edge under the fill so it reads on the light track (agreed 29 Oct 2026). The thumb stays white with its border, and keyboard focus is the ink ring. Selection elsewhere stays ink. Selection is shown with dark ink, not color.
-- Badges/pills: 10.5–11px (11px on phones) on a 12% tint of their color (`color-mix(in srgb, var(--c) 12%, transparent)`). Deep amber text (`#8A6A00`, `#7A5A00`) sits on yellow tints.
+- Badges/pills: 11px on a 12% tint of their color (`color-mix(in srgb, var(--c) 12%, transparent)`). Deep amber text (`#8A6A00`, `#7A5A00`) sits on yellow tints.
 - Semantic green appears only for checks (`#2E7D4F`).
 - `--danger: #B42318` is for form errors and failing checks only (`login.html`, `console.html`), never for decoration or "bad" options.
 - **Never:** gradient text, rainbow gradients, purple/blue, neon outlines.
@@ -53,7 +53,7 @@ Font: **Geist** 400/500/600, with **Geist Mono** for amounts, times, codes, keyb
 | body | 15px | 1.6 | 400 | n/a |
 | sm | 14px | 1.55 | 400 | card descriptions, `--text-2` |
 | xs | 13px | 1.45 | 500 | buttons, nav, labels |
-| micro | 10.5–12px (11–12px on phones) | ~1.35 | 500 | inside mockups, pills |
+| micro | 11–12px | ~1.35 | 500 | inside mockups, pills |
 
 - **No heading above 36px.** Build hierarchy with weight, color and spacing.
 - Eyebrows: 11.5px, weight 500, uppercase, tracking `.08em`, `--text-3`. In the hero, add a glowing 6px yellow dot in front.
@@ -184,14 +184,15 @@ Agreed on 29 Oct 2026. Every page, customer and staff, is designed at 375px firs
 
 - **Mobile-first CSS.** The base styles are the phone layout. Wider layouts are added with `min-width` queries at the breakpoints only: 480, 640, 760, 860, 960 and 1100px, plus 1440px for the review workspace's third column. No `max-width` layout queries and no off-scale breakpoints (1199, 859, 600, 520…). Hover stays behind `(hover: hover) and (pointer: fine)`. Converting a page means rewriting its layout rules this way, not stacking overrides on top.
 - **Touch targets are 44×44px on every page**, staff pages included. The hit area counts, not the drawn box: a 32px icon button or a 28px chip keeps its look and reaches 44px with padding or an `::after` with a negative inset, under `@media (pointer: coarse)`. Hit areas never overlap, so stacked targets (footer links, list rows, chips) sit at least 44px apart, centre to centre. Links inside a sentence are exempt. A range input gets a 44px tall box with its 4px track centred.
-- **Text on phones:** nothing under 11px (badges and pills move from 10.5 to 11px under 640px), and any sentence is at least 13px (§11). Decorative 3D hero art (the isometric stack) is exempt. Text fields are 16px under 640px so iOS doesn't zoom.
+- **Text:** nothing under 11px at any width (badges, pills and vignette micro-type were raised from 10–10.5px on 29 Oct 2026), and any sentence is at least 13px (§11). Decorative 3D hero art (the isometric stack) is exempt. On touch screens text fields are 16px, so iOS doesn't zoom, and 44px tall.
 - **The first screen does the job.** At 812px tall, the page's main action is visible without scrolling: the sign-in form, the swipe card and its buttons, the composer. A brand panel shrinks to a short strip on phones (logo and one line) instead of filling the first screen.
 - **Three mobile patterns:**
   1. **Tables become stacked cards under 640px.** Each row is a hairline card: the first cell as the title (still the real link), the status or key figure at the right of the title line, the other cells as label-over-value pairs with labels from `data-label`. Mono figures and durations stay on one line (`white-space: nowrap`). Comparison tables already restack (§11). A data table that has to stay a table (the repayment schedule) scrolls inside `.tbl-wrap` with its first column sticky.
   2. **Chip rows scroll sideways.** Filter, topic and follow-up chips stay on one row on phones: `overflow-x: auto`, scroll snap, no visible scrollbar, a 24px fade on the edge that has more, and the active chip scrolled into view. Up to 4 chips may wrap to a second row.
   3. **Vignettes fit; they don't crop.** At phone widths a vignette is laid out for its card's width, with no fixed pixel widths inside. Only the one bleeding fragment runs past the edge, and only under its fade mask, so a word or figure is never cut by a hard edge. Dimmed extras drop first (§10).
-- **Drawers and sheets** go full width under 640px, use `100dvh` and safe-area padding (`env(safe-area-inset-*)`), and keep the composer above the on-screen keyboard.
+- **Drawers and sheets:** side drawers take at most 86vw over a scrim and bottom sheets go full width; both use `100dvh` and safe-area padding (`env(safe-area-inset-*)`), and keep the composer above the on-screen keyboard.
 - **Keyboard hints hide on touch.** `kbd` hints and "press Tab" copy are hidden under `(pointer: coarse)`.
+- **How it's built:** every prototype carries the same touch core between `/* §12-touch:start */` and `/* §12-touch:end */` at the end of its first `<style>`: a `::before` hit area on every control under `(pointer: coarse)`, 16px fields and 44px sliders. The page's own part follows inside the markers (drawn sizes and gaps so neighbouring hit areas don't overlap). Change the core in every page at once. Tables as cards need `data-label` on each cell: the prototypes' `labelCells()` script copies it from the column headers.
 - **Check it with `pnpm audit:mobile`** (in `web/`). It loads every prototype view at 375 and 390px with touch and reduced motion. It fails on horizontal scroll, targets under 44px, text under 11px and fields under 16px, warns on sentences under 13px, and writes `web/.mobile-audit/report.md` with full-page screenshots. `--only chat,console` limits it to some views and `--app http://localhost:3000` adds the public app routes. Add every new view to its list. The script can't judge layout, so look at the screenshots too.
 
 ## Checklist
