@@ -21,6 +21,7 @@ import { customerMemoryWritesEnabled } from "../lib/agent/memory-store";
 import { memoryContextNote, type ContextMemory } from "../lib/agent/memory";
 import type { MemoryProposalResult } from "../lib/rag/agent";
 import { namedBanks } from "../lib/rag/query";
+import { handoffActionFor } from "../lib/agent/handoff";
 
 const HISTORY_TURNS = 10;
 
@@ -193,13 +194,21 @@ export const run = action({
     if (!await ctx.runMutation(internal.agent.begin, { messageId })) return null;
     try {
       const question = screenChat(input.source.text).text;
-      const classified = await requestJev({ message: question, recentContext: input.history.map(m => m.text).join("\n").slice(-2000) },
-        { enabled: process.env.RAIFFY_JEV_ENABLED === "true", apiKey: process.env.TYPESAFE_API_KEY });
+      const jevInput = { message: question, recentContext: input.history.map(m => m.text).join("\n").slice(-2000) };
+      const jevOptions = { enabled: process.env.RAIFFY_JEV_ENABLED === "true", apiKey: process.env.TYPESAFE_API_KEY };
+      let classified = await requestJev(jevInput, jevOptions);
+      // One retry for a malformed or failed reply: without a classification the customer gets no answer at all.
+      // Timeouts aren't retried, so the worst case stays within two transport deadlines.
+      if (classified.status === "unavailable" && (classified.reason === "invalid_response" || classified.reason === "provider_error")) {
+        classified = await requestJev(jevInput, jevOptions);
+      }
       // Memory: what this customer confirmed earlier, and (where writes are on) this message as the only source
       // a new proposal may quote. Screening decides whether the message may be a source at all.
       const track = input.thread.track;
       const writes = customerMemoryWritesEnabled(memoryEnvironment());
       const memories: ContextMemory[] = await ctx.runQuery(internal.memory.forAgent, { track }).catch(() => []);
+      // The customer's own statements: their figures may be repeated in the answer, and the calculator may use them.
+      const customerTexts = [question, ...input.history.filter(turn => turn.role === "user").map(turn => turn.text), ...memories.map(m => m.text)];
       const source = writes ? await ctx.runMutation(internal.conversations.recordCustomerMessage, { track, text: question }).catch(() => null) : null;
       const plan = planAgentRoute(classified.status === "classified" ? classified.classification : {}, {
         track, availableTools: ["search_knowledge", "calculate_scenario", ...(source?.memoryEligible ? ["propose_memory_change" as const] : [])],
@@ -214,9 +223,9 @@ export const run = action({
       if (operation === "inspect" || operation === "forget") answer = memoryResponse(operation, memories, writes);
       else if (operation && writes && !source?.memoryEligible) answer = memoryResponse("ineligible", memories, writes);
       else if (!plan.model || !["answer", "orchestrator"].includes(plan.handler)) answer = routeResponse(plan);
-      else answer = await generate(ctx, question, input.history, plan, messageId, calculations,
+      else answer = await generate(ctx, question, input.history, plan, messageId, calculations, customerTexts,
         { memories, proposals, ...(source?.memoryEligible ? { sourceMessageId: source.messageId } : {}) });
-      const requiresCatalog = answer.status === "answered" && containsFinancialFigure(answer.text, calculations);
+      const requiresCatalog = answer.status === "answered" && containsFinancialFigure(answer.text, [...calculations, ...customerTexts]);
       const verification = { status: answer.status, checks: answer.checks, searches: answer.searches, model: answer.model,
         financialTermsSupported: !requiresCatalog };
       // Failed drafts are neither shown nor retained. Only the checked final response reaches the UI.
@@ -246,7 +255,7 @@ export const run = action({
 type MemoryTurn = { memories: ContextMemory[]; proposals: MemoryBlock["proposals"]; sourceMessageId?: Id<"messages"> };
 
 async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[], plan: RoutePlan, messageId: Id<"ragMessages">,
-  calculations: string[], memory: MemoryTurn): Promise<RagAnswer> {
+  calculations: string[], customerTexts: readonly string[], memory: MemoryTurn): Promise<RagAnswer> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !plan.model) return routeResponse({ ...plan, handler: "unavailable" });
   const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 45_000 });
@@ -269,13 +278,14 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
     proposing
       ? "When the customer states something lasting about themselves (a goal, a preference, a constraint, or a figure about their own finances such as their net income or the instalments they already pay), propose each with propose_memory_change, alongside your answer. The app asks them to confirm, so never say it is saved."
       : "",
+    handoffActionFor(plan, "normal")
+      ? "The app shows a Book an adviser button under this answer: point to it when a person can take the decision further, but never say an appointment is booked or that an adviser has been told."
+      : "",
     "No reviewed product-terms catalog, account data or approved offers are connected.",
   ].filter(Boolean).join(" ");
-  // Memories confirmed earlier count as the customer's own statements, so the calculator may use their figures.
-  const customerTexts = [question, ...history.filter(turn => turn.role === "user").map(turn => turn.text), ...memory.memories.map(m => m.text)];
   const unavailable = memory.memories.length ? plan.unavailable.filter(id => id !== "user_memory") : plan.unavailable;
   return runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections, withholdFinancialFigures: true,
-    customerContext: memoryContextNote(memory.memories) }, {
+    customerContext: memoryContextNote(memory.memories), customerStatements: customerTexts }, {
     createMessage: async ({ system, tools, messages }) => {
       const state = await ctx.runQuery(internal.agent.request, { messageId });
       if (state.message.status !== "streaming") throw new ConvexError("reply_stopped");

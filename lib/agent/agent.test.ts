@@ -4,7 +4,7 @@ import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema,
 import { memoryContextNote, memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
-import { composeAnswer, memoryResponse } from "./composer";
+import { composeAnswer, memoryResponse, routeResponse } from "./composer";
 import { ragAnswerSchema } from "../rag/answer";
 
 function choice<T extends Record<string, string>>(criteria: T, selected: keyof T & string, confidence = 0.95) {
@@ -57,6 +57,21 @@ describe("Jev request and provider validation", () => {
   it("rejects confidence inconsistent with the configured distribution", () => {
     const raw = response();
     raw.answers.inquiry = { ...choice(INQUIRIES, "negotiation", 0.1), confidence: 0.99 };
+    expect(jevResponseSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it("accepts a rounded distribution that omits zero labels, and normalizes it", () => {
+    const raw = response();
+    // Two-decimal rounding over 14 labels: sums to 0.97, with every label at 0 left out.
+    raw.answers.inquiry = { type: "choice", choice: "negotiation", confidence: 0.9, probabilities: { negotiation: 0.88, product_comparison: 0.05, purchase_goal: 0.04 } };
+    const parsed = jevResponseSchema.parse(raw).answers.inquiry;
+    expect(Object.keys(parsed.probabilities)).toHaveLength(Object.keys(INQUIRIES).length);
+    expect(Object.values(parsed.probabilities).reduce((n, p) => n + p, 0)).toBeCloseTo(1);
+    expect(parsed.confidence).toBeCloseTo((0.88 / 0.97 - 1 / 14) / (1 - 1 / 14));
+    // Beyond rounding, or with an invented label, it is still rejected.
+    raw.answers.inquiry = { ...raw.answers.inquiry, probabilities: { negotiation: 0.6, product_comparison: 0.05 } };
+    expect(jevResponseSchema.safeParse(raw).success).toBe(false);
+    raw.answers.inquiry = { type: "choice", choice: "negotiation", confidence: 0.9, probabilities: { negotiation: 0.92, approve_credit: 0.08 } };
     expect(jevResponseSchema.safeParse(raw).success).toBe(false);
   });
 });
@@ -274,6 +289,44 @@ describe("answer envelope", () => {
       routes: [{ title: "Save first", recommended: true, why: "you have time." }, { title: "Personal loan", recommended: false }] });
     raw.answers.scope = choice(SCOPES, "detail");
     expect(composeAnswer("m1", planAgentRoute(raw, full), rag(list)).blocks).toEqual([]);
+  });
+
+  const sourced = (title: string) => ragAnswerSchema.parse({ status: "answered", text: "Flexicredit is an unsecured loan.",
+    segments: [{ text: "Flexicredit is an unsecured loan.", sourceIds: ["src-1"] }],
+    sources: [{ id: "src-1", url: "https://www.raiffeisen.ro/flexicredit.html", title, collectedOn: "2026-10-28", sectionType: "faq", chunkIds: ["c1"] }],
+    checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 }, model: "m", promptVersion: "p", searches: [], retrieval: [] });
+  const followups = (envelope: ReturnType<typeof composeAnswer>) => envelope.actions.flatMap((a) => a.kind === "followup" ? [a.prompt] : []);
+
+  it("names the product in follow-ups so they can be classified on their own", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "product_explanation"); raw.answers.scope = choice(SCOPES, "detail");
+    expect(followups(composeAnswer("m1", planAgentRoute(raw, full), sourced("Raiffeisen Bank · Flexicredit · FAQ"))))
+      .toEqual(["Which documents do I need for Flexicredit?", "Which other Raiffeisen products are similar to Flexicredit?"]);
+    // A competitor page or a PDF names no Raiffeisen product, so no generic chip is offered instead.
+    expect(followups(composeAnswer("m1", planAgentRoute(raw, full), sourced("BCR · Credit de nevoi personale · FAQ")))).toEqual([]);
+    expect(followups(composeAnswer("m1", planAgentRoute(raw, full), sourced("Raiffeisen Bank · Fees and commissions: Tarife, p. 3")))).toEqual([]);
+  });
+
+  it("builds route follow-ups from the recommended route and an alternative that borrows", () => {
+    const raw = response(); raw.answers.scope = choice(SCOPES, "solution");
+    const list3 = `${list}\n- **Overdraft** — short gaps only.`;
+    expect(followups(composeAnswer("m1", planAgentRoute(raw, full), rag(list3))))
+      .toEqual(["What conditions and documents does Save first require?", "Compare Save first with Personal loan for my situation"]);
+  });
+
+  it("offers an adviser where a person can take it further, and never in a crisis", () => {
+    const handoff = (inquiry: keyof typeof INQUIRIES, answer = rag("Sourced answer.")) => {
+      const raw = response(); raw.answers.inquiry = choice(INQUIRIES, inquiry);
+      return composeAnswer("m1", planAgentRoute(raw, full), answer).actions.find((a) => a.kind === "handoff");
+    };
+    expect(handoff("negotiation")).toEqual({ kind: "handoff", label: "Book an adviser", reason: "offer_review" });
+    expect(handoff("purchase_goal")).toEqual({ kind: "handoff", label: "Book an adviser", reason: "customer_request" });
+    expect(handoff("product_explanation")).toBeUndefined();
+    const complaint = response(); complaint.answers.inquiry = choice(INQUIRIES, "security_complaint");
+    const plan = planAgentRoute(complaint, { ...full, availableTools: ["search_knowledge"] });
+    expect(routeResponse(plan).text).toMatch(/Talk to an adviser below/);
+    expect(composeAnswer("m1", plan, routeResponse(plan)).actions).toEqual([{ kind: "handoff", label: "Talk to an adviser", reason: "complaint" }]);
+    const crisis = response(); crisis.answers.crisis.noul = 0.9;
+    expect(composeAnswer("m1", planAgentRoute(crisis, full), rag("Help.")).actions).toEqual([]);
   });
 });
 

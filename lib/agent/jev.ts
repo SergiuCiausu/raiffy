@@ -62,6 +62,10 @@ export const RISKS = Object.keys(RISK_QUESTIONS) as (keyof typeof RISK_QUESTIONS
 const probability = z.number().min(0).max(1);
 function choiceSchema<const T extends Record<string, string>>(criteria: T) {
   const labels = Object.keys(criteria) as [keyof T & string, ...(keyof T & string)[]];
+  // The provider rounds each probability (to about two decimals) and may omit labels at zero, so a 14-label
+  // distribution can sum to 0.97 or 1.03. Rounding tolerance grows with the label count; anything beyond it,
+  // an invented label or a choice that isn't the most likely one is still rejected.
+  const sumTolerance = Math.max(0.01, 0.005 * labels.length);
   return z.object({
     type: z.literal("choice"),
     choice: z.enum(labels),
@@ -69,21 +73,28 @@ function choiceSchema<const T extends Record<string, string>>(criteria: T) {
     probabilities: z.record(z.string(), probability),
   }).superRefine((answer, ctx) => {
     const entries = Object.entries(answer.probabilities);
-    if (entries.length !== labels.length || labels.some((key) => !(key in answer.probabilities))) {
-      ctx.addIssue({ code: "custom", message: "Expected the full configured label distribution" });
+    if (entries.some(([key]) => !labels.includes(key))) {
+      ctx.addIssue({ code: "custom", message: "Unexpected label in the distribution" });
     }
     const sum = entries.reduce((n, [, p]) => n + p, 0);
-    if (Math.abs(sum - 1) > 0.01) ctx.addIssue({ code: "custom", message: "Probabilities must sum to one" });
+    if (Math.abs(sum - 1) > sumTolerance) ctx.addIssue({ code: "custom", message: "Probabilities must sum to one" });
     const selected = answer.probabilities[answer.choice];
     if (selected === undefined || entries.some(([, p]) => p > selected + 0.0001)) {
       ctx.addIssue({ code: "custom", message: "Selected label must have maximum probability" });
     }
-    if (selected !== undefined) {
-      const expectedConfidence = (selected - 1 / labels.length) / (1 - 1 / labels.length);
-      if (Math.abs(answer.confidence - expectedConfidence) > 0.02) {
+    if (selected !== undefined && sum > 0) {
+      const expectedConfidence = (selected / sum - 1 / labels.length) / (1 - 1 / labels.length);
+      if (Math.abs(answer.confidence - expectedConfidence) > 0.03) {
         ctx.addIssue({ code: "custom", message: "Confidence must match the label distribution" });
       }
     }
+  }).transform((answer) => {
+    // Downstream code reads one consistent distribution: every label present, summing to one, and the
+    // confidence recomputed from it.
+    const sum = Object.values(answer.probabilities).reduce((n, p) => n + p, 0);
+    const probabilities = Object.fromEntries(labels.map((key) => [key, (answer.probabilities[key] ?? 0) / sum]));
+    const confidence = Math.min(1, Math.max(0, (probabilities[answer.choice]! - 1 / labels.length) / (1 - 1 / labels.length)));
+    return { ...answer, probabilities, confidence };
   });
 }
 const noulSchema = z.object({ type: z.literal("noul"), noul: probability });

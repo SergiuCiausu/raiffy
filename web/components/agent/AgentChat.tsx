@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { agentApi, memoryApi, type Answer, type MemoryBlock, type Message, type RoutesBlock, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
 import { MemoryPanel, MemoryProposals } from "./Memory";
+import { AdviserHandoff } from "./Handoff";
 import { answerView, type Piece } from "@/lib/answer-view";
 import { RouteCards } from "./RouteCards";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
@@ -441,6 +442,7 @@ type AssistantProps = {
 
 function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisabled, onFollowUp, track, memory }: AssistantProps) {
   const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
+  const handoff = m.answer?.ui?.actions.find((a) => a.kind === "handoff");
   const steps = m.answer?.searches ?? m.steps ?? [];
   const streaming = m.status === "streaming";
   // Sources and actions rise in only for a reply this tab watched arrive, not for history being reopened
@@ -457,6 +459,7 @@ function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisab
         <div className="raiffy-text">
           {!streaming && (m.answer ? <AnswerText answer={m.answer} animate={arrivedLive} onGrow={onGrow} /> : m.text && <p className="answer">{m.text}</p>)}
           {!streaming && memoryBlock && <MemoryProposals block={memoryBlock} track={track} pendingIds={memory?.pendingIds} savedTexts={memory?.savedTexts} />}
+          {!streaming && handoff && <AdviserHandoff messageId={m._id} label={handoff.label} reason={handoff.reason} />}
           {streaming && <p className="sr-only">Raiffy is answering…</p>}
           {m.status === "stopped" && <p className="stopped">You stopped this reply.</p>}
           {m.status === "failed" && (
@@ -475,7 +478,8 @@ function AssistantMessage({ m, onGrow, vote, onVote, onCopy, onRetry, retryDisab
                 <span className="src-n">{i + 1}</span><span className="src-t">{s.title}</span>
               </a>
             ))}
-            {m.answer?.ui?.actions.map(a => <button key={a.prompt} className="qbtn" disabled={retryDisabled} onClick={() => onFollowUp(a.prompt)}>{a.label}</button>)}
+            {m.answer?.ui?.actions.map(a => a.kind === "followup" &&
+              <button key={a.prompt} className="qbtn" disabled={retryDisabled} onClick={() => onFollowUp(a.prompt)}>{a.label}</button>)}
             <div className="acts">
               <button type="button" className="icon-btn" aria-label="Copy answer" onClick={onCopy}><CopyIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "up"} aria-label="Helpful" onClick={() => onVote("up")}><ThumbsUpIcon /></button>
