@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEMO_MEMORY_OWNER, isDemoMemoryEnvironment, memoryExpiry, requireMemoryPersistence, resolveMemoryScope,
+  DEMO_MEMORY_OWNER, isDemoMemoryEnvironment, memoryExpiry, memoryWritesAllowed, requireMemoryPersistence, resolveMemoryScope,
   sameMemoryScope, screenMemorySource, verifyMemoryEvidence, type MemoryEnvironment,
 } from "./memory-store";
 
@@ -45,6 +45,8 @@ describe("memory identity and deployment guards", () => {
     expect(() => requireMemoryPersistence(customer, { ...local, customerWritesEnabled: false })).toThrow("memory_persistence_disabled");
     expect(() => requireMemoryPersistence(customer, { ...local, cloudUrl: "https://production.convex.cloud" })).toThrow("memory_persistence_disabled");
     expect(() => requireMemoryPersistence(customer, { ...local, customerWritesDeploymentUrl: undefined })).toThrow("memory_persistence_disabled");
+    expect(memoryWritesAllowed(customer, local)).toBe(true);
+    expect(memoryWritesAllowed(customer, { ...local, customerWritesEnabled: false })).toBe(false);
   });
 
   it("rejects copied production flags, missing pins and spoofed or non-HTTPS deployment URLs", () => {

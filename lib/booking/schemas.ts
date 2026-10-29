@@ -32,6 +32,13 @@ export const availabilitySchema = z.object({
 });
 export type Availability = z.infer<typeof availabilitySchema>;
 
+/** The hours every operator and admin is bookable on until they, or an admin, save their own. */
+export const DEFAULT_HOURS: Omit<Availability, "operatorId"> = availabilitySchema.omit({ operatorId: true }).parse({
+  timeZone: "Europe/Bucharest",
+  weekly: { 1: ["09:00", "17:00"], 2: ["09:00", "17:00"], 3: ["09:00", "17:00"], 4: ["09:00", "17:00"], 5: ["09:00", "17:00"] },
+  breaks: [["12:30", "13:30"]], slotMinutes: 30, bufferMinutes: 10, dailyCap: 6, minLeadHours: 2, horizonDays: 14, daysOff: [],
+});
+
 /** The console's BOOK_RULES. Limits a later version reads from Parameters. */
 export const bookingRulesSchema = z.object({
   openPerCustomer: z.number().int().min(1).max(3),

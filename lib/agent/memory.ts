@@ -122,3 +122,10 @@ export function memoryContextNote(raw: readonly ContextMemory[]): string | undef
     "Use them to tailor routes, questions and next steps to this customer, and say so when you rely on one (\"as you told me\"). A stated figure is only a calculator input: pass it to check_affordability instead of repeating it. If the current message contradicts a memory, follow the message. Leave out memories that don't help with this question, and never use them to judge creditworthiness.",
   ].join("\n");
 }
+
+/** The trusted-route clause on what isn't connected. Saved memory counts as connected once this turn loaded some. */
+export function notConnectedClause(savedMemories: number): string {
+  return savedMemories > 0
+    ? "No calculators or reviewed product-terms catalog are connected"
+    : "No calculators, reviewed product-terms catalog or saved memory are connected";
+}

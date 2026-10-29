@@ -39,6 +39,7 @@ describe("Convex memory lifecycle", () => {
     expect(before.memories).toEqual([]);
     expect(before.proposals).toHaveLength(1);
     expect(before.proposals[0]).not.toHaveProperty("ownerKey");
+    expect(before.writesEnabled).toBe(true);
     expect((await t.mutation(internal.memory.propose, p.args)).id).toBe(p.proposalId);
     const saved = await t.mutation(api.memory.confirm, { track, proposalId: p.proposalId });
     expect(saved.status).toBe("saved");
@@ -55,7 +56,7 @@ describe("Convex memory lifecycle", () => {
     const t = fresh(); const p = await proposal(t);
     vi.stubEnv("RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED", "false");
     expect((await t.mutation(api.memory.reject, { track, proposalId: p.proposalId })).status).toBe("rejected");
-    expect(await t.query(api.memory.listMine, { track })).toEqual({ memories: [], proposals: [] });
+    expect(await t.query(api.memory.listMine, { track })).toMatchObject({ memories: [], proposals: [] });
     vi.stubEnv("RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED", "true");
     await expect(t.mutation(internal.memory.propose, p.args)).rejects.toThrow("memory_source_ineligible");
     await expect(t.mutation(api.memory.confirm, { track, proposalId: p.proposalId })).rejects.toThrow("memory_unavailable");
@@ -66,7 +67,7 @@ describe("Convex memory lifecycle", () => {
     const saved = await t.mutation(api.memory.confirm, { track, proposalId: p.proposalId });
     vi.stubEnv("RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED", "false");
     expect((await t.mutation(api.memory.forgetOne, { track, memoryId: saved.id as Id<"userMemories"> })).status).toBe("forgotten");
-    expect(await t.query(api.memory.listMine, { track })).toEqual({ memories: [], proposals: [] });
+    expect(await t.query(api.memory.listMine, { track })).toMatchObject({ memories: [], proposals: [] });
     expect(await t.run((ctx) => ctx.db.query("memoryProposals").collect())).toEqual([]);
     vi.stubEnv("RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED", "true");
     await expect(t.mutation(api.memory.confirm, { track, proposalId: p.proposalId })).rejects.toThrow("memory_unavailable");
@@ -94,7 +95,7 @@ describe("Convex memory lifecycle", () => {
     await t.mutation(api.memory.confirm, { track, proposalId: p.proposalId });
     expect(await t.mutation(api.memory.forgetAll, { track })).toEqual({ memoriesDeleted: 1, proposalsDeleted: 2 });
     expect(await t.mutation(api.memory.forgetAll, { track })).toEqual({ memoriesDeleted: 0, proposalsDeleted: 0 });
-    expect(await t.query(api.memory.listMine, { track })).toEqual({ memories: [], proposals: [] });
+    expect(await t.query(api.memory.listMine, { track })).toMatchObject({ memories: [], proposals: [] });
   });
 
   it("bounds proposal and saved-memory growth while allowing idempotent retries at capacity", async () => {
@@ -134,12 +135,13 @@ describe("Convex memory access and provenance", () => {
     await expect(t.mutation(api.memory.confirm, { track, proposalId: p.proposalId })).rejects.toThrow("memory_persistence_disabled");
     vi.stubEnv("RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED", "true");
     await expect(proposal(t.withIdentity({ subject: "real-user", issuer: "https://clerk.test" }))).rejects.toThrow("memory_persistence_disabled");
+    expect((await t.withIdentity({ subject: "real-user", issuer: "https://clerk.test" }).query(api.memory.listMine, { track })).writesEnabled).toBe(false);
   });
 
   it("prevents another user from reading, rejecting or deleting a memory", async () => {
     const t = fresh(); const p = await proposal(t);
     const other = t.withIdentity({ subject: "other-user", issuer: "https://clerk.test" });
-    expect(await other.query(api.memory.listMine, { track })).toEqual({ memories: [], proposals: [] });
+    expect(await other.query(api.memory.listMine, { track })).toMatchObject({ memories: [], proposals: [] });
     await expect(other.mutation(api.memory.reject, { track, proposalId: p.proposalId })).rejects.toThrow("memory_unavailable");
     const saved = await t.mutation(api.memory.confirm, { track, proposalId: p.proposalId });
     await expect(other.mutation(api.memory.forgetOne, { track, memoryId: saved.id as Id<"userMemories"> })).rejects.toThrow("memory_unavailable");
@@ -216,7 +218,7 @@ describe("memory expiry", () => {
   it("hides expired proposals before the cron and rejects late confirmation", async () => {
     vi.useFakeTimers(); const t = fresh(); const p = await proposal(t);
     vi.setSystemTime(Date.now() + 7 * 86_400_000);
-    expect(await t.query(api.memory.listMine, { track })).toEqual({ memories: [], proposals: [] });
+    expect(await t.query(api.memory.listMine, { track })).toMatchObject({ memories: [], proposals: [] });
     await expect(t.mutation(api.memory.confirm, { track, proposalId: p.proposalId })).rejects.toThrow("memory_unavailable");
     expect((await t.mutation(internal.memory.removeExpired, {})).removed).toBe(1);
     expect(await t.run((ctx) => ctx.db.get(p.proposalId))).toBeNull();

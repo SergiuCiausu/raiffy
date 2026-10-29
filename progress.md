@@ -4,6 +4,97 @@ Tracks what has been built, what's in progress, and what's next. Update it whene
 
 Last updated: 2026-10-29 (merge of `main`'s demo fixes into `starter-vignette-motion`, PR #9). Branch: `starter-vignette-motion`.
 
+## Answer checks: e-mails and "Your specialist checks", 2026-10-29
+
+- **E-mails:** `@convex-dev/resend` (new dependency, registered in `convex/convex.config.ts`). `answerChecks.request` and `.decide` schedule `answerCheckEmails.send` in the same transaction, so a send failure can't undo a check. Content from `lib/review/answerCheckEmail.ts`: reference and status only, a link to `/chat/checks`, the "we never ask for codes" line. The address is read from `users` when sending and never stored on the check; each outcome is recorded (`sent`, `test`, or `skipped` with a reason).
+- **Off by default:** needs `RAIFFY_EMAIL_ENABLED` pinned by `RAIFFY_EMAIL_DEPLOYMENT_URL`, plus `RESEND_API_KEY` and `RAIFFY_EMAIL_FROM`. Test mode (only `delivered@resend.dev`) until `RAIFFY_EMAIL_LIVE=true`. None of these are set on dev yet.
+- **Panel:** every check is e-mailed, with no opt-out; the panel says "We'll e-mail s•••@gmail.com…" where e-mail is on, and in test mode that the e-mails go to a test inbox. Checks sent before e-mails existed get none.
+- **Your specialist checks:** `chat.html#checks` and `/chat/checks` (`answerChecks:mine`), a sidebar link with the waiting count, and `/chat?thread=<id>`.
+- **Open:** Resend's EU region and approval for processing customer addresses; a verified sender domain; the delivery webhook (bounces) isn't wired; the app's "Open conversation" doesn't scroll to the answer.
+
+## Answer checks: "Ask a specialist" in /chat, the queue in /console/reviews, 2026-10-29
+
+- **Before:** the flag-for-a-specialist flow existed only between `chat.html` and `console.html` (localStorage). `/console/reviews` listed counter-offers only.
+- **Now:**
+  - **Chat** (`web/components/agent/AnswerCheck.tsx`): every finished answer (answered or no results) has "Ask a specialist" in its `.gfoot`. It opens the `.vreq` panel: what's sent, an optional note (500 characters), no promised response time. The `.vstat` line under the answer then follows the check live: waiting with an `AC-…` reference, confirmed, corrected with the specialist's signed note, or sent back with a reason. `AgentChat` loads all checks for a thread in one `useQueries` call; if that fails, the button stays hidden.
+  - **Console** (`ReviewsConsole.tsx`, `AnswerCheckCase.tsx`): answer checks and counter-offers share one queue (type chips, Open/Closed, KPIs and the nav badge count both). A check's page shows the masked conversation and note, the answer with its sources, and what it was built from (route, source dates, the number check). The specialist confirms, corrects with a note, or sends it back with a reason.
+  - **Backend:** `lib/review/answerCheck.ts` (statuses, decision rules, `canFlag`, the masked snapshot), the `answerChecks` table, and `convex/answerChecks.ts`. A customer can flag only their own finished answers, once per answer and at most 5 checks a day. The snapshot is taken when the check is sent: the last 6 questions and the note through `handoffPreview`/`screenChat`, and the answer screened paragraph by paragraph. The queue needs `review.answer` (operator or admin) and never returns the owner. Decisions are final and written to `auditLog` (`answerCheck.decide`).
+- **Deployed** to `diligent-rhinoceros-830` with `convex dev --once`. Smoke-tested live with stand-in identities: an operator gets the queue, a user without a role gets `forbidden`.
+- **Tests:** `lib/review/answerCheck.test.ts` and `convex/answerChecks.test.ts` (12), web type check, lint and tests.
+- **Not done:**
+  - Not accepted in a signed-in browser yet: flag in `/chat` as a tester, decide in `/console/reviews` as an operator, watch the status change.
+  - Opening a case isn't audited (Convex queries can't write); only decisions are.
+  - Editing the answer text in place (with a diff and a fresh number check), automatic flags (low evaluator confidence, large amounts) and plan checks remain prototype-only.
+
+## Console products with approvals, 2026-10-29
+
+- **What:** `/console/products` and `/console/products/<id>`, converted from `console.html#products`.
+  - **List:** filters for Individuals, Business, Needs review and Pending approval, plus search. Each product shows its headline rate and how many values answers can use.
+  - **Product page:** values grouped as on the admin page, each with its source link, review date and whether answers use it. Below them is a change history.
+- **Editing:** a value gets a new figure (exact, range, from, up to or text), the exact words from the source, a source link, a review date and a note. Keeping the figure with a fresh source re-confirms it.
+  - **Operators:** their changes wait for an admin.
+  - **Admins:** their changes publish at once. On a pending change they see before and after (ink and highlight, never red and green) and approve or reject it with a reason the proposer sees.
+  - **Rollback:** only the latest published change of a value can be rolled back. It restores the earlier value as a new change through the same approval.
+- **Effect on the chat:** publishing writes into `productTerms`, which the chat's catalog tool reads, and marks the value reviewed by that person. Imported values "waiting for a reviewer" become usable in answers once someone publishes or re-confirms them.
+- **Backend:** new table `catalogChanges` and `convex/catalogChanges.ts` (`propose`, `approve`, `reject`, `rollBack`, `forProduct`, `pending`). Rules are in `lib/catalog/changes.ts`. Every step is audited: `catalog.proposed`, `catalog.published`, `catalog.rejected` and `catalog.rolled_back`, each with before and after. An approval is refused if the value changed after the proposal. Only one pending change per value.
+- **Tests:** `convex/catalogChanges.test.ts`, `lib/catalog/changes.test.ts`, `web/lib/catalog-api.test.ts`.
+- **Deployed:** pushed to dev on 2026-10-29.
+- **Approvals are part of Reviews:** there is no separate Approvals page. `/console/reviews` lists catalog changes as a request type ("Catalog changes"), open while pending and closed once decided, next to answer checks and counter-offers. The nav's Reviews count includes them. Opening one shows the same approve, reject or roll-back sheet as the product page (`?change=CH-…`). New query `catalogChanges:decided` for the closed list. `console.html` does the same, and `#approvals` now opens Reviews filtered to catalog changes.
+- **Not yet:** scheduled start dates (the prototype's "Goes live"), the before/after impact preview, marking open plans "Figures updated since this plan", and pricing rules and counter-offer bands.
+
+## Console calendar, 2026-10-29
+
+- **What:** `/console/calendar`, converted from `console.html#calendar`. The operator sees their Monday-to-Friday week: a grid from 760px, an agenda on phones, with booked calls, breaks, days off and open slots. Beside it are the next call and the booking rules, including customers who missed calls.
+- **Calls:** opening a call shows its facts and any plan the customer shared, inside the share window only. The operator can join a video call, cancel with a reason the customer sees, or, once the call has started, mark it done or a no-show.
+- **Availability sheet:** weekly hours, break, calls a day, lead time, length, gap, days off, the title customers see, and whether customers can book at all. It also warns about booked calls the new hours no longer cover.
+- **Admins:** can open any operator's calendar. Someone with no hours yet gets a "Set your hours" start.
+- **Backend:** new queries `bookings:calendar` (one week, open slots from `lib/booking/rules.ts`) and `bookings:calendars` (admins only). `agenda`'s per-call view is now the shared `agendaView`. The existing mutations (`setAvailability`, `operatorCancel`, `recordOutcome`) are unchanged. No schema change. Tests are in `convex/bookings.test.ts` and `web/lib/calendar.test.ts`.
+- **Prototype:** `console.html`'s availability sheet gained the bookable switch and the title field.
+- **Not yet:** a manual "pause this customer" (the prototype's link has no backend; pauses still happen automatically after two no-shows). Not deployed to dev; the page needs `convex dev --once` before it loads there.
+
+## Answer cards placed in the text, 2026-10-29
+
+- **Before:** the answer typed out word by word, but every card appeared at once under the whole text the moment the answer arrived, so a card came before the text that introduced it.
+- **Now:** `web/lib/card-placement.ts` picks the paragraph each card follows: a colon lead-in, else the first paragraph citing one of the card's sources, else the lead-in. `AnswerText` renders content cards there and shows each once its paragraph has typed (`.card-slot`, staggered fade in `styles/agent.css`). It works for answers saved before the change, since it only needs the stored citations. No schema or composer change.
+- **Prototype:** `chat.html` `stream()` does the same with `cardAfter()`. Checked in the browser at desktop and 390px width: the card appears mid-answer under its paragraph, and there's no horizontal overflow.
+- **Not checked:** the signed-in `/chat` page itself (no tester login in this session); covered by `card-placement.test.ts` and the web type check.
+
+## Customer memory on cloud dev, 2026-10-29
+
+- **On:** `RAIFFY_MEMORY_WRITES_ENABLED=true` and `RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL` pinned to `diligent-rhinoceros-830`, so signed-in testers in `/chat` get memory proposals, recall in later chats and forget. Personal track only. The privacy screen is still pattern-based: internal testers only. To turn it off: `pnpm exec convex env remove RAIFFY_MEMORY_WRITES_ENABLED`.
+- **Fixes:**
+  - The trusted-route note no longer tells Claude "no saved memory is connected" on a turn that loaded saved memories (`notConnectedClause`, `lib/agent/memory.ts`).
+  - `memory:listMine` returns `writesEnabled`; where saving is off, the "What Raiffy remembers" panel says so instead of promising to ask.
+  - "What do you remember about me?" names no banking pattern, so the router offered choice chips before it reached the memory branch. Memory requests are now decided before the pattern (`lib/agent/route.ts`). The `jev.classify` trace now logs Jev's memory label.
+- **Accepted on cloud dev** (Clerk dev test user `raiffy-memory-qa+clerk_test@example.com`, real Jev and Claude): a message with goal, preference, amount and income got a "Remember this for next time?" card; Remember saved it; the panel listed it with its dates; a new chat's "What do you remember about me?" listed it; Forget emptied the panel and the next chat said nothing is saved. Desktop and 375px checked.
+- **Still open:**
+  - Statements made on a turn the pipeline answers without a model (the inputs question "Roughly how much does it cost?", clarify chips) can never be proposed: a proposal may quote only the current message. Answering the price on the next turn leaves the goal, preference and income from the first message unsaved.
+  - Claude proposed the stated income but not the goal ("buy a used car next year") or the preference ("fixed monthly payment") from the same message.
+  - `regulatoryLimits` is empty on cloud dev, so `check_affordability` returns `unavailable` for everyone, saved income or not. `catalog/regulatory-limits.jsonl` needs importing.
+  - Each recorded memory source gets its own `conversations` row instead of one per chat thread.
+
+## Twenty seeded test chats on dev, 2026-10-29
+
+- **What:** 20 scripted chats (`convex/seed/chatScripts.ts`) inserted into the dev deployment as finished rows: 250 messages, 125 sentiment labels, 37 votes and 123 analytics traces. Nothing goes through Jev or Claude, so they test the Sentiment and Analytics pages, not labelling accuracy.
+  - **Mix:** 16 personal and 4 business chats, entering from web and Smart Mobile.
+  - **Moods:** all five, from calm to angry, with every "what came before" flag. These include a repeated question, a stopped answer, a failed answer, a choice menu, an unavailable route and an answered turn.
+  - **Answer patterns:** compare, solution, detail, list, account questions on 6 sample customers, negotiation, fraud, human contact, professional referral and off-topic.
+  - **Several goals:** 5 several-goal turns (orchestrator, `multiple_goals`) and 2 topic switches.
+- **Same shape as live answers:** `convex/seed/chatBuild.ts` builds each answer the way `convex/agent.ts` stores it (RagAnswer, routing, verification and `composeAnswer`'s envelope).
+  - Public answers quote the actual figures: rates, fees, APR (DAE), limits and terms. Each comes from the scraped page passage it cites (`ragChunks`, e.g. `savings#description-7`), labelled and dated as a live search result. Account figures come from sample holdings.
+  - Where a page publishes no figure (ING's business deposits, the credit line's rate), the answer says so instead of pointing to the page.
+  - Tests check that every cited passage exists in `banks-data-package`, run the live number check against the cited passage text, and fail on "the page lists" style deferrals. Seeding stops if a cited passage is missing from `ragChunks`.
+- **Running it:**
+  - `pnpm exec convex run seed/chats:insertChats '{"ownerKey":"<Clerk tokenIdentifier>"}'` puts the chats in that user's sidebar, replacing an earlier seed. They then count as one customer on the Sentiment page. Business chats show only with an `organizationKey`.
+  - Without `ownerKey`, each chat gets its own `seed|chat-NN` owner: twenty customers on the Sentiment page, but in nobody's sidebar.
+  - `pnpm exec convex run seed/chats:removeChats '{"ownerKey":"…"}'` deletes the seeded chats (answers marked `seeded: true`) and leaves that user's own chats.
+  - On dev they're currently under the tester whose chats begin "Compare Raiffeisen's personal loan…".
+- **Minimum group as a setting:** `ANALYTICS_MIN_GROUP` in the Convex environment (`convex/analyticsConfig.ts`) is set to 1 on dev only. Unset, it defaults to the spec's 10, so production keeps the safeguard. The Sentiment summary now returns the `minCount` in use, as Analytics already did, and the page's copy uses it.
+- **Not done:**
+  - Labelling accuracy needs the same scripts replayed through the real pipeline.
+  - No admin screen shows chat transcripts: Reviews lists pricing counter-offers, not chats.
+  - `products.import.jsonl` (the mortgage-kind fix) is still not re-imported.
+
 ## Merge with main (PR #8 demo fixes), 2026-10-29
 
 The branch's agent pipeline is the base; main's features are ported into it.
@@ -556,3 +647,18 @@ pnpm rag:eval --audit
 raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex
 raiffeisen-rag-package/.venv/Scripts/python.exe raiffeisen-rag-package/starter/eval.py --backend convex --questions raiffeisen-rag-package/starter/eval_questions_en.json
 ```
+
+## /chat: rename, pins, statement attachment and Build my plan, 2026-10-29
+
+- **Rename and pins** (`convex/chatThreads.ts`, `chatPins` table): the pencil renames a chat; an answer's first card can be pinned to Context across chats (owner only, at most 50).
+- **Statement attachment**: the paperclip attaches the chosen sample customer's statement (`ragMessages.attachment = "sample_statement"`, refused without a sample customer or on the business track). That turn routes to spending insights when nothing clearer fits and may call `get_expense_summary` with the account and transactions read for that question only. No real file is uploaded.
+- **Build my plan** (`plans:buildFromAnswer`): at the foot of a simulation; the product comes from the cited page (`products.by_url`), amount and term from the simulator, rate and fees only from the reviewed catalog. Saved plan versions record the answer (`planSummaries.messageId`).
+- **Open:** cloud dev has no `planTemplates` and the personal-loan rate is a range, so every build says a plan isn't available yet. There's no `/plan/[id]` page or plan check from the card yet.
+
+## Specialists: everyone on staff is bookable, Admin › Specialists, 2026-10-29
+
+- **Why the chat had no slots:** `operatorAvailability` was empty on cloud dev, and slots came only from saved hours.
+- **Who is bookable** (`convex/bookings.ts`): every operator and admin in the `users` mirror (new `by_role` index), on their saved hours or `DEFAULT_HOURS` (`lib/booking/schemas.ts`: Mon–Fri 09:00–17:00, break 12:30–13:30, 30-minute calls, 2 h lead, 14 days ahead) until hours are saved. Turning booking off or being moved back to member removes someone from the chat; calls already booked stay.
+- **Admin › Specialists** (`/admin/specialists`, `bookings:specialists`): each specialist's hours, the next three slots the chat offers, booked calls ahead, and "Set hours" or "Edit hours", which opens the console's availability sheet (`web/components/staff/AvailabilitySheet.tsx`, shared with `/console/calendar`). `setAvailability` refuses `not_a_specialist` when an admin targets someone who isn't an operator or admin. Changes are audited (`by: self | admin`).
+- **Tests:** `convex/bookings.test.ts` covers default hours, demotion, booking off and the admin list; its clock starts 30 s before 08:00 because convex-test moves the clock 1 ms per insert. `web/lib/calendar.test.ts` checks the web copy of the default hours against `lib/`.
+- **Open:** a specialist only appears after they've opened Raiffy once (the mirror row). Visual check of `/admin/specialists` signed in is still to do.

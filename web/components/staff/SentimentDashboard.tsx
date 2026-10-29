@@ -154,7 +154,7 @@ export function SentimentDashboard({ me }: { me: { name: string; title: string }
       <div className="pg-head">
         <div>
           <h2>Sentiment</h2>
-          <p>How customers feel in their messages, labelled by Jev, and what came before the unhappy ones. Labels only: no message text is kept here, and groups under {MIN_GROUP} customers are hidden.</p>
+          <p>How customers feel in their messages, labelled by Jev, and what came before the unhappy ones. Labels only: no message text is kept here, and groups under {s?.minCount ?? MIN_GROUP} customers are hidden.</p>
         </div>
       </div>
       <div className="filters">
@@ -165,7 +165,7 @@ export function SentimentDashboard({ me }: { me: { name: string; title: string }
       {!s ? <p className="micro" role="status">Loading…</p> : (
         <div aria-live="polite">
           {s.kpis.conversations === null && (
-            <p className="check-line">Not enough labelled chats in this range yet. Counts appear once at least {MIN_GROUP} customers are in a group.</p>
+            <p className="check-line">Not enough labelled chats in this range yet. Counts appear once at least {s?.minCount ?? MIN_GROUP} customers are in a group.</p>
           )}
           <div className="kpis" style={{ "--n": 4 } as React.CSSProperties}>
             <div className="kpi"><div className="k">Conversations labelled</div><div className="v"><Count value={s.kpis.conversations} /></div><div className="s"><Count value={s.kpis.turns} /> customer messages</div></div>

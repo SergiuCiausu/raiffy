@@ -81,15 +81,18 @@ ul { margin: 0; }
 .logo-mark svg { width: 14px; height: 14px; color: var(--ink); stroke-width: 2.2; }
 .bar-t { font-size: var(--text-xs); color: var(--text-2); }
 .bar-acts { margin-left: auto; display: flex; gap: 8px; }
-@media (max-width: 560px) { .bar-acts .lbl { display: none; } .bar-acts .btn { width: 32px; padding: 0; } }
+/* Mobile first (DESIGN.md §12): phones show the bar actions as icon buttons; the labels return at 640px. */
+.bar-acts .lbl { display: none; }
+.bar-acts .btn { width: 32px; padding: 0; }
+@media (min-width: 640px) { .bar-acts .lbl { display: inline; } .bar-acts .btn { width: auto; padding: 0 12px; } }
 
 /* Document */
-.page { max-width: 760px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 28px; }
+.page { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 24px; }
 .page:focus { outline: none; }
-@media (max-width: 640px) { .page { padding: 24px 16px 48px; gap: 24px; } }
+@media (min-width: 640px) { .page { padding: 32px 24px 64px; gap: 28px; } }
 .doc-head { display: grid; gap: 12px; }
-.doc-head h1 { font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
-@media (max-width: 640px) { .doc-head h1 { font-size: 24px; } }
+.doc-head h1 { font-size: 24px; line-height: 1.15; letter-spacing: -.03em; }
+@media (min-width: 640px) { .doc-head h1 { font-size: 28px; } }
 .route-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--text-sm); }
 section { display: grid; gap: 12px; align-content: start; }
 section > h2 { font-size: 18px; letter-spacing: -.01em; }
@@ -109,8 +112,8 @@ section > h2 { font-size: 18px; letter-spacing: -.01em; }
 .vstat.changed { background: var(--tint-hl); color: var(--amber-ink-2); }
 
 /* Routes: options side by side, the recommended one lit */
-.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 680px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.opts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 640px) { .opts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .opt { display: grid; gap: 8px; align-content: start; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
 .opt.rec { border-color: var(--rec-line-mid); background: var(--tint-rec-card); }
 .opt.na { opacity: .6; }
@@ -132,17 +135,18 @@ section > h2 { font-size: 18px; letter-spacing: -.01em; }
 .rec-alt { padding-left: 32px; font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
 
 /* Main features (SECCI order), every figure with its source */
-.doc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
-.doc-grid > div { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 12px 14px; border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
-.doc-grid > div:nth-child(3n+1) { border-left: 0; }
-.doc-grid > div:nth-child(-n+3) { border-top: 0; }
+/* Two columns on phones, three from 640px */
+.doc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
+.doc-grid > div { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 12px 14px; border-left: 0; border-top: 1px solid var(--border); }
+.doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border); }
+.doc-grid > div:nth-child(-n+2) { border-top: 0; }
 .doc-grid span, .doc-grid small { font-size: var(--text-micro); color: var(--text-2); }
 .doc-grid b { font-size: 17px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-@media (max-width: 560px) {
-  .doc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .doc-grid > div { border-left: 0; border-top: 1px solid var(--border); }
-  .doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border); }
-  .doc-grid > div:nth-child(-n+2) { border-top: 0; }
+@media (min-width: 640px) {
+  .doc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .doc-grid > div { border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+  .doc-grid > div:nth-child(3n+1) { border-left: 0; }
+  .doc-grid > div:nth-child(-n+3) { border-top: 0; }
 }
 
 /* Lists of lines: commissions, sources */
@@ -174,19 +178,20 @@ section > h2 { font-size: 18px; letter-spacing: -.01em; }
 .bal-cap { display: flex; justify-content: space-between; gap: 8px; font: 400 var(--text-micro) var(--font-mono); color: var(--text-1); }
 .tbl-wrap { border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); overflow: hidden; }
 .sched { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.sched th, .sched td { padding: 8px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--border); }
+.sched th, .sched td { padding: 8px 10px; text-align: right; white-space: nowrap; border-top: 1px solid var(--border); }
 .sched th { border-top: 0; font: 500 var(--text-micro) var(--font-sans); color: var(--text-2); }
 .sched td { font: 400 var(--text-micro) var(--font-mono); }
 .sched th:first-child, .sched td:first-child { text-align: left; }
 .sched tfoot td { font-weight: 500; background: var(--surface-3); }
 .sched .more { display: none; }
 .sched.all .more { display: table-row; }
-@media (max-width: 560px) { .sched .hide-sm { display: none; } .sched th, .sched td { padding: 8px 10px; } }
+.sched .hide-sm { display: none; }
+@media (min-width: 640px) { .sched .hide-sm { display: table-cell; } .sched th, .sched td { padding: 8px 12px; } }
 
 .bul { padding-left: 18px; display: grid; gap: 6px; font-size: var(--text-sm); color: var(--text-1); }
 .bul li::marker { color: var(--text-3); }
-.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-@media (max-width: 640px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+@media (min-width: 640px) { .cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* Next steps */
 .next-acts { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -242,6 +247,10 @@ section > h2 { font-size: 18px; letter-spacing: -.01em; }
 }
 @media (pointer: coarse) {
   .bar-acts .btn { width: 36px; height: 36px; }
+}
+/* With their labels back (640px), the bar buttons size to the label again */
+@media (pointer: coarse) and (min-width: 640px) {
+  .bar-acts .btn { width: auto; }
 }
 /* §12-touch:end */
 </style>

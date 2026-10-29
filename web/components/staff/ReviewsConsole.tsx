@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { BadgeCheckIcon, GavelIcon, HandshakeIcon, LayersIcon, ScaleIcon, ShieldCheckIcon, TrendingUpIcon, XIcon } from "lucide-react";
+import { BadgeCheckIcon, GavelIcon, GitPullRequestArrowIcon, HandshakeIcon, LayersIcon, ScaleIcon, ShieldCheckIcon, TrendingUpIcon, UserCheckIcon, XIcon } from "lucide-react";
 import { lei } from "@/lib/format";
-import { pricingApi, type ReviewCaseView, type WinRate, type WinRateRow } from "@/lib/agent-api";
+import { answerCheckStaffApi, pricingApi, type AnswerCheckRow, type ReviewCaseView, type WinRate, type WinRateRow } from "@/lib/agent-api";
+import { valueLabel } from "@/lib/admin-api";
+import { catalogApi, type CatalogChange } from "@/lib/catalog-api";
 import type { Role } from "@/lib/roles";
 import { ConsoleNav } from "./StaffNav";
 import { StaffShell, initials } from "./StaffShell";
+import { AnswerCheckCase, CheckStatus, checkTopic } from "./AnswerCheckCase";
+import { CHANGE_STATUS, ChangeSheet } from "./ConsoleProducts";
 
 /*
- * Reviews (console.html#reviews and #reviews/<id>, counter-offer cases) over Convex: the queue, oldest first, and a
- * case page with total cost, the decision and the approval levels. Convex enforces who can decide at which level;
+ * Reviews (console.html#reviews and #reviews/<id>) over Convex: one queue, oldest first, for answers customers asked a
+ * specialist to check (AnswerCheckCase) and counter-offer cases, each with its own case page. A counter-offer case
+ * shows total cost, the decision and the approval levels. Catalog changes from Products (convex/catalogChanges.ts) wait here
+ * too, and open in the same sheet as on the product page. Convex enforces who can decide at which level;
  * an approved price returns to the customer's chat as a personal offer, valid 7 days. Sample pricing in the preview.
  */
 
@@ -45,46 +51,97 @@ function overall(k: WinRate) {
 
 /* ───────────── Queue ───────────── */
 
-function Queue({ reviews, kpi }: { reviews: { open: ReviewCaseView[]; decided: ReviewCaseView[] }; kpi: WinRate }) {
+type Kind = "all" | "check" | "offer" | "change";
+type Checks = { open: AnswerCheckRow[]; decided: AnswerCheckRow[] };
+/** One row of the shared queue; `at` orders it (created while open, decided once closed). */
+type QueueRow = { kind: "check" | "offer" | "change"; at: number; row: ReactNode };
+type Changes = { pending: CatalogChange[]; decided: CatalogChange[] };
+
+function checkRow(c: AnswerCheckRow): QueueRow {
+  return { kind: "check", at: c.status === "open" ? c.createdAt : c.decidedAt ?? c.createdAt, row: (
+    <tr key={c.id} className="rowlink">
+      <td><Link className="t-main" href={`/console/reviews?check=${c.id}`}>{checkTopic(c)}</Link><span className="t-sub mono">{c.reference}{c.hasNote ? " · with a note" : ""}</span></td>
+      <td className="hide-sm"><span className="pill line"><UserCheckIcon aria-hidden="true" />Answer check</span></td>
+      <td className="hide-sm"><span className="t-main">{c.track === "business" ? "Business customer" : "Personal customer"}</span><span className="t-sub">Identity hidden</span></td>
+      <td>{c.status === "open" ? <><span className="wait">{waiting(c.createdAt)}</span><span className="t-sub">since {when.format(c.createdAt)}</span></>
+        : <><span className="t-main">{c.decidedBy ?? "—"}</span><span className="t-sub">{c.decidedAt ? when.format(c.decidedAt) : ""}</span></>}</td>
+      <td className="hide-sm"><span className="t-main">Specialist</span><span className="t-sub">{c.status !== "open" ? "Decided" : "You can decide"}</span></td>
+      <td><CheckStatus s={c.status} /></td>
+    </tr>
+  ) };
+}
+
+function offerRow(c: ReviewCaseView): QueueRow {
+  return { kind: "offer", at: c.createdAt, row: (
+    <tr key={c.id} className="rowlink">
+      <td><Link className="t-main" href={`/console/reviews?case=${c.id}`}>{topic(c)}</Link><span className="t-sub mono">{shortId(c.id)}</span></td>
+      <td className="hide-sm"><span className="pill line"><HandshakeIcon aria-hidden="true" />Counter-offer</span></td>
+      <td className="hide-sm"><span className="t-main mono" style={{ fontSize: 12 }}>Sample client</span><span className="t-sub">Segment {c.segment}</span></td>
+      <td>{c.status === "open" ? <><span className="wait">{waiting(c.createdAt)}</span><span className="t-sub">since {when.format(c.createdAt)}</span></>
+        : <><span className="t-main">{c.decidedBy ?? "—"}</span><span className="t-sub">{c.note ?? "No note"}</span></>}</td>
+      <td className="hide-sm"><span className="t-main">{c.levelLabel}</span><span className="t-sub">{c.status !== "open" ? "Decided" : c.canDecide ? "You can decide" : "Above your level"}</span></td>
+      <td><Status s={c.status} /></td>
+    </tr>
+  ) };
+}
+
+/** A proposed catalog value (convex/catalogChanges.ts): open until an admin approves or rejects it. */
+function changeRow(c: CatalogChange, admin: boolean): QueueRow {
+  const open = c.status === "pending";
+  return { kind: "change", at: open ? c.proposedAt : c.decidedAt ?? c.proposedAt, row: (
+    <tr key={c.changeId} className="rowlink">
+      <td><Link className="t-main" href={`/console/reviews?change=${c.changeId}`}>{c.product}: {c.label}</Link>
+        <span className="t-sub mono">{c.changeId}{c.kind === "rollback" ? " · rollback" : c.kind === "confirm" ? " · re-confirm" : ""} · {valueLabel(c.before.value, c.unit, null)} → {valueLabel(c.after.value, c.unit, null)}</span></td>
+      <td className="hide-sm"><span className="pill line"><GitPullRequestArrowIcon aria-hidden="true" />Catalog change</span></td>
+      <td className="hide-sm"><span className="t-main">{c.proposedByName}</span><span className="t-sub">Proposed the change</span></td>
+      <td>{open ? <><span className="wait">{waiting(c.proposedAt)}</span><span className="t-sub">since {when.format(c.proposedAt)}</span></>
+        : <><span className="t-main">{c.decidedByName ?? "—"}</span><span className="t-sub">{c.decidedAt ? when.format(c.decidedAt) : ""}</span></>}</td>
+      <td className="hide-sm"><span className="t-main">Admin</span><span className="t-sub">{!open ? "Decided" : admin ? "You can decide" : "Needs an admin"}</span></td>
+      <td>{CHANGE_STATUS[c.status]}</td>
+    </tr>
+  ) };
+}
+
+const KINDS = [["all", "All"], ["check", "Answer checks"], ["offer", "Counter-offers"], ["change", "Catalog changes"]] as const;
+
+function Queue({ reviews, checks, changes, admin, kpi }: { reviews: { open: ReviewCaseView[]; decided: ReviewCaseView[] }; checks: Checks; changes: Changes; admin: boolean; kpi: WinRate }) {
   const [status, setStatus] = useState<"open" | "closed">("open");
-  const rows = status === "open" ? [...reviews.open].sort((x, y) => x.createdAt - y.createdAt) : reviews.decided;
-  const mine = reviews.open.filter((c) => c.canDecide).length;
-  const oldest = reviews.open.length ? Math.min(...reviews.open.map((c) => c.createdAt)) : null;
+  const [kind, setKind] = useState<Kind>("all");
+  const open = [...checks.open.map(checkRow), ...reviews.open.map(offerRow), ...changes.pending.map((c) => changeRow(c, admin))].sort((x, y) => x.at - y.at);
+  const closed = [...checks.decided.map(checkRow), ...reviews.decided.map(offerRow), ...changes.decided.map((c) => changeRow(c, admin))].sort((x, y) => y.at - x.at);
+  const shown = status === "open" ? open : closed;
+  const count = (k: Kind) => shown.filter((r) => k === "all" || r.kind === k).length;
+  const rows = shown.filter((r) => kind === "all" || r.kind === kind);
+  const mine = checks.open.length + reviews.open.filter((c) => c.canDecide).length + (admin ? changes.pending.length : 0);
+  const oldest = open.length ? open[0]!.at : null;
   return (
     <>
       <div className="page-head"><div>
         <h1>Reviews</h1>
-        <p>Counter-offers Raiffy couldn’t settle inside its band, sent here when the customer asked for a review. Oldest first. You decide a price, not the credit: the offer stays indicative until the bank issues it.</p>
+        <p>What customers sent to a person: answers they asked a specialist to check, and counter-offers Raiffy couldn’t settle inside its band. Also catalog changes waiting for an admin. Oldest first. You confirm information and decide prices, not credit: everything stays indicative until the bank issues it.</p>
       </div></div>
 
       <div className="kpis kpis-3">
-        <div className="kpi"><b>{reviews.open.length}</b><span>Open requests</span></div>
+        <div className="kpi"><b>{open.length}</b><span>Open requests</span></div>
         <div className="kpi"><b>{mine}</b><span>At or below your level</span></div>
         <div className="kpi"><b className="mono">{oldest === null ? "–" : waiting(oldest)}</b><span>Oldest waiting</span></div>
       </div>
 
       <div className="toolbar">
-        <h2 className="tbl-title">Counter-offers above the band</h2>
+        <div className="chips" role="group" aria-label="Request type">
+          {KINDS.map(([k, label]) => <button key={k} type="button" className="qbtn" aria-pressed={kind === k} onClick={() => setKind(k)}>{label} <small>{count(k)}</small></button>)}
+        </div>
         <div className="chips" role="group" aria-label="Status">
-          <button type="button" className="qbtn" aria-pressed={status === "open"} onClick={() => setStatus("open")}>Open <small>{reviews.open.length}</small></button>
-          <button type="button" className="qbtn" aria-pressed={status === "closed"} onClick={() => setStatus("closed")}>Closed <small>{reviews.decided.length}</small></button>
+          <button type="button" className="qbtn" aria-pressed={status === "open"} onClick={() => setStatus("open")}>Open <small>{open.length}</small></button>
+          <button type="button" className="qbtn" aria-pressed={status === "closed"} onClick={() => setStatus("closed")}>Closed <small>{closed.length}</small></button>
         </div>
       </div>
 
       <div className="card"><div className="tbl-wrap"><table className="tbl">
         <thead><tr><th scope="col">Request</th><th scope="col" className="hide-sm">Type</th><th scope="col" className="hide-sm">Client</th><th scope="col">{status === "open" ? "Waiting" : "Closed"}</th><th scope="col" className="hide-sm">Level</th><th scope="col">Status</th></tr></thead>
         <tbody>
-          {rows.length ? rows.map((c) => (
-            <tr key={c.id} className="rowlink">
-              <td><Link className="t-main" href={`/console/reviews?case=${c.id}`}>{topic(c)}</Link><span className="t-sub mono">{shortId(c.id)}</span></td>
-              <td className="hide-sm"><span className="pill line"><HandshakeIcon aria-hidden="true" />Counter-offer</span></td>
-              <td className="hide-sm"><span className="t-main mono" style={{ fontSize: 12 }}>Sample client</span><span className="t-sub">Segment {c.segment}</span></td>
-              <td>{c.status === "open" ? <><span className="wait">{waiting(c.createdAt)}</span><span className="t-sub">since {when.format(c.createdAt)}</span></>
-                : <><span className="t-main">{c.decidedBy ?? "—"}</span><span className="t-sub">{c.note ?? "No note"}</span></>}</td>
-              <td className="hide-sm"><span className="t-main">{c.levelLabel}</span><span className="t-sub">{c.status !== "open" ? "Decided" : c.canDecide ? "You can decide" : "Above your level"}</span></td>
-              <td><Status s={c.status} /></td>
-            </tr>
-          )) : <tr><td colSpan={6} className="empty-row">{status === "open" ? "Nothing waiting. New requests from customers appear here." : "No decided cases yet."}</td></tr>}
+          {rows.length ? rows.map((r) => r.row)
+            : <tr><td colSpan={6} className="empty-row">{status === "open" ? "Nothing waiting. New requests from customers appear here." : "Nothing closed yet."}</td></tr>}
         </tbody>
       </table></div></div>
 
@@ -271,23 +328,39 @@ function CaseView({ c, kpi }: { c: ReviewCaseView; kpi: WinRate }) {
 /* ───────────── Page ───────────── */
 
 export function ReviewsConsole({ me }: { me: { name: string; role: Role } }) {
-  const caseId = useSearchParams().get("case");
+  const params = useSearchParams();
+  const caseId = params.get("case");
+  const checkId = params.get("check");
+  const router = useRouter();
+  const changeId = params.get("change");
   const reviews = useQuery(pricingApi.listReviews, {});
+  const pendingChanges = useQuery(catalogApi.pending, {});
+  const decidedChanges = useQuery(catalogApi.decided, {});
+  const change = changeId ? [...(pendingChanges ?? []), ...(decidedChanges ?? [])].find((c) => c.changeId === changeId) : undefined;
+  const closeChange = () => router.replace("/console/reviews", { scroll: false });
+  const checks = useQuery(answerCheckStaffApi.list, {});
   const kpi = useQuery(pricingApi.winRate, {});
   const current = caseId ? [...(reviews?.open ?? []), ...(reviews?.decided ?? [])].find((c) => c.id === caseId) : undefined;
-  const open = reviews?.open.length ?? 0;
+  // Only ids from the queue reach the case query, so a hand-typed URL can't send it a malformed id
+  const currentCheck = checkId ? [...(checks?.open ?? []), ...(checks?.decided ?? [])].find((c) => c.id === checkId) : undefined;
+  const open = (reviews?.open.length ?? 0) + (checks?.open.length ?? 0) + (pendingChanges?.length ?? 0);
+  const onCase = !!(caseId || checkId);
 
-  const nav = <ConsoleNav current={caseId ? null : "reviews"} due={{ reviews: open }} />;
-  const crumbs = [{ label: "Console", href: "/console" }, ...(caseId ? [{ label: "Reviews", href: "/console/reviews" }, { label: current ? shortId(current.id) : "Case" }] : [{ label: "Reviews" }])];
+  const nav = <ConsoleNav current={onCase ? null : "reviews"} due={{ reviews: open }} />;
+  const caseLabel = current ? shortId(current.id) : currentCheck ? currentCheck.reference : "Case";
+  const crumbs = [{ label: "Console", href: "/console" }, ...(onCase ? [{ label: "Reviews", href: "/console/reviews" }, { label: caseLabel }] : [{ label: "Reviews" }])];
   const title = me.role === "admin" ? "Admin" : "Operator";
 
   return (
     <StaffShell logoHref="/console" nav={nav} me={{ name: me.name, title, initials: initials(me.name) }} crumbs={crumbs}
       top={<span className="pill line" title="Pricing, competitors and customers are sample data">Sample pricing</span>}>
-      {!reviews || !kpi ? <p className="empty-row" role="status">Loading reviews…</p>
+      {!reviews || !checks || !kpi || !pendingChanges || !decidedChanges ? <p className="empty-row" role="status">Loading reviews…</p>
         : caseId && !current ? <p className="empty-row">That case isn’t in the last 50. <Link href="/console/reviews">Back to the queue</Link></p>
+        : checkId && !currentCheck ? <p className="empty-row">That check isn’t in the last 50. <Link href="/console/reviews">Back to the queue</Link></p>
         : current ? <CaseView c={current} kpi={kpi} />
-        : <Queue reviews={reviews} kpi={kpi} />}
+        : currentCheck ? <AnswerCheckCase row={currentCheck} />
+        : <Queue reviews={reviews} checks={checks} changes={{ pending: pendingChanges, decided: decidedChanges }} admin={me.role === "admin"} kpi={kpi} />}
+      {change && !onCase && <ChangeSheet key={change.changeId} c={change} me={me} onClose={closeChange} onDone={closeChange} />}
     </StaffShell>
   );
 }

@@ -22,7 +22,7 @@ The cloud test uses a synthetic Clerk account, checks a sourced answer, follow-u
 
 Operator booking exists only as HTML prototypes (`console.html#calendar` and the booking card in `chat.html`, linked through `raiffy.demo.*` localStorage keys). `/chat` has no booking yet.
 
-The current capability registry exposes public document search and one indicative calculator, `check_affordability` (`loan_affordability`): a debt-service check on figures the customer stated, using the limits in Convex `regulatoryLimits` (imported from `catalog/regulatory-limits.jsonl`, still pending review). It needs no product rate and is never a credit decision. Customer memory works only where the deployment owner turned it on (`RAIFFY_MEMORY_WRITES_ENABLED` plus `RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL` pinned to that deployment, currently only the local backend): Claude proposes the customer's own words, the customer confirms each one under the answer, saved memories reach later chats and the calculator, and the Context panel lists and deletes them. Account summaries, reviewed catalog tools, other calculators and approved pricing are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
+The current capability registry exposes public document search and one indicative calculator, `check_affordability` (`loan_affordability`): a debt-service check on figures the customer stated, using the limits in Convex `regulatoryLimits` (imported from `catalog/regulatory-limits.jsonl`, still pending review). It needs no product rate and is never a credit decision. Customer memory works only where the deployment owner turned it on (`RAIFFY_MEMORY_WRITES_ENABLED` plus `RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL` pinned to that deployment; since 2026-10-29 the cloud dev deployment, for signed-in testers): Claude proposes the customer's own words, the customer confirms each one under the answer, saved memories reach later chats and the calculator, and the Context panel lists and deletes them. Account summaries, reviewed catalog tools, other calculators and approved pricing are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
 
 | Route | Prototype |
 |---|---|
@@ -47,6 +47,32 @@ pnpm sync:prototypes    # after the UI team changes an HTML prototype
 ```
 
 This is a self-contained package with its own `pnpm-workspace.yaml`, so it never touches the backend's root `package.json`, lockfile or `lib/`.
+
+## Answer checks: Ask a specialist
+
+"Ask a specialist" under a finished answer sends that answer to `/console/reviews` for a person to check (`components/agent/AnswerCheck.tsx`, `convex/answerChecks.ts`, rules in `lib/review/answerCheck.ts`). The specialist checks information, never a credit decision. What they see is a masked snapshot taken when the customer sent it. No response time is promised in the preview.
+
+Acceptance on the dev deployment:
+
+1. As a signed-in tester, ask a question in `/chat`, press **Ask a specialist** under the answer, add a note and send. The line under the answer reads "Waiting for a specialist" with an `AC-…` reference, and the button is gone.
+2. As an operator or admin (`publicMetadata.role`), open `/console/reviews`. The check is in the queue as an "Answer check", with the masked question as its title.
+3. Open it. Card numbers, CNP, IBAN, e-mail and phone numbers in the questions and note show as `[REDACTED]`.
+4. Choose Confirm, Correct with a note, or Send back with a reason. Back in `/chat`, the line under the answer updates without a reload. A second decision on the same check is refused.
+5. A sixth check in 24 hours is refused in the panel. A user without a role gets `forbidden` from `answerChecks:list`.
+
+"Your specialist checks" (`/chat/checks`, the sidebar link) lists the customer's checks; "Open conversation" goes to `/chat?thread=<id>`.
+
+**E-mails** (`convex/answerCheckEmails.ts`, the `@convex-dev/resend` component): a confirmation when the check is sent and a note when a specialist decides, for every check (customers can't opt out). They carry only the reference and the status. Sending is off until set in the Convex environment of one deployment:
+
+```sh
+pnpm exec convex env set RESEND_API_KEY <key>
+pnpm exec convex env set RAIFFY_EMAIL_FROM "Raiffy <raiffy@your-verified-domain>"
+pnpm exec convex env set RAIFFY_APP_URL https://<app host>
+pnpm exec convex env set RAIFFY_EMAIL_DEPLOYMENT_URL https://diligent-rhinoceros-830.eu-west-1.convex.cloud
+pnpm exec convex env set RAIFFY_EMAIL_ENABLED true
+```
+
+Until `RAIFFY_EMAIL_LIVE=true`, Resend runs in test mode: every e-mail goes to `delivered@resend.dev`, never to the customer, and the panel says so. The console case shows what happened to the last e-mail.
 
 ## Booking a call with a specialist (demo)
 

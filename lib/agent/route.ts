@@ -109,15 +109,7 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   if (wantsPerson && (decision.kind !== "route" || decision.inquiry === "other")) {
     return finish({ handler: "human_contact", inquiry: "human_contact", reason: "human_contact_requested", candidates: [] });
   }
-  if (decision.kind !== "route") {
-    return finish({ handler: "clarify", inquiry: null, reason: decision.kind === "candidates" ? "ambiguous_inquiry" : "low_route_confidence", candidates: decision.candidates });
-  }
-  const inquiry = decision.inquiry;
-  const scope = a.scope.confidence >= floor ? a.scope.choice : defaultScope(inquiry, (context.requestedBanks?.length ?? 0) > 1);
-  Object.assign(plan, { inquiry, scope, routingBasis: decision.basis, confidence: inquiry === a.inquiry.choice ? a.inquiry.confidence : null,
-    limits: { ...plan.limits, publicChunks: scope === "solution" ? policy.retrieval.maxPublicChunksSolution : policy.retrieval.maxPublicChunks } });
-  // The audience label never stops the chat or changes access: the customer is answered on their own signed-in track
-  // (personal for every account today). A message that sounds like a business still gets the personal answer.
+  // A memory request ("what do you remember about me?") names no banking pattern, so it is decided before the pattern is.
   if (a.memory_operation.choice !== "none") {
     const tool: Tool = ["forget", "inspect"].includes(a.memory_operation.choice) ? "manage_memory" : "propose_memory_change";
     // Without the handler the customer hears that memory is off; with it, an uncertain request is confirmed before any change.
@@ -127,6 +119,15 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
     if (tool === "propose_memory_change") return finish({ handler: "answer", reason: "explicit_memory_request", model: policy.standardModel, tools: [tool] });
     return finish({ handler: "memory", reason: "explicit_memory_request", tools: [tool] });
   }
+  if (decision.kind !== "route") {
+    return finish({ handler: "clarify", inquiry: null, reason: decision.kind === "candidates" ? "ambiguous_inquiry" : "low_route_confidence", candidates: decision.candidates });
+  }
+  const inquiry = decision.inquiry;
+  const scope = a.scope.confidence >= floor ? a.scope.choice : defaultScope(inquiry, (context.requestedBanks?.length ?? 0) > 1);
+  Object.assign(plan, { inquiry, scope, routingBasis: decision.basis, confidence: inquiry === a.inquiry.choice ? a.inquiry.confidence : null,
+    limits: { ...plan.limits, publicChunks: scope === "solution" ? policy.retrieval.maxPublicChunksSolution : policy.retrieval.maxPublicChunks } });
+  // The audience label never stops the chat or changes access: the customer is answered on their own signed-in track
+  // (personal for every account today). A message that sounds like a business still gets the personal answer.
   if (inquiry === "other" && !options.inquiry) {
     // "other" is a dead end only when the message asks nothing recognisable. A clear banking request ("a credit of 50k")
     // goes to the fallback model and then to chips; either way the customer gets choices, not the open question.

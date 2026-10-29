@@ -9,6 +9,7 @@ import { COMMISSION_KEYS } from "../lib/plan/schemas";
 import { ABOUT_LABELS, AFTER, FEEDBACK_REASONS, SENTIMENT_LABELS } from "../lib/analytics/sentiment";
 import { DATA_SOURCES, INTENTS } from "../lib/analytics/schemas";
 import { HANDOFF_REASONS } from "../lib/agent/handoff";
+import { ANSWER_CHECK_STATUSES } from "../lib/review/answerCheck";
 
 
 /** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
@@ -28,6 +29,18 @@ const bank = v.union(...BANKS.map((name) => v.literal(name)));
 const SCOPE_FIELDS = Object.keys(scopeFlagsSchema.shape) as ScopeField[];
 const scopeFlags = Object.fromEntries(SCOPE_FIELDS.map((field) => [field, v.boolean()])) as Record<ScopeField, ReturnType<typeof v.boolean>>;
 
+/** Mirrors `termValueSchema` in lib/catalog/schemas.ts. */
+const termValue = v.union(
+  v.object({ type: v.literal("exact"), amount: v.number() }),
+  v.object({ type: v.literal("range"), min: v.number(), max: v.number() }),
+  v.object({ type: v.literal("from"), min: v.number() }),
+  v.object({ type: v.literal("up_to"), max: v.number() }),
+  v.object({ type: v.literal("text"), text: v.string() }),
+  v.object({ type: v.literal("unavailable"), reason: v.string() }),
+);
+/** Mirrors `termSnapshotSchema` in lib/catalog/changes.ts: the part of a term a console change replaces. */
+const termSnapshot = v.object({ value: termValue, quote: v.string(), url: v.string(), reviewBy: v.string() });
+
 /** Mirrors `termRecordSchema` in lib/catalog/schemas.ts. */
 export const termRecordFields = {
   termId: v.string(),
@@ -37,14 +50,7 @@ export const termRecordFields = {
   track,
   kind: v.union(...TERM_KINDS.map((k) => v.literal(k))),
   label: v.string(),
-  value: v.union(
-    v.object({ type: v.literal("exact"), amount: v.number() }),
-    v.object({ type: v.literal("range"), min: v.number(), max: v.number() }),
-    v.object({ type: v.literal("from"), min: v.number() }),
-    v.object({ type: v.literal("up_to"), max: v.number() }),
-    v.object({ type: v.literal("text"), text: v.string() }),
-    v.object({ type: v.literal("unavailable"), reason: v.string() }),
-  ),
+  value: termValue,
   unit: v.union(...TERM_UNITS.map((u) => v.literal(u))),
   frequency: v.optional(v.union(v.literal("once"), v.literal("monthly"), v.literal("yearly"))),
   conditions: v.array(v.string()),
@@ -148,7 +154,7 @@ export default defineSchema({
     summary: v.string(),
     guide: v.boolean(),
     ...scopeFlags,
-  }).index("by_productId", ["productId"]).index("by_bank_kind", ["bank", "kind"]),
+  }).index("by_productId", ["productId"]).index("by_bank_kind", ["bank", "kind"]).index("by_url", ["url"]),
 
   /** Which catalog record fills which part of a product's plan. Mirrors `planTemplateSchema` in lib/plan/build.ts. Admins set it. */
   planTemplates: defineTable({
@@ -180,6 +186,8 @@ export default defineSchema({
     organizationKey: v.union(v.null(), v.string()),
     plan: v.any(),
     createdAt: v.number(),
+    /** The answer whose simulation the customer turned into this version ("Build my plan"), when it came from one. */
+    messageId: v.optional(v.id("ragMessages")),
   }).index("by_thread_version", ["threadId", "version"]).index("by_plan_version", ["planId", "version"]),
 
   /**
@@ -302,7 +310,21 @@ export default defineSchema({
     error: v.optional(v.string()),
     /** A tapped choice, a submitted inputs form or "skip" on a user message. Checked against what Raiffy offered. */
     reply: v.optional(replyValidator),
+    /** The paperclip: the chosen sample customer's statement, never a real file (convex/accounts.ts). */
+    attachment: v.optional(v.literal("sample_statement")),
   }).index("by_thread", ["threadId"]),
+  /** Answer cards a customer pinned to the Context panel (lib/agent/chat-pins.ts). Owner-scoped like their threads. */
+  chatPins: defineTable({
+    ownerKey: v.string(),
+    track,
+    organizationKey: v.union(v.null(), v.string()),
+    threadId: v.id("ragThreads"),
+    messageId: v.id("ragMessages"),
+    kind: v.string(),
+    title: v.string(),
+    meta: v.string(),
+    createdAt: v.number(),
+  }).index("by_owner_scope", ["ownerKey", "track", "organizationKey", "createdAt"]).index("by_message", ["messageId"]),
   /**
    * "What Raiffy can see": which sample persona stands in for the customer's account in the POC, and the switches.
    * Everything starts off. Real account connections replace the persona later; the switches stay.
@@ -389,7 +411,7 @@ export default defineSchema({
     name: v.optional(v.string()),
     firstSeenAt: v.number(),
     lastSeenAt: v.number(),
-  }).index("by_clerk_user", ["clerkUserId"]).index("by_token", ["tokenIdentifier"]),
+  }).index("by_clerk_user", ["clerkUserId"]).index("by_token", ["tokenIdentifier"]).index("by_role", ["role"]),
 
   /** Append-only record of privileged actions: role changes now, approvals and publishes as the console arrives. */
   auditLog: defineTable({
@@ -414,7 +436,66 @@ export default defineSchema({
     status: v.literal("requested"),
     createdAt: v.number(),
   }).index("by_message", ["messageId"]).index("by_owner", ["ownerKey", "createdAt"]),
+  /**
+   * Answers the customer flagged for a specialist (lib/review/answerCheck.ts). `snapshot` is what the specialist sees,
+   * masked and taken when the customer sent it, so later changes to the chat don't change the case.
+   */
+  answerChecks: defineTable({
+    ownerKey: v.string(),
+    track,
+    organizationKey: v.union(v.null(), v.string()),
+    threadId: v.id("ragThreads"),
+    messageId: v.id("ragMessages"),
+    reference: v.string(),
+    snapshot: v.object({
+      questions: v.array(v.string()),
+      paragraphs: v.array(v.string()),
+      sources: v.array(v.object({ title: v.string(), url: v.string(), collectedOn: v.string() })),
+      inquiry: v.union(v.null(), v.string()),
+      handler: v.union(v.null(), v.string()),
+      ungroundedNumbers: v.number(),
+      note: v.union(v.null(), v.string()),
+    }),
+    status: v.union(...ANSWER_CHECK_STATUSES.map((s) => v.literal(s))),
+    /** The specialist as the customer sees them; the audit log holds the Clerk user. */
+    decidedBy: v.optional(v.object({ name: v.string(), role: v.string() })),
+    decidedAt: v.optional(v.number()),
+    /** Shown to the customer: the correction or the reason it was sent back. */
+    customerNote: v.optional(v.string()),
+    /** True on every check since e-mails began (they aren't optional). Absent on older checks: those get no e-mail. */
+    emailOptIn: v.optional(v.boolean()),
+    /** What happened to each e-mail: sent, sent to Resend's test inbox, or skipped and why. Never the address. */
+    emails: v.optional(v.array(v.object({
+      kind: v.union(v.literal("received"), v.literal("decided")),
+      outcome: v.union(v.literal("sent"), v.literal("test"), v.literal("skipped")),
+      reason: v.optional(v.string()),
+      emailId: v.optional(v.string()),
+      at: v.number(),
+    }))),
+    createdAt: v.number(),
+  }).index("by_message", ["messageId"]).index("by_thread", ["threadId"]).index("by_status", ["status", "createdAt"])
+    .index("by_owner", ["ownerKey", "createdAt"]).index("by_created", ["createdAt"]),
   /** Regulatory parameters for indicative checks, each with its source; imported from catalog/regulatory-limits.jsonl. */
+  /**
+   * Console changes to catalog values (convex/catalogChanges.ts, raiffy-spec/docs/shared/console.md → Change lifecycle).
+   * `before` is the term as it was when the change was proposed, so a rollback can restore it.
+   */
+  catalogChanges: defineTable({
+    changeId: v.string(),
+    termId: v.string(), productId: v.string(), product: v.string(), label: v.string(), unit: v.string(), track,
+    kind: v.union(v.literal("edit"), v.literal("confirm"), v.literal("rollback")),
+    before: termSnapshot, after: termSnapshot,
+    note: v.string(),
+    status: v.union(v.literal("pending"), v.literal("published"), v.literal("rejected"), v.literal("rolledBack")),
+    proposedBy: v.string(), proposedByRole: role, proposedAt: v.number(),
+    decidedBy: v.optional(v.string()), decidedAt: v.optional(v.number()), decisionNote: v.optional(v.string()),
+    rollbackOf: v.optional(v.string()),
+  })
+    .index("by_changeId", ["changeId"])
+    .index("by_status", ["status", "proposedAt"])
+    .index("by_term", ["termId", "proposedAt"])
+    .index("by_product", ["productId", "proposedAt"]),
+
   regulatoryLimits: defineTable({
     key: v.string(),
     value: v.number(),

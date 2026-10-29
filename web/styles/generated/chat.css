@@ -94,7 +94,7 @@
   color: var(--c, var(--text-2)); background: color-mix(in srgb, var(--c, var(--text-2)) 12%, transparent); white-space: nowrap; }
 
 /* ───────────── App shell ───────────── */
-.pg-chat .app { display: grid; grid-template-columns: 260px minmax(0, 1fr) 320px; height: 100vh; height: 100dvh; }
+.pg-chat .app { display: grid; grid-template-columns: minmax(0, 1fr); height: 100vh; height: 100dvh; }
 /* Context panel on wide screens: it slides closed and the chat takes the space (toggle and ⌘\ in the header) */
 @media (min-width: 1200px) {
   .pg-chat .app { transition: grid-template-columns 200ms var(--ease-out); }
@@ -132,6 +132,25 @@
 .pg-chat .conv[aria-current="true"] { background: var(--surface); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--border-strong); }
 @media (hover: hover) and (pointer: fine) { .pg-chat .conv:not([aria-current="true"]):hover { background: var(--hover-fill); color: var(--text-1); } }
 .pg-chat .no-match { padding: 16px 10px; font-size: var(--text-xs); color: var(--text-2); }
+.pg-chat .checks-link { margin-top: 8px; }
+
+/* Your specialist checks (#checks): every answer the customer sent to a person, in the thread's place */
+.pg-chat .checks { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pg-chat .checks-in { max-width: 760px; margin: 0 auto; padding: 24px 16px 40px; display: grid; gap: 12px; }
+@media (min-width: 640px) { .pg-chat .checks-in { padding: 32px 24px 48px; } }
+.pg-chat .checks-in > p { max-width: 64ch; font-size: var(--text-sm); line-height: 1.5; color: var(--text-2); }
+.pg-chat .checks-in .grp { padding: 12px 0 0; }
+.pg-chat .chk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pg-chat .chk { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+.pg-chat .chk-h { display: flex; align-items: flex-start; gap: 12px; }
+.pg-chat .chk-h > div { flex: 1; min-width: 0; }
+.pg-chat .chk-h b { display: block; font-size: var(--text-sm); font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.pg-chat .chk-h small { display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--text-2); }
+.pg-chat .chk-h .ref { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pg-chat .chk .vstat { max-width: none; }
+.pg-chat .chk-wait { font-size: var(--text-xs); line-height: 1.5; color: var(--text-2); }
+.pg-chat .chk-empty { padding: 20px 16px; border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); font-size: var(--text-sm); color: var(--text-2); }
+.pg-chat .app.view-checks .scroll, .pg-chat .app.view-checks .composer-wrap, .pg-chat .app.view-checks .rename { display: none; }
 .pg-chat .me { display: flex; align-items: center; gap: 10px; padding: 10px 6px 0; border-top: 1px solid var(--border); }
 .pg-chat .me .ava { background: linear-gradient(135deg, var(--ava-a), var(--ava-b)); color: var(--ava-ink); }
 .pg-chat .me div { flex: 1; min-width: 0; line-height: 1.3; }
@@ -171,6 +190,7 @@
 .pg-chat .raiffy-body { display: grid; gap: 14px; min-width: 0; padding-top: 3px; }
 .pg-chat .raiffy-text { display: grid; gap: 12px; }
 .pg-chat .raiffy-text p { max-width: 64ch; }
+.pg-chat .raiffy-text .gcard p { max-width: none; } /* a card placed after its paragraph keeps the full width */
 .pg-chat .stopped { font-size: var(--text-xs); color: var(--text-2); }
 .pg-chat .caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: var(--radius-xs); background: var(--ink); opacity: .7; }
 .pg-chat .dots { display: inline-flex; gap: 3px; }
@@ -254,7 +274,7 @@
 .pg-chat .inp-box { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-btn); background: var(--surface);
   transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out); }
 .pg-chat .inp-box:focus-within { border-color: var(--ink); box-shadow: var(--halo); }
-.pg-chat .inp-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font: 500 var(--text-sm) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.pg-chat .inp-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font: 500 16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-1); }
 .pg-chat .inp-box span { flex: none; font-size: var(--text-xs); color: var(--text-2); }
 .pg-chat .inp-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .pg-chat .inp-opts button { height: 32px; padding: 0 12px; border-radius: var(--radius-btn); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: var(--text-xs); color: var(--text-2);
@@ -264,11 +284,14 @@
 .pg-chat .inputs-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .pg-chat .inputs-foot p { margin: 0; font-size: var(--text-xs); color: var(--text-2); }
 .pg-chat .inputs-form[data-done] .inp-box, .pg-chat .inputs-form[data-done] .inp-opts button { background: var(--surface-3); }
-@media (max-width: 640px) { .pg-chat .inp-box input { font-size: 16px; } }
+/* 16px on phones stops iOS zooming into the field */
+@media (min-width: 640px) { .pg-chat .inp-box input { font-size: var(--text-sm); } }
 
 /* Comparison table */
 .pg-chat .tbl-wrap { overflow-x: auto; }
-.pg-chat .cmp { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); min-width: 440px; font-size: var(--text-xs); }
+/* Phones restack instead of scrolling: each row label spans the card, the two options sit under it, nothing is cut.
+   From 480px it's the three-column table. */
+.pg-chat .cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; font-size: var(--text-xs); }
 .pg-chat .cmp > div { padding: 9px 14px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .pg-chat .cmp .th { border-top: 0; font-size: var(--text-micro); font-weight: 600; color: var(--text-1); }
 .pg-chat .cmp .th small { display: block; font-weight: 400; color: var(--text-1); font-size: var(--text-micro); }
@@ -277,12 +300,14 @@
 /* Recommendation: one option carries the badge and a tint; the others keep the same size and fields */
 .pg-chat .cmp .rc { background: var(--tint-rec-soft); }
 .pg-chat .cmp .rc.on { background: var(--tint-rec); }
-/* Narrow: restack instead of scrolling. Each row label spans the card, the two options sit under it, nothing is cut */
-@media (max-width: 520px) {
-  .pg-chat .cmp { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; }
-  .pg-chat .cmp > .th:first-child { display: none; }
-  .pg-chat .cmp .rk { grid-column: 1 / -1; padding-bottom: 2px; font-size: var(--text-micro); }
-  .pg-chat .cmp .rk + div, .pg-chat .cmp .rk + div + div { border-top: 0; padding-top: 2px; }
+.pg-chat .cmp > .th:first-child { display: none; }
+.pg-chat .cmp .rk { grid-column: 1 / -1; padding-bottom: 2px; font-size: var(--text-micro); }
+.pg-chat .cmp .rk + div, .pg-chat .cmp .rk + div + div { border-top: 0; padding-top: 2px; }
+@media (min-width: 480px) {
+  .pg-chat .cmp { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); min-width: 440px; }
+  .pg-chat .cmp > .th:first-child { display: block; }
+  .pg-chat .cmp .rk { grid-column: auto; padding-bottom: 9px; font-size: inherit; }
+  .pg-chat .cmp .rk + div, .pg-chat .cmp .rk + div + div { border-top: 1px solid var(--border); padding-top: 9px; }
 }
 .pg-chat .rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--tint-rec); color: var(--ink);
   font-size: var(--text-eyebrow); font-weight: 600; letter-spacing: .01em; box-shadow: var(--halo-ring); white-space: nowrap; }
@@ -290,7 +315,7 @@
 .pg-chat .rec-badge[hidden] { display: none; }
 .pg-chat .cmp .th .rec-badge { margin-top: 7px; }
 /* Bank comparison (lib/compare): fixed rows in groups, a cited value per cell, and two kinds of gap */
-.pg-chat .cmp .cg { grid-column: 1 / -1; padding: 12px 14px 4px; font-size: var(--text-eyebrow); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.pg-chat .cmp .cg { grid-column: 1 / -1; padding: 14px 14px 4px; font-size: var(--text-eyebrow); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
 .pg-chat .cmp .cg + div { border-top: 0; }
 .pg-chat .cmp .na { color: var(--text-3); }
 .pg-chat .cmp .nc { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); border: 1px dashed var(--border-strong); background: var(--surface-2); color: var(--text-2); font-size: var(--text-micro); }
@@ -300,7 +325,7 @@
 .pg-chat .cmp .win { background: var(--tint-rec); box-shadow: inset 0 0 0 1px var(--rec-line-mid); }
 .pg-chat .cite { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 3px; vertical-align: 2px; border-radius: 999px;
   background: var(--surface-2); color: var(--text-2); font: 500 11px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
-@media (max-width: 520px) { .pg-chat .cmp .cg { padding-top: 14px; } }
+@media (min-width: 480px) { .pg-chat .cmp .cg { padding-top: 12px; } }
 .pg-chat .rec-why { display: grid; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface-warm); }
 .pg-chat .rec-why-h { display: flex; align-items: center; gap: 10px; font-size: var(--text-xs); font-weight: 600; }
 .pg-chat .rec-why-h .ava-raiffy { width: 22px; height: 22px; }
@@ -335,8 +360,8 @@
   font-variant-numeric: tabular-nums; transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
 .pg-chat .terms button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 @media (hover: hover) and (pointer: fine) { .pg-chat .terms button:not([aria-pressed="true"]):hover { border-color: var(--border-hover); color: var(--text-1); } }
-.pg-chat .opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 520px) { .pg-chat .opts { grid-template-columns: 1fr; } }
+.pg-chat .opts { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 480px) { .pg-chat .opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pg-chat .opt { border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px; display: grid; gap: 10px; transition: opacity 150ms var(--ease-out); }
 .pg-chat .opt.na { opacity: .55; }
 .pg-chat .opt.rec { border-color: var(--rec-line-mid); background: var(--tint-rec-card); }
@@ -400,8 +425,8 @@
 /* Price and counter-offer: conditional price rows, total cost side by side, source pills */
 .pg-chat .offer-lead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px; margin-bottom: 10px; border-radius: var(--radius-md); background: var(--tint-hl); }
 .pg-chat .prices { display: grid; gap: 2px; }
-.pg-chat .price-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: baseline; padding: 8px 10px; border-radius: var(--radius-md); font-size: var(--text-xs); }
-.pg-chat .price-row .nm { min-width: 0; }
+.pg-chat .price-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; padding: 8px 10px; border-radius: var(--radius-md); font-size: var(--text-xs); }
+.pg-chat .price-row .nm { min-width: 0; grid-row: span 2; }
 .pg-chat .price-row .dsc { display: block; color: var(--text-2); }
 .pg-chat .price-row .rt, .pg-chat .price-row .tt { font-family: var(--font-mono); color: var(--text-1); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
 .pg-chat .price-row.cur { box-shadow: inset 0 0 0 1px var(--border-strong); }
@@ -413,10 +438,11 @@
 .pg-chat .src-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .pg-chat .offer-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .pg-chat .offer-status { margin-top: 10px; font-size: var(--text-xs); color: var(--text-2); }
-@media (max-width: 480px) {
-  .pg-chat .price-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .pg-chat .price-row .nm { grid-row: span 2; }
-  .pg-chat .vs .wide-only { display: none; }
+.pg-chat .vs .wide-only { display: none; }
+@media (min-width: 480px) {
+  .pg-chat .price-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .pg-chat .price-row .nm { grid-row: auto; }
+  .pg-chat .vs .wide-only { display: inline; }
 }
 
 /* Documents + booking */
@@ -463,16 +489,17 @@
 .pg-chat .plan-goal { display: grid; gap: 4px; }
 .pg-chat .plan-goal b { font-size: var(--text-sm); font-weight: 600; }
 .pg-chat .plan-route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--text-xs); color: var(--text-1); }
-.pg-chat .plan-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-btn); }
-.pg-chat .plan-figs > div { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-left: 1px solid var(--border); }
-.pg-chat .plan-figs > div:first-child { border-left: 0; }
+/* Phones: one figure per row, value on the right; from 480px three side by side. */
+.pg-chat .plan-figs { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--border); border-radius: var(--radius-btn); }
+.pg-chat .plan-figs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 10px; min-width: 0; padding: 10px 12px; border-top: 1px solid var(--border); }
+.pg-chat .plan-figs > div:first-child { border-top: 0; }
 .pg-chat .plan-figs span, .pg-chat .plan-figs small { font-size: var(--text-micro); color: var(--text-2); }
-.pg-chat .plan-figs b { font: 600 17px/1.25 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-@media (max-width: 520px) {
-  .pg-chat .plan-figs { grid-template-columns: minmax(0, 1fr); }
-  .pg-chat .plan-figs > div { border-left: 0; border-top: 1px solid var(--border); grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px; }
-  .pg-chat .plan-figs > div:first-child { border-top: 0; }
-  .pg-chat .plan-figs b { grid-row: 1 / 3; grid-column: 2; text-align: right; }
+.pg-chat .plan-figs b { grid-row: 1 / 3; grid-column: 2; text-align: right; font: 600 17px/1.25 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+@media (min-width: 480px) {
+  .pg-chat .plan-figs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pg-chat .plan-figs > div { grid-template-columns: none; align-items: normal; column-gap: 2px; border-top: 0; border-left: 1px solid var(--border); }
+  .pg-chat .plan-figs > div:first-child { border-left: 0; }
+  .pg-chat .plan-figs b { grid-row: auto; grid-column: auto; text-align: left; }
 }
 .pg-chat .bal { display: grid; gap: 6px; }
 .pg-chat .bal-bars { display: flex; align-items: flex-end; gap: 2px; height: 40px; }
@@ -506,8 +533,8 @@
 .pg-chat .empty-head .ava-raiffy svg { width: 18px; height: 18px; }
 .pg-chat .empty-head h2 { font-size: var(--text-h2); line-height: var(--lh-h2); letter-spacing: var(--tr-h2); margin-top: 8px; }
 .pg-chat .empty-head p { font-size: var(--text-body); color: var(--text-2); max-width: 52ch; }
-.pg-chat .starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 600px) { .pg-chat .starters { grid-template-columns: 1fr; } }
+.pg-chat .starters { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 640px) { .pg-chat .starters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pg-chat .starter { display: grid; gap: 4px; align-content: start; padding: 0 0 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
   text-align: left; cursor: pointer; overflow: hidden; transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out); }
 .pg-chat .starter:active { border-color: var(--border-hover); }
@@ -544,9 +571,9 @@
   box-shadow: var(--shadow-float); transition: border-color 150ms ease, box-shadow 150ms ease; }
 .pg-chat .composer:focus-within { border-color: var(--ink); box-shadow: var(--halo), var(--shadow-float); }
 .pg-chat .composer textarea { display: block; width: 100%; min-height: 26px; max-height: 200px; padding: 2px 0; border: 0; outline: none; resize: none; background: transparent;
-  font-size: var(--text-body); line-height: 1.55; }
+  font-size: 16px; line-height: 1.55; }
 .pg-chat .composer textarea::placeholder { color: var(--text-3); }
-@media (max-width: 640px) { .pg-chat .composer textarea { font-size: 16px; } }
+@media (min-width: 640px) { .pg-chat .composer textarea { font-size: var(--text-body); } }
 .pg-chat .comp-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .pg-chat .comp-row .file-chip { min-width: 0; }
 .pg-chat .send { flex: none; margin-left: auto; width: 34px; height: 34px; padding: 0; border-radius: var(--radius-btn); }
@@ -611,26 +638,40 @@
 /* Drawers */
 /* One under the drawers, which come later in z-order */
 .pg-chat .scrim { position: fixed; inset: 0; z-index: calc(var(--z-drawer) - 1); background: var(--scrim); }
-.pg-chat .ctx-close { display: none; }
-@media (max-width: 1199px) {
+/*
+ * Mobile first (DESIGN.md §12): on phones the sidebar and the context panel are drawers over the scrim. From 860px
+ * the sidebar is a column, and from 1200px the context panel too. These match the scripts' matchMedia queries
+ * (max-width 859px and 1199px here and in components/agent/AgentChat.tsx), so change them together.
+ */
+.pg-chat .side { position: fixed; z-index: var(--z-drawer); top: 0; left: 0; bottom: 0; width: min(300px, 86vw); box-shadow: var(--shadow-float);
+  transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
+.pg-chat .app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
+.pg-chat .ctx { position: fixed; z-index: var(--z-drawer); top: 0; right: 0; bottom: 0; width: min(360px, 92vw); box-shadow: var(--shadow-float);
+  transform: translateX(100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
+.pg-chat .app.ctx-open .ctx { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
+.pg-chat .ctx-close { display: grid; }
+.pg-chat .top { padding: 0 8px 0 16px; }
+.pg-chat .top .menu { display: grid; }
+.pg-chat .top .advisor-lbl { display: none; }
+.pg-chat .top .advisor { width: 32px; padding: 0; }
+.pg-chat .thread, .pg-chat .empty { padding-left: 16px; padding-right: 16px; }
+.pg-chat .composer-wrap { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
+.pg-chat .side .new kbd, .pg-chat .search kbd { display: none; }
+@media (min-width: 860px) {
   .pg-chat .app { grid-template-columns: 260px minmax(0, 1fr); }
-  .pg-chat .ctx { position: fixed; z-index: var(--z-drawer); top: 0; right: 0; bottom: 0; width: min(360px, 92vw); box-shadow: var(--shadow-float);
-    transform: translateX(100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
-  .pg-chat .app.ctx-open .ctx { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
-  .pg-chat .ctx-close { display: grid; }
+  .pg-chat .side { position: static; z-index: auto; width: auto; box-shadow: none; transform: none; visibility: visible; transition: none; }
+  .pg-chat .top { padding: 0 12px 0 20px; }
+  .pg-chat .top .menu { display: none; }
+  .pg-chat .top .advisor-lbl { display: inline; }
+  .pg-chat .top .advisor { width: auto; padding: 0 12px; }
+  .pg-chat .thread, .pg-chat .empty { padding-left: 24px; padding-right: 24px; }
+  .pg-chat .composer-wrap { padding: 0 24px 14px; }
+  .pg-chat .side .new kbd, .pg-chat .search kbd { display: inline; }
 }
-@media (max-width: 859px) {
-  .pg-chat .app { grid-template-columns: minmax(0, 1fr); }
-  .pg-chat .side { position: fixed; z-index: var(--z-drawer); top: 0; left: 0; bottom: 0; width: min(300px, 86vw); box-shadow: var(--shadow-float);
-    transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
-  .pg-chat .app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
-  .pg-chat .top { padding: 0 8px 0 16px; }
-  .pg-chat .top .menu { display: grid; }
-  .pg-chat .top .advisor-lbl { display: none; }
-  .pg-chat .top .advisor { width: 32px; padding: 0; }
-  .pg-chat .thread, .pg-chat .empty { padding-left: 16px; padding-right: 16px; }
-  .pg-chat .composer-wrap { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
-  .pg-chat .side .new kbd, .pg-chat .search kbd { display: none; }
+@media (min-width: 1200px) {
+  .pg-chat .app { grid-template-columns: 260px minmax(0, 1fr) 320px; }
+  .pg-chat .ctx { position: static; z-index: auto; width: auto; box-shadow: none; transform: none; visibility: visible; transition: none; }
+  .pg-chat .ctx-close { display: none; }
 }
 
 /* ───────────── Motion ───────────── */

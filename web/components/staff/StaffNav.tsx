@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  CalendarDaysIcon, ChartColumnIcon, CircleDashedIcon, GitPullRequestArrowIcon, InboxIcon, LayoutDashboardIcon,
+  CalendarClockIcon, CalendarDaysIcon, ChartColumnIcon, CircleDashedIcon, GitPullRequestArrowIcon, InboxIcon, LayoutDashboardIcon,
   PackageIcon, ScrollTextIcon, SlidersHorizontalIcon, SmileIcon, TrendingUpIcon, UsersIcon, type LucideIcon,
 } from "lucide-react";
 import { ADMIN_NAV, CONSOLE_NAV } from "@/lib/staff-nav";
@@ -14,7 +14,7 @@ import { ADMIN_NAV, CONSOLE_NAV } from "@/lib/staff-nav";
 const ICONS: Record<string, LucideIcon> = {
   users: UsersIcon, inbox: InboxIcon, "trending-up": TrendingUpIcon, "layout-dashboard": LayoutDashboardIcon, package: PackageIcon,
   "sliders-horizontal": SlidersHorizontalIcon, "chart-column": ChartColumnIcon, "scroll-text": ScrollTextIcon,
-  "git-pull-request-arrow": GitPullRequestArrowIcon, "calendar-days": CalendarDaysIcon, smile: SmileIcon,
+  "git-pull-request-arrow": GitPullRequestArrowIcon, "calendar-days": CalendarDaysIcon, "calendar-clock": CalendarClockIcon, smile: SmileIcon,
 };
 
 export function AdminNav({ current, counts = {} }: { current: string; counts?: Record<string, number> }) {

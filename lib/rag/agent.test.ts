@@ -140,6 +140,27 @@ describe("runAgent", () => {
     expect(seen).toEqual([]);
   });
 
+  it("adds the fallback's card when the model's cards miss the one the pattern expects", async () => {
+    const url = "https://www.raiffeisen.ro/dep.html";
+    const other = "https://www.raiffeisen.ro/other.html";
+    const cards = {
+      tool: { name: "show_cards", description: "cards", input_schema: { type: "object" as const } },
+      check: (raw: unknown) => ({ ok: true as const, cards: (raw as { cards: unknown[] }).cards, urls: [url], note: "Shown." }),
+      fallback: () => ({ cards: [{ type: "keyFacts" }], urls: [url, other] }),
+      complete: (shown: readonly unknown[]) => shown.some(c => (c as { type: string }).type === "keyFacts"),
+    };
+    const script = (card: string) => [
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit 3 luni", limit: 5 })]),
+      message("tool_use", [toolUse("c1", { cards: [{ type: card }] }, "show_cards")]),
+      message("end_turn", [cited("Here is the 3-month deposit at a glance.", 0)]),
+    ];
+    const missing = await runAgent({ ...input, cards }, fakeDeps(script("checklist"), [[hit("dep", "3 luni: dobândă 4.70% pe an")]]).deps);
+    expect(missing.cards).toEqual([{ type: "checklist" }, { type: "keyFacts" }]);
+    // The model already showed the pattern's card: no guess on top
+    const met = await runAgent({ ...input, cards }, fakeDeps(script("keyFacts"), [[hit("dep", "3 luni: dobândă 4.70% pe an")]]).deps);
+    expect(met.cards).toEqual([{ type: "keyFacts" }]);
+  });
+
   it("runs host tools whose results are citable, so a cited calculation passes the number check and an invented one doesn't", async () => {
     const calc = { chunkId: "calc:1", label: "Raiffy calculation", url: "https://www.raiffeisen.ro/loan.html",
       text: ["Loan monthly payment: 961.21 lei.", "Loan total payable: 57,962.60 lei."].join("\n"), collectedAt: "2026-10-28T07:45:27+00:00", sectionType: "representative_example" as const, score: 1 };

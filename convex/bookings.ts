@@ -4,12 +4,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAgentThread } from "./agentAuth";
 import { writeAudit } from "./audit";
 import { requireRole, requireUser } from "./roles";
-import { atLeast } from "../lib/auth/roles";
+import { atLeast, type Role } from "../lib/auth/roles";
 import {
-  availabilitySchema, DEFAULT_BOOKING_RULES as RULES, localDateTimeSchema, type Availability, type BookingFacts,
+  availabilitySchema, DEFAULT_BOOKING_RULES as RULES, DEFAULT_HOURS, localDateTimeSchema, type Availability, type BookingFacts,
 } from "../lib/booking/schemas";
 import {
-  bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, pausedUntil,
+  bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, openSlotsOn, pausedUntil,
   releaseAt, shareWindow, shortName, shouldRelease, toInstant, toLocal, upcomingSlots,
 } from "../lib/booking/rules";
 
@@ -52,10 +52,52 @@ function randomHex(bytes: number) {
   return [...a].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-async function availabilityOf(ctx: Pick<QueryCtx, "db">, operatorId: string) {
-  const row = await ctx.db.query("operatorAvailability").withIndex("by_operator", (q) => q.eq("operatorId", operatorId)).unique();
-  if (!row || !row.active) return null;
-  return { row, availability: availabilitySchema.parse(row.availability) };
+/*
+ * Who is bookable: every operator and admin in the users mirror, on their saved hours or DEFAULT_HOURS until they save
+ * some. The mirror is the staff directory here, not the caller's authorization: the token's role still guards writes.
+ * Someone demoted to member drops out of the chat, even with hours saved.
+ */
+type Specialist = {
+  operatorId: string; name: string; title: string; active: boolean; role: Role; email: string | null;
+  /** False while they're on the default hours. */
+  custom: boolean; availability: Availability;
+};
+const DEFAULT_TITLE = "Specialist";
+const MAX_SPECIALISTS = 50;
+
+/** "Ana Maria Ionescu" → "Ana I.", as the prototype shows specialists to customers. */
+function displayName(user: Doc<"users">) {
+  const [first, ...rest] = (user.name ?? "").trim().split(/\s+/).filter(Boolean);
+  const last = rest.at(-1);
+  return first ? `${first}${last ? ` ${last[0]!.toUpperCase()}.` : ""}`.slice(0, 40) : "Raiffeisen specialist";
+}
+
+function specialistOf(user: Doc<"users">, row: Doc<"operatorAvailability"> | null): Specialist {
+  const base = { operatorId: user.clerkUserId, role: user.role, email: user.email ?? null };
+  if (!row) return { ...base, name: displayName(user), title: DEFAULT_TITLE, active: true, custom: false, availability: { ...DEFAULT_HOURS, operatorId: user.clerkUserId } };
+  return { ...base, name: row.name, title: row.title, active: row.active, custom: true, availability: availabilitySchema.parse(row.availability) };
+}
+
+async function hoursRow(ctx: Pick<QueryCtx, "db">, operatorId: string) {
+  return ctx.db.query("operatorAvailability").withIndex("by_operator", (q) => q.eq("operatorId", operatorId)).unique();
+}
+
+async function staffUser(ctx: Pick<QueryCtx, "db">, operatorId: string) {
+  const user = await ctx.db.query("users").withIndex("by_clerk_user", (q) => q.eq("clerkUserId", operatorId)).unique();
+  return user && atLeast(user.role, "operator") ? user : null;
+}
+
+async function specialist(ctx: Pick<QueryCtx, "db">, operatorId: string): Promise<Specialist | null> {
+  const user = await staffUser(ctx, operatorId);
+  return user ? specialistOf(user, await hoursRow(ctx, operatorId)) : null;
+}
+
+async function allSpecialists(ctx: Pick<QueryCtx, "db">): Promise<Specialist[]> {
+  const users = [];
+  for (const role of ["operator", "admin"] as const) users.push(...await ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", role)).take(MAX_SPECIALISTS));
+  const out = [];
+  for (const user of users.slice(0, MAX_SPECIALISTS)) out.push(specialistOf(user, await hoursRow(ctx, user.clerkUserId)));
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function operatorBookings(ctx: Pick<QueryCtx, "db">, operatorId: string, fromDate: string) {
@@ -97,13 +139,12 @@ export const options = query({
   handler: async (ctx) => {
     const caller = await requireUser(ctx);
     const now = Date.now();
-    const rows = await ctx.db.query("operatorAvailability").withIndex("by_active", (q) => q.eq("active", true)).take(10);
     const operators = [];
-    for (const row of rows) {
-      const availability = availabilitySchema.parse(row.availability);
-      const held = await operatorBookings(ctx, row.operatorId, toLocal(now, availability.timeZone).slice(0, 10));
+    for (const s of (await allSpecialists(ctx)).filter((x) => x.active).slice(0, 10)) {
+      const { availability } = s;
+      const held = await operatorBookings(ctx, s.operatorId, toLocal(now, availability.timeZone).slice(0, 10));
       operators.push({
-        operatorId: row.operatorId, name: row.name, title: row.title, initials: initialsOf(row.name), minutes: availability.slotMinutes,
+        operatorId: s.operatorId, name: s.name, title: s.title, initials: initialsOf(s.name), minutes: availability.slotMinutes,
         timeZone: availability.timeZone, slots: upcomingSlots(availability, held.map(facts), now, SLOTS_SHOWN),
       });
     }
@@ -146,9 +187,9 @@ export const book = mutation({
       }
     } else if (args.sharePlan) throw new ConvexError("plan_unavailable");
 
-    const found = await availabilityOf(ctx, args.operatorId);
-    if (!found) return { status: "refused" as const, reason: "slot_unavailable", pausedUntil: null };
-    const { row, availability } = found;
+    const row = await specialist(ctx, args.operatorId);
+    if (!row?.active) return { status: "refused" as const, reason: "slot_unavailable", pausedUntil: null };
+    const { availability } = row;
     const now = Date.now();
     const held = await operatorBookings(ctx, args.operatorId, toLocal(now, availability.timeZone).slice(0, 10));
     const own = await ownBookings(ctx, ownerKey);
@@ -211,32 +252,38 @@ export const cancel = mutation({
 /* ───────────── Operators ───────────── */
 
 /** An operator sets their own hours; an admin can set anyone's (the demo's seed). */
+const availabilityFields = v.object({
+  timeZone: v.string(),
+  weekly: v.record(v.string(), v.array(v.string())),
+  breaks: v.array(v.array(v.string())),
+  slotMinutes: v.number(), bufferMinutes: v.number(), dailyCap: v.number(), minLeadHours: v.number(), horizonDays: v.number(),
+  daysOff: v.array(v.object({ date: v.string(), reason: v.string() })),
+});
+
 export const setAvailability = mutation({
-  args: {
-    operatorId: v.string(), name: v.string(), title: v.string(), active: v.boolean(),
-    availability: v.object({
-      timeZone: v.string(),
-      weekly: v.record(v.string(), v.array(v.string())),
-      breaks: v.array(v.array(v.string())),
-      slotMinutes: v.number(), bufferMinutes: v.number(), dailyCap: v.number(), minLeadHours: v.number(), horizonDays: v.number(),
-      daysOff: v.array(v.object({ date: v.string(), reason: v.string() })),
-    }),
-  },
+  args: { operatorId: v.string(), name: v.string(), title: v.string(), active: v.boolean(), availability: availabilityFields },
   returns: v.null(),
   handler: async (ctx, args) => {
     const caller = await requireRole(ctx, "operator");
-    if (caller.clerkUserId !== args.operatorId && !atLeast(caller.role, "admin")) throw new ConvexError("forbidden");
+    if (caller.clerkUserId !== args.operatorId) {
+      if (!atLeast(caller.role, "admin")) throw new ConvexError("forbidden");
+      // An admin sets hours only for someone who is an operator or admin
+      if (!await staffUser(ctx, args.operatorId)) throw new ConvexError("not_a_specialist");
+    }
     const name = args.name.trim();
     const title = args.title.trim();
     if (!name || name.length > 40 || !title || title.length > 60) throw new ConvexError("operator_name_invalid");
     const parsed = availabilitySchema.safeParse({ ...args.availability, operatorId: args.operatorId });
     if (!parsed.success) throw new ConvexError("availability_invalid");
     try { toLocal(Date.now(), parsed.data.timeZone); } catch { throw new ConvexError("availability_invalid"); }
-    const existing = await ctx.db.query("operatorAvailability").withIndex("by_operator", (q) => q.eq("operatorId", args.operatorId)).unique();
+    const existing = await hoursRow(ctx, args.operatorId);
     const row = { operatorId: args.operatorId, name, title, active: args.active, availability: parsed.data, updatedBy: caller.clerkUserId, updatedAt: Date.now() };
     if (existing) await ctx.db.patch(existing._id, row);
     else await ctx.db.insert("operatorAvailability", row);
-    await writeAudit(ctx, caller, { action: "booking.availability_set", targetUserId: args.operatorId, details: { active: String(args.active) } });
+    await writeAudit(ctx, caller, {
+      action: "booking.availability_set", targetUserId: args.operatorId,
+      details: { active: String(args.active), by: caller.clerkUserId === args.operatorId ? "self" : "admin" },
+    });
     return null;
   },
 });
@@ -261,29 +308,140 @@ export const agenda = query({
     const caller = await requireRole(ctx, "operator");
     const operatorId = args.operatorId ?? caller.clerkUserId;
     if (operatorId !== caller.clerkUserId && !atLeast(caller.role, "admin")) throw new ConvexError("forbidden");
-    const found = await availabilityOf(ctx, operatorId);
+    const found = await specialist(ctx, operatorId);
     const now = Date.now();
-    const zone = found?.availability.timeZone ?? "Europe/Bucharest";
+    const zone = found?.availability.timeZone ?? DEFAULT_HOURS.timeZone;
     const from = toLocal(now - 24 * 3_600_000, zone).slice(0, 10);
     const rows = (await operatorBookings(ctx, operatorId, from)).sort((a, b) => (a.start < b.start ? -1 : 1)).slice(0, 100);
     const items = [];
-    for (const b of rows) {
-      const f = facts(b);
-      const join = joinWindow(f, b.timeZone, RULES, now);
-      let sharedPlan = null;
-      if (b.planId && shareWindow(f, b.sharePlan, b.timeZone, RULES, now).open) {
-        const p = await ctx.db.query("planSummaries").withIndex("by_plan_version", (q) => q.eq("planId", b.planId!)).order("desc").first();
-        if (p && p.ownerKey === b.ownerKey) sharedPlan = { planId: p.planId, version: p.version, plan: p.plan };
-      }
-      items.push({
-        bookingId: b.bookingId, customerRef: b.customerRef, customerName: b.customerName, start: b.start, minutes: b.minutes,
-        timeZone: b.timeZone, channel: b.channel, topic: b.topic, state: bookingState(f), cancelledBy: b.cancelledBy ?? null,
-        canCancel: canCancel(f, b.timeZone, now), canRecordOutcome: canRecordOutcome(f, b.timeZone, now),
-        joinUrl: join.open && b.channel === "video" ? b.meetingUrl ?? null : null, joinFrom: join.from,
-        sharedPlan, planShared: b.sharePlan,
+    for (const b of rows) items.push(await agendaView(ctx, b, now));
+    return { operator: found?.active ? { name: found.name, title: found.title } : null, items };
+  },
+});
+
+/** One call as the operator sees it. The shared plan comes only inside its window. */
+async function agendaView(ctx: Pick<QueryCtx, "db">, b: Doc<"bookings">, now: number) {
+  const f = facts(b);
+  const join = joinWindow(f, b.timeZone, RULES, now);
+  let sharedPlan = null;
+  if (b.planId && shareWindow(f, b.sharePlan, b.timeZone, RULES, now).open) {
+    const p = await ctx.db.query("planSummaries").withIndex("by_plan_version", (q) => q.eq("planId", b.planId!)).order("desc").first();
+    if (p && p.ownerKey === b.ownerKey) sharedPlan = { planId: p.planId, version: p.version, plan: p.plan };
+  }
+  return {
+    bookingId: b.bookingId, customerRef: b.customerRef, customerName: b.customerName, start: b.start, minutes: b.minutes,
+    timeZone: b.timeZone, channel: b.channel, topic: b.topic, state: bookingState(f), cancelledBy: b.cancelledBy ?? null,
+    canCancel: canCancel(f, b.timeZone, now), canRecordOutcome: canRecordOutcome(f, b.timeZone, now),
+    joinUrl: join.open && b.channel === "video" ? b.meetingUrl ?? null : null, joinFrom: join.from,
+    sharedPlan, planShared: b.sharePlan,
+  };
+}
+
+const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 24 * 3_600_000).toISOString().slice(0, 10);
+const WEEKS_AROUND = 8;
+
+/**
+ * The console calendar (console.html#calendar): one Monday-to-Friday week of an operator's calls with each day's open
+ * slots, their hours, the next call and the customers who missed calls. An admin may open another operator's calendar.
+ * Times are wall-clock in the operator's zone; `now` lets the page shade the past without a clock of its own.
+ */
+export const calendar = query({
+  args: { operatorId: v.optional(v.string()), weekOffset: v.optional(v.number()) },
+  returns: v.object({
+    operatorId: v.string(),
+    operator: v.union(v.null(), v.object({ name: v.string(), title: v.string(), active: v.boolean() })),
+    availability: v.union(v.null(), availabilityFields),
+    timeZone: v.string(), now: v.number(), today: v.string(), week: v.string(), weekOffset: v.number(),
+    days: v.array(v.object({ date: v.string(), open: v.array(v.string()) })),
+    items: v.array(agendaItem),
+    next: v.union(v.null(), agendaItem),
+    missed: v.array(v.object({ customerRef: v.string(), customerName: v.string(), count: v.number(), pausedUntil: v.union(v.null(), v.number()) })),
+    rules: v.object({
+      confirmBeforeHours: v.number(), shareBeforeMinutes: v.number(), shareAfterHours: v.number(), joinBeforeMinutes: v.number(),
+      noShowPauseAfter: v.number(), pauseDays: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const caller = await requireRole(ctx, "operator");
+    const operatorId = args.operatorId ?? caller.clerkUserId;
+    if (operatorId !== caller.clerkUserId && !atLeast(caller.role, "admin")) throw new ConvexError("forbidden");
+    const offset = Math.max(-WEEKS_AROUND, Math.min(WEEKS_AROUND, Math.trunc(args.weekOffset ?? 0)));
+    const row = await specialist(ctx, operatorId);
+    const availability = row?.availability ?? null;
+    const timeZone = availability?.timeZone ?? DEFAULT_HOURS.timeZone;
+    const now = Date.now();
+    const today = toLocal(now, timeZone).slice(0, 10);
+    const monday = addDays(today, -((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const week = addDays(monday, offset * 7);
+    const from = [week, addDays(today, -RULES.pauseDays)].sort()[0]!;
+    const rows = (await operatorBookings(ctx, operatorId, from)).sort((a, b) => (a.start < b.start ? -1 : 1));
+    const held = rows.map(facts);
+
+    const items = [];
+    for (const b of rows.filter((x) => x.start >= week && x.start < addDays(week, 7)).slice(0, 200)) items.push(await agendaView(ctx, b, now));
+    const upcoming = rows.find((b) => b.status === "booked" && toInstant(b.start, b.timeZone) + b.minutes * 60_000 > now);
+
+    // Customers with a recent no-show: one more pauses their booking, or it already has
+    const missed = [];
+    for (const ref of [...new Set(rows.filter((b) => b.status === "no_show").map((b) => b.customerRef))].slice(0, 20)) {
+      const any = rows.find((b) => b.customerRef === ref)!;
+      const own = await ownBookings(ctx, any.ownerKey);
+      missed.push({
+        customerRef: ref, customerName: any.customerName, count: own.filter((b) => b.status === "no_show").length,
+        pausedUntil: pausedUntil(own.map(facts), RULES, now),
       });
     }
-    return { operator: found ? { name: found.row.name, title: found.row.title } : null, items };
+
+    let hours = null;
+    if (availability) { const { operatorId: _, ...rest } = availability; hours = rest; }
+    return {
+      operatorId,
+      operator: row ? { name: row.name, title: row.title, active: row.active } : null,
+      availability: hours, timeZone, now, today, week, weekOffset: offset,
+      days: [0, 1, 2, 3, 4].map((i) => addDays(week, i)).map((date) => ({ date, open: availability && row?.active ? openSlotsOn(availability, held, date, now) : [] })),
+      items, next: upcoming ? await agendaView(ctx, upcoming, now) : null, missed,
+      rules: {
+        confirmBeforeHours: RULES.confirmBeforeHours, shareBeforeMinutes: RULES.shareBeforeMinutes, shareAfterHours: RULES.shareAfterHours,
+        joinBeforeMinutes: RULES.joinBeforeMinutes, noShowPauseAfter: RULES.noShowPauseAfter, pauseDays: RULES.pauseDays,
+      },
+    };
+  },
+});
+
+/** Whose calendar an admin can open: every operator and admin, bookable or not. */
+export const calendars = query({
+  args: {},
+  returns: v.array(v.object({ operatorId: v.string(), name: v.string(), title: v.string(), active: v.boolean() })),
+  handler: async (ctx) => {
+    await requireRole(ctx, "admin");
+    return (await allSpecialists(ctx)).map((s) => ({ operatorId: s.operatorId, name: s.name, title: s.title, active: s.active }));
+  },
+});
+
+/** Admin › Specialists: everyone customers can book, their hours, and what the chat offers from them next. */
+export const specialists = query({
+  args: {},
+  returns: v.array(v.object({
+    operatorId: v.string(), name: v.string(), title: v.string(), role: v.union(v.literal("operator"), v.literal("admin")),
+    email: v.union(v.null(), v.string()), active: v.boolean(), custom: v.boolean(), availability: availabilityFields,
+    today: v.string(), nextSlots: v.array(v.string()), upcoming: v.number(),
+  })),
+  handler: async (ctx) => {
+    await requireRole(ctx, "admin");
+    const now = Date.now();
+    const out = [];
+    for (const s of await allSpecialists(ctx)) {
+      const today = toLocal(now, s.availability.timeZone).slice(0, 10);
+      const held = await operatorBookings(ctx, s.operatorId, today);
+      const { operatorId: _, ...hours } = s.availability;
+      out.push({
+        operatorId: s.operatorId, name: s.name, title: s.title, role: s.role === "admin" ? "admin" as const : "operator" as const,
+        email: s.email, active: s.active, custom: s.custom, availability: hours, today,
+        nextSlots: s.active ? upcomingSlots(s.availability, held.map(facts), now, 3) : [],
+        upcoming: held.filter((b) => b.status === "booked" && toInstant(b.start, b.timeZone) > now).length,
+      });
+    }
+    return out;
   },
 });
 

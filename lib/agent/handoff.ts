@@ -12,22 +12,28 @@ export type HandoffAction = z.infer<typeof handoffActionSchema>;
 
 type Mode = "normal" | "hardship" | "crisis" | "fraud" | "degraded";
 
-/** Inquiries where a person can take the decision further than Raiffy can: a loan, a comparison, an offer. */
-const ADVISER_INQUIRIES = new Set<RoutePlan["inquiry"]>(["purchase_goal", "product_comparison", "affordability", "debt_refinancing"]);
+/** The one label for reaching a person: it opens the booking card with an operator, who checks information, never advises. */
+export const SPECIALIST_LABEL = "Talk to a specialist";
 
 /**
- * The adviser button an answer carries, if any. The customer starts every request themselves, after seeing what
- * the adviser will receive; Raiffy never books or claims a handoff on its own. Crisis gets emergency help instead.
+ * The specialist button an answer carries, if any. It is offered by code, only where a person is needed, and at most
+ * once per conversation (`offered`), so it never trails every answer:
+ *
+ *   complaint                                   → always (a person must act on it)
+ *   negotiation the pricing rules escalated      → once (`review`: a specialist reviews the price)
+ *   an answer Raiffy couldn't verify             → once
+ *   crisis, fraud, hardship                      → never: their text names the official channel (emergency, fraud line, support)
+ *   everything else                              → never; the header's Talk to a specialist is always there
+ *
+ * The customer starts every booking themselves; Raiffy never books or claims a handoff on its own.
  */
-export function handoffActionFor(plan: RoutePlan, mode: Mode): HandoffAction | null {
-  const action = (reason: HandoffReason, label = "Talk to an adviser"): HandoffAction => ({ kind: "handoff", label, reason });
-  if (mode === "crisis") return null;
-  if (mode === "fraud") return action("fraud");
-  if (mode === "hardship") return action("hardship");
+export function handoffActionFor(plan: RoutePlan, mode: Mode, seen: { offered?: boolean; review?: boolean } = {}): HandoffAction | null {
+  const action = (reason: HandoffReason): HandoffAction => ({ kind: "handoff", label: SPECIALIST_LABEL, reason });
+  if (mode === "crisis" || mode === "fraud" || mode === "hardship") return null;
   if (plan.inquiry === "security_complaint") return action("complaint");
-  if (plan.inquiry === "negotiation") return action("offer_review", "Book an adviser");
+  if (seen.offered) return null;
+  if (plan.inquiry === "negotiation" && seen.review) return action("offer_review");
   if (mode === "degraded" && plan.handler !== "clarify") return action("missing_evidence");
-  if (mode === "normal" && ADVISER_INQUIRIES.has(plan.inquiry)) return action("customer_request", "Book an adviser");
   return null;
 }
 

@@ -43,7 +43,11 @@ export function Lead({ label, children, note }: { label: string; children: React
   );
 }
 
-export function AnswerCards({ blocks, sources, onAsk }: { blocks: UiBlock[]; sources: Source[]; onAsk: (text: string) => void }) {
+/** What the simulator shows (lei and months), for an action under it such as "Build my plan". */
+export type SimulationPick = { amount: number; termMonths: number };
+
+export function AnswerCards({ blocks, sources, onAsk, onBook, simulationFoot }: { blocks: UiBlock[]; sources: Source[]; onAsk: (text: string) => void; onBook?: () => void;
+  simulationFoot?: (pick: SimulationPick) => ReactNode }) {
   const cards = blocks.filter(isAnswerCard);
   if (!cards.length) return null;
   const cite: Cite = (url) => {
@@ -63,16 +67,17 @@ export function AnswerCards({ blocks, sources, onAsk }: { blocks: UiBlock[]; sou
   };
   return (
     <div className="answer-cards">
-      {cards.map((c, i) => <Card key={i} card={c} cite={cite} sub={sub} onAsk={onAsk} />)}
+      {cards.map((c, i) => <Card key={i} card={c} cite={cite} sub={sub} onAsk={onAsk} onBook={onBook} simulationFoot={simulationFoot} />)}
     </div>
   );
 }
 
-function Card({ card, cite, sub, onAsk }: { card: AnswerCardBlock; cite: Cite; sub: Sub; onAsk: (text: string) => void }) {
+function Card({ card, cite, sub, onAsk, onBook, simulationFoot }: { card: AnswerCardBlock; cite: Cite; sub: Sub; onAsk: (text: string) => void; onBook?: () => void;
+  simulationFoot?: (pick: SimulationPick) => ReactNode }) {
   switch (card.type) {
     case "comparison": return <Comparison card={card} cite={cite} sub={sub} />;
     case "routes": return <Routes card={card} cite={cite} sub={sub} />;
-    case "simulation": return <Simulation card={card} cite={cite} sub={sub} />;
+    case "simulation": return <Simulation card={card} cite={cite} sub={sub} foot={simulationFoot} />;
     case "keyFacts": {
       const [first, ...rest] = card.facts;
       return (
@@ -107,7 +112,7 @@ function Card({ card, cite, sub, onAsk }: { card: AnswerCardBlock; cite: Cite; s
           <h3>{card.title}</h3>
           <p>{card.reason}</p>
           <div className="book-row">
-            <button type="button" className="btn btn-dark btn-sm" onClick={() => onAsk("I'd like to talk to a specialist about this.")}>Talk to a specialist</button>
+            <button type="button" className="btn btn-dark btn-sm" onClick={() => onBook ? onBook() : onAsk("I'd like to talk to a specialist about this.")}>Talk to a specialist</button>
           </div>
         </div>
       </div>
@@ -228,7 +233,7 @@ const EXAMPLE = { amount: 20_000, months: 60 };
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const span = (lo: string, hi?: string) => (hi && hi !== lo ? `${lo} – ${hi}` : lo);
 
-function Simulation({ card, cite, sub }: { card: Extract<AnswerCardBlock, { type: "simulation" }>; cite: Cite; sub: Sub }) {
+function Simulation({ card, cite, sub, foot }: { card: Extract<AnswerCardBlock, { type: "simulation" }>; cite: Cite; sub: Sub; foot?: (pick: SimulationPick) => ReactNode }) {
   const id = useId(), tl = useId();
   const longest = card.termMaxMonths ?? 60;
   const [amount, setAmount] = useState(card.amount ?? EXAMPLE.amount);
@@ -286,6 +291,7 @@ function Simulation({ card, cite, sub }: { card: Extract<AnswerCardBlock, { type
         {card.months === undefined ? `; the ${term}-month term is an example. ` : ". "}
         Interest only: fees and the APR (DAE) aren&apos;t included. Your rate, and whether you can borrow, come from the bank&apos;s own analysis.
       </div>
+      {foot?.({ amount, termMonths: term })}
     </div>
   );
 }

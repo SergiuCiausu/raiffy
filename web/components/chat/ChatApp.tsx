@@ -126,6 +126,8 @@ export function ChatApp() {
     const el = inputEl.current!;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    // Scroll only past the cap: a box sized to the rounded scrollHeight can otherwise show scrollbar arrows (AgentChat).
+    el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
   }, [input]);
 
   /* ───────────── Demo engine: think, stream, attach card ───────────── */

@@ -14,11 +14,13 @@ import { askFallbackModel } from "./fallbackModel";
 import { NO_TRACE, rounded, trace, type Trace } from "./trace";
 import { replyValidator } from "./schema";
 import { planAgentRoute, type RouteOptions, type RoutePlan } from "../lib/agent/route";
-import { composeAnswer, memoryResponse, routeResponse, type MemoryBlock } from "../lib/agent/composer";
+import { composeAnswer, memoryResponse, offersSpecialist, routeResponse, type MemoryBlock } from "../lib/agent/composer";
 import { AGENT_POLICY } from "../lib/agent/config";
 import { answerGuide } from "../lib/agent/guides";
 import { checkCards, showCardsTool, SHOW_CARDS_TOOL_NAME, type AnswerCard } from "../lib/agent/blocks";
 import { guessCards } from "../lib/agent/cardFallback";
+import { expectedCards, meetsCardContract } from "../lib/agent/cardContract";
+import { affordabilityBlock, type AffordabilityBlock } from "../lib/agent/affordabilityBlock";
 import { CALCULATE_TOOL, PRODUCT_TERMS_TOOL, productTermsTool, scenarioTool, type StatedInputs } from "./calculator";
 import { QUERY_CATALOG_TOOL, queryCatalogTool } from "./catalogQuery";
 import { prefetchQuery } from "../lib/catalog/query";
@@ -44,10 +46,9 @@ import { runCalculator } from "../lib/agent/calculator";
 import type { CalculateScenarioInput, ProposeMemoryInput } from "../lib/agent/prompt";
 import { memoryEnvironment } from "./memoryAuth";
 import { customerMemoryWritesEnabled } from "../lib/agent/memory-store";
-import { memoryContextNote, type ContextMemory } from "../lib/agent/memory";
+import { memoryContextNote, notConnectedClause, type ContextMemory } from "../lib/agent/memory";
 import type { MemoryProposalResult } from "../lib/rag/agent";
 import { namedBanks } from "../lib/rag/query";
-import { handoffActionFor } from "../lib/agent/handoff";
 
 const HISTORY_TURNS = 10;
 
@@ -103,12 +104,16 @@ export const listMessages = query({
   },
 });
 
-const sendArgs = { question: v.string(), track: trackArg, threadId: v.optional(v.id("ragThreads")), reply: v.optional(replyValidator) };
+const sendArgs = { question: v.string(), track: trackArg, threadId: v.optional(v.id("ragThreads")), reply: v.optional(replyValidator),
+  attachment: v.optional(v.literal("sample_statement")) };
 type Reply = { kind: "choose"; inquiry: string } | { kind: "inputs"; values: Record<string, string | number | string[]> } | { kind: "skip_inputs" };
-type SendArgs = { question: string; track: "personal" | "business"; threadId?: Id<"ragThreads">; reply?: Reply };
+type SendArgs = { question: string; track: "personal" | "business"; threadId?: Id<"ragThreads">; reply?: Reply; attachment?: "sample_statement" };
 
-async function enqueueHandler(ctx: MutationCtx, { question, track, threadId, reply }: SendArgs) {
+async function enqueueHandler(ctx: MutationCtx, { question, track, threadId, reply, attachment }: SendArgs) {
   const scope = await requireAgentScope(ctx, track);
+  // The paperclip attaches the chosen sample customer's statement, so there must be one (personal track only)
+  if (attachment && (track !== "personal"
+    || !(await ctx.db.query("accountAccess").withIndex("by_owner", q => q.eq("ownerKey", scope.ownerKey)).unique())?.persona)) throw new ConvexError("statement_unavailable");
   if (!question.trim() || question.length > 2000) throw new ConvexError("question_length_invalid");
   // A structured reply only refers to something Raiffy offered in this thread; `run` checks it against the stored state.
   if (reply && (!threadId || (reply.kind === "inputs" && (Object.keys(reply.values).length > 3
@@ -129,10 +134,10 @@ async function enqueueHandler(ctx: MutationCtx, { question, track, threadId, rep
   if (rate) await ctx.db.patch(rate._id, next);
   else await ctx.db.insert("agentRateLimits", { ownerKey: scope.ownerKey, ...next });
   const id = threadId ?? await ctx.db.insert("ragThreads", { ...scope, title: text.slice(0, 60) });
-  const requestMessageId = await ctx.db.insert("ragMessages", { threadId: id, role: "user", text, ...(reply ? { reply } : {}) });
+  const requestMessageId = await ctx.db.insert("ragMessages", { threadId: id, role: "user", text, ...(reply ? { reply } : {}), ...(attachment ? { attachment } : {}) });
   const messageId = await ctx.db.insert("ragMessages", { threadId: id, role: "assistant", text: "", status: "streaming", requestMessageId, steps: [] });
   trace(messageId).step("message.received", { messageId, threadId: id, thread: threadId ? "existing" : "new", track,
-    reply: reply?.kind ?? "none", length: question.length, redacted: screened.redacted });
+    reply: reply?.kind ?? "none", attachment: attachment ?? "none", length: question.length, redacted: screened.redacted });
   return { threadId: id, messageId };
 }
 
@@ -255,6 +260,7 @@ export const run = action({
         status: c.status, model: c.classification.model ?? undefined,
         inquiry: rounded(Object.fromEntries(Object.entries(c.classification.answers.inquiry.probabilities).sort(([, a], [, b]) => b - a).slice(0, 3))),
         risks: rounded(Object.fromEntries(Object.entries(c.classification.answers).filter(([, a]) => a?.type === "noul").map(([k, a]) => [k, a?.type === "noul" ? a.noul : null]))),
+        memory: { operation: c.classification.answers.memory_operation.choice, confidence: Math.round(c.classification.answers.memory_operation.confidence * 100) / 100 },
       } : { status: c.status, reason: c.reason, enabled: jevOptions.enabled, hasKey: !!jevOptions.apiKey });
       // One retry for a malformed or failed reply: without a classification the customer gets no answer at all.
       // Timeouts aren't retried, so the worst case stays within two transport deadlines.
@@ -276,7 +282,8 @@ export const run = action({
       const account = track === "personal" ? { ...holdingInputs(await holdingsFor(ctx, "personal", ["loans"])),
         ...accountInputs(await expenseSummaryFor(ctx, "personal", "last_three_complete_months")) } : {};
       if (Object.keys(account).length) t.step("account.inputs", { keys: Object.keys(account) });
-      const turn = await routeTurn({ question, recentContext, state, reply, classified, track, jevOptions, account, memoryEligible: !!source?.memoryEligible, t });
+      const attached = input.source.attachment === "sample_statement";
+      const turn = await routeTurn({ question, recentContext, state, reply, classified, track, jevOptions, account, memoryEligible: !!source?.memoryEligible, attached, t });
       const { plan, resolved, ask } = turn;
       // Labels only, for the Console's Sentiment page; never blocks or changes the answer.
       const feeling = classified.status === "classified" ? classified.classification.answers : null;
@@ -302,7 +309,7 @@ export const run = action({
       } else {
         step = "generate";
         answer = await generate(ctx, question, input.history, plan, messageId, turn.brief, resolved ? customerAllowedFigures(question, resolved) : [], t, used,
-          { memories, proposals, customerTexts, ...(source?.memoryEligible ? { sourceMessageId: source.messageId } : {}) });
+          { memories, proposals, customerTexts, ...(source?.memoryEligible ? { sourceMessageId: source.messageId } : {}) }, attached);
       }
       step = "check";
       // Demo: prices are shown as fetched. Every figure must still appear in a cited passage from this turn's search
@@ -322,11 +329,16 @@ export const run = action({
       const followups = "needsTiming" in answer && answer.needsTiming ? NEED_BY_REPLIES : turn.brief ? [...turn.brief.optional.filter(o => o.value === null).slice(0, 2).map(o => `Add my ${o.label.toLowerCase()}`),
         "Which official documents should I read?"] : undefined;
       step = "save";
-      const envelope = composeAnswer(messageId, plan, answer, { inputs: ask ?? undefined, followups, proposals });
+      const envelope = composeAnswer(messageId, plan, answer, { inputs: ask ?? undefined, followups, proposals, specialistOffered: state.specialistOffered });
+      // An answered pattern without its card (lib/agent/cardContract.ts): counted, so gaps show in the trace.
+      if (answer.status === "answered" && !ask && !meetsCardContract(plan.inquiry, envelope.blocks, plan.scope)) {
+        t.step("cards.missing", { inquiry: plan.inquiry, expected: expectedCards(plan.inquiry, plan.scope), shown: envelope.blocks.map(b => b.type) });
+      }
       await ctx.runMutation(internal.agent.saveState, { threadId: input.thread._id, state: nextState(state, {
         inquiry: plan.inquiry, scope: plan.scope, resolved: resolved ?? undefined,
         asked: ask && plan.inquiry ? { inquiry: plan.inquiry, keys: ask.fields.map(f => f.key), round: ask.round } : null,
         offered: plan.handler === "clarify" ? plan.candidates : [],
+        specialist: offersSpecialist(envelope, plan.handler),
       }) });
       await ctx.runMutation(internal.agent.complete, { messageId, answer: { ...answer,
         routing: { handler: plan.handler, inquiry: plan.inquiry, confidence: plan.confidence, classifierModel: plan.classifierModel,
@@ -367,7 +379,8 @@ type Turn = { plan: RoutePlan; resolved: ResolvedInputs | null; ask: { fields: R
  * question or a tapped choice, then the small fallback model only if Jev could not decide, then the inputs gate.
  */
 async function routeTurn(args: { question: string; recentContext: string; state: ConversationState; reply?: Reply;
-  classified: Awaited<ReturnType<typeof requestJev>>; track: "personal" | "business"; jevOptions: JevOptions; account?: Values; memoryEligible?: boolean; t?: Trace }): Promise<Turn> {
+  classified: Awaited<ReturnType<typeof requestJev>>; track: "personal" | "business"; jevOptions: JevOptions; account?: Values; memoryEligible?: boolean;
+  attached?: boolean; t?: Trace }): Promise<Turn> {
   const { question, recentContext, state, reply, classified } = args;
   const t = args.t ?? NO_TRACE;
   const context = { track: args.track, availableTools: ["search_knowledge" as const, "query_catalog" as const, "get_product_terms" as const, "calculate_scenario" as const, "get_expense_summary" as const, "get_holdings" as const, "get_approved_offers" as const, "negotiate_offer" as const, "check_affordability" as const,
@@ -403,6 +416,13 @@ async function routeTurn(args: { question: string; recentContext: string; state:
     if (picked?.inquiry) plan = planAgentRoute(raw, context, AGENT_POLICY, { inquiry: picked.inquiry, basis: "fallback" });
     else plan = { ...plan, candidates };
     logPlan("route.after_fallback");
+  }
+  // An attached sample statement makes this a question about it: with no clearer pattern, it reads as spending
+  // insights, and whatever the pattern, the answer may read the statement.
+  if (args.attached) {
+    if (plan.handler === "clarify" || plan.inquiry === "other") plan = planAgentRoute(raw, context, AGENT_POLICY, { inquiry: "expense_insights", basis: "choice" });
+    if (["answer", "orchestrator"].includes(plan.handler) && !plan.tools.includes("get_expense_summary")) plan = { ...plan, tools: [...plan.tools, "get_expense_summary"] };
+    logPlan("route.statement");
   }
   if (!plan.inquiry || !["answer", "orchestrator"].includes(plan.handler)) return { plan, resolved: null, ask: null, brief: null, fallbackUsed };
 
@@ -464,7 +484,8 @@ function statedOf(brief: InputsBrief | null): StatedInputs {
 type ToolUse = { name: string; kinds?: string[] };
 
 async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[], plan: RoutePlan, messageId: Id<"ragMessages">, brief: InputsBrief | null,
-  figures: string[] = [], t: Trace = NO_TRACE, used: ToolUse[] = [], memory: MemoryTurn = { memories: [], proposals: [], customerTexts: [] }): Promise<RagAnswer & { needsTiming?: true }> {
+  figures: string[] = [], t: Trace = NO_TRACE, used: ToolUse[] = [], memory: MemoryTurn = { memories: [], proposals: [], customerTexts: [] },
+  statement = false): Promise<RagAnswer & { needsTiming?: true }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !plan.model) { t.step("model.unavailable", { hasKey: !!apiKey, model: plan.model?.id ?? null }); return routeResponse({ ...plan, handler: "unavailable" }); }
   t.step("model.start", { model: plan.model.id, effort: plan.model.effort, collections: plan.collections, chunkBudget: plan.limits.publicChunks, brief: brief !== null });
@@ -521,6 +542,8 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       t.step("cards.fallback", { shown: checked.cards.map(c => c.type), dropped: checked.dropped });
       return { cards: checked.cards, urls: checked.urls };
     },
+    // The pattern's card (lib/agent/cardContract.ts), counting the cards code builds after the answer from tool results.
+    complete: (shown: readonly unknown[]) => meetsCardContract(plan.inquiry, [...shown, ...hostCardKinds().map(type => ({ type }))], plan.scope),
   };
   // Catalog terms and the calculator, when the route allows them: citable results, figures only from reviewed records.
   let calculations = 0;
@@ -529,6 +552,10 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   let compareFromTool: CompareTable | null = null;
   const comparing = plan.tools.includes("get_product_terms") && (plan.scope === "compare" || plan.inquiry === "product_comparison");
   let offer: OfferBlock | null = null;
+  // The last successful affordability check this turn: the chat shows it as a card built by code.
+  let affordabilityCard: AffordabilityBlock | null = null;
+  const hostCardKinds = () => [...(spending ? ["spending"] : []), ...(offer ? ["offer"] : []), ...(compareFromTool ? ["compare_table"] : []),
+    ...(affordabilityCard ? ["affordability"] : [])];
   // The catalog reads only the banks this turn's collections allow, in its track (lib/catalog/query.ts)
   const catalogScope = { track: plan.track, collections: plan.collections.filter((c): c is "bank_product_docs" | "competitor_docs" | "banking_help" => c !== "user_memory") };
   const hostTools = [
@@ -569,7 +596,7 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
     // Account data: a sample persona the customer chose, read only through the switches they turned on (convex/accounts.ts)
     ...(plan.tools.includes("get_expense_summary") ? [{ tool: EXPENSE_TOOL, run: async (input: unknown) => {
       used.push({ name: "get_expense_summary" });
-      const { outcome, summary } = await expenseTool(ctx, plan.track, input);
+      const { outcome, summary } = await expenseTool(ctx, plan.track, input, statement);
       if (summary?.status === "ok") spending = spendingBlock(summary, accountSourceUrl(summary));
       t.step("account.done", summary ? { status: summary.status, reason: summary.reason ?? null, notUsed: summary.notUsed, insights: summary.insights.map(i => i.kind) }
         : { error: "error" in outcome ? outcome.error : null });
@@ -612,10 +639,13 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   const proposing = plan.tools.includes("propose_memory_change") && memory.sourceMessageId !== undefined;
   const memoryNotes = [
     affordability ? "Affordability: when the customer asks whether they can afford or qualify for a loan and has given their net monthly income, the amount and the term, call check_affordability (loan_affordability) with only the figures they wrote; it needs no product rate and is never a credit decision. If a figure is missing, ask for it." : "",
+    statement ? "The customer attached their statement to this message. In this preview it is the sample customer's statement, not a real document: read it with get_expense_summary, answer from it, and say it is sample data." : "",
     proposing ? "When the customer states something lasting about themselves (a goal, a preference, a constraint, or a figure about their own finances such as their net income or the instalments they already pay), propose each with propose_memory_change, alongside your answer. The customer confirms each one in the app, so never say it is saved." : "",
-    handoffActionFor(plan, "normal") ? "The app shows a Book an adviser button under this answer: point to it when a person can take the decision further, but never say an appointment is booked or that an adviser has been told." : "",
   ].filter(Boolean).join(" ");
   const unavailable = memory.memories.length ? plan.unavailable.filter(id => id !== "user_memory") : plan.unavailable;
+  // The pattern's card when Claude makes it (lib/agent/cardContract.ts); code builds the table, price, spending and affordability cards.
+  const modelCards = expectedCards(plan.inquiry, plan.scope).filter((k): k is keyof typeof CARD_NAMES => k in CARD_NAMES)
+    .filter(k => !(k === "comparison" && comparing));
   const answer = await runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections, customerFigures: figures, cards, hostTools,
     customerContext: memoryContextNote(memory.memories), customerStatements: memory.customerTexts,
     preload: prefetch ? [{ tool: QUERY_CATALOG_TOOL.name, input: prefetch }] : [] }, {
@@ -625,14 +655,14 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       calls += 1;
       return t.time(`model.call#${calls}`, () => client.beta.messages.create({ model: plan.model!.id, max_tokens: 8000,
         output_config: { effort: plan.model!.effort }, system: [...system, { type: "text", text:
-          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog or saved memory are connected${plan.tools.includes("negotiate_offer") ? "; Raiffeisen prices and counter-offers come only from get_approved_offers and negotiate_offer (sample pricing)" : ", and no approved offers are connected"}${plan.tools.includes("get_expense_summary") ? "; account data comes only from get_expense_summary, and in this preview it is sample data, which you must say" : ", and no account data is connected"}. Quote rates, fees, monetary amounts and credit limits exactly as they appear in this turn's search results, each with its citation, and say they are dated public figures, not a personal offer. If a figure isn't in the results, say it wasn't found; never estimate it. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` },
+          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. ${notConnectedClause(memory.memories.length)}${plan.tools.includes("negotiate_offer") ? "; Raiffeisen prices and counter-offers come only from get_approved_offers and negotiate_offer (sample pricing)" : ", and no approved offers are connected"}${plan.tools.includes("get_expense_summary") ? "; account data comes only from get_expense_summary, and in this preview it is sample data, which you must say" : ", and no account data is connected"}. Quote rates, fees, monetary amounts and credit limits exactly as they appear in this turn's search results, each with its citation, and say they are dated public figures, not a personal offer. If a figure isn't in the results, say it wasn't found; never estimate it. Never invent missing tool results or approve a discount. For negotiation, mention a specialist review only when the pricing result asks for one, without claiming a call was booked.` },
           ...(guide ? [{ type: "text" as const, text: guide }] : []),
           ...(memoryNotes ? [{ type: "text" as const, text: memoryNotes }] : []),
           ...(hostTools.length ? [{ type: "text" as const, text: `Catalog and calculator: ${catalog.length ? `the catalog has these products (ID: name, bank): ${catalog.slice(0, 60).map(p => `${p.productId}: ${p.product}, ${p.bank}`).join("; ")}.` : "the catalog has no products for this track yet."}${plan.tools.includes("query_catalog") ? " The structured catalog comes before the documents: call query_catalog first when the question is about which products exist or about their rates, fees, limits or terms, and search documents for explanations and for whatever it lists as a gap. A catalog row overrides a passage that disagrees with it. A row marked not reviewed is a dated public figure: say so." : ""} For an exact rate, fee or limit, call get_product_terms with the product IDs. For a loan's or an overdraft's monthly payment, total cost or DAE, call calculate_scenario with the term IDs it returned; never work a figure out yourself. Quote catalog and calculation figures exactly as written and cite them. A calculation on an example amount must be labelled as an example. A stress test is not the rate.${plan.scope === "solution" && plan.tools.includes("calculate_scenario") ? " For a goal the customer wants to reach (a renovation, a purchase), call compare_routes once with the loan's term IDs (and the overdraft's, when the catalog has one) and the customer's timing: it shows the routes card with Raiffy's recommendation itself. Don't make a routes card, don't recommend a different route, and if it asks for an input, ask the customer for it in one short question." : ""}${comparing ? " When the customer compares named products, call compare_products once with their catalog product IDs (exactly the products they named) and focus \"documents\" only for a documents question: the chat shows its comparison card with fixed rows, so don't make a comparison card for products it covered." : ""} When a term is unavailable, say the exact figure isn't confirmed and use the dated public sources as before.` }] : []),
           ...(plan.tools.includes("negotiate_offer") ? [{ type: "text" as const, text: `Pricing and negotiation (sample pricing in this preview, say so once): products ${PRICING_RULES.map(r => `${r.productId} (${r.product})`).join(", ")}; competitor offers in the store ${COMPETITOR_OFFERS.map(c => `${c.id} (${c.bank}, ${c.product})`).join(", ")}. Be upfront that you are Raiffeisen's assistant and will be straight about how the offers compare. Call get_approved_offers for the customer's price and negotiate_offer when they compare with another bank or ask for a better price; pass a store offerId only when it is that bank's offer, otherwise claimedBank. Present exactly the outcome: total cost first; a counter-offer only as returned, with its validity; for a specialist review, say the customer can ask for it on the card and never promise, hint at or estimate a price. Prices are indicative until the bank issues an offer. In a comparison, compare exactly the options the customer named: a counter-offer is the same Raiffeisen product at a better price, never an extra option. The chat shows the price card from the same result, so explain rather than list every line.` }] : []),
           ...(plan.tools.includes("get_holdings") ? [{ type: "text" as const, text: "The customer's products: when the answer depends on what they already hold at Raiffeisen (a loan's balance, rate or fixed-rate end, a deposit's maturity, a card's fee or limit, a pre-approved offer, or whether they can sign digitally), call get_holdings with the kinds you need. It is a sample customer in this preview: say so once. Cite each product's figures from its own result; if a kind is switched off, say it wasn't read and never assume they have none." }] : []),
           ...(plan.tools.includes("get_expense_summary") ? [{ type: "text" as const, text: "Account data: when the answer depends on the customer's own income, spending, payments or balances, call get_expense_summary (last_complete_month unless they ask about a longer stretch). It is a sample account in this preview: say so once, plainly. Cite its figures like any result and never name merchants or guess what it doesn't return. If it says nothing is connected or switched off, say so and answer from what the customer tells you; never ask them to switch something on just to answer. The chat shows a spending card from the same summary, so in the text explain what the figures mean rather than listing every category." }] : []),
-          { type: "text" as const, text: `Answer cards: after searching and before your final text, call ${SHOW_CARDS_TOOL_NAME} once when a card helps the customer. Use "simulation" when the customer is weighing a loan and a cited result gives its interest rate (the rate and source only; the chat calculates). When the source gives a range, pass both ends (ratePercent and rateMaxPercent), never one end alone; if the rates belong to another product than the one asked about, say so in rateFor. Pass the customer's own amount, term, income and other monthly payments when they gave them, and a maximum debt ratio only when a cited result states it. Never say whether the customer is eligible. Use "comparison" when the customer names the options to compare (exactly those options), "routes" for a goal (at least three routes when the sources support them, one recommended; every route must fit the customer's stated purpose, so refinancing or consolidation appears only when the customer mentions existing loans), "keyFacts" for one product or term, "checklist" for documents or steps, and "handoff" when an adviser must decide. Put numbers only in facts, one figure per fact, each copied exactly from one search result with that result's URL as its source. A fact value is the figure with its unit in English, short ("9.52%", "2,906.42 lei a month", "up to 200,000 euro"), never a pasted Romanian phrase; put what it describes in the label ("Monthly payment, 50,000 lei over 18 months"). A payment and its APR are two facts; titles, summaries, fit and reasons stay free of numbers unless they repeat the customer's own figures. Never calculate, estimate or convert. Keep the final text to two or three sentences that frame the cards; don't repeat every fact. Skip the cards when the sources don't support them.` },
+          { type: "text" as const, text: `Answer cards: after searching and before your final text, call ${SHOW_CARDS_TOOL_NAME} once when a card helps the customer. Use "simulation" when the customer is weighing a loan and a cited result gives its interest rate (the rate and source only; the chat calculates). When the source gives a range, pass both ends (ratePercent and rateMaxPercent), never one end alone; if the rates belong to another product than the one asked about, say so in rateFor. Pass the customer's own amount, term, income and other monthly payments when they gave them, and a maximum debt ratio only when a cited result states it. Never say whether the customer is eligible. Use "comparison" when the customer names the options to compare (exactly those options), "routes" for a goal (at least three routes when the sources support them, one recommended; every route must fit the customer's stated purpose, so refinancing or consolidation appears only when the customer mentions existing loans), "keyFacts" for one product or term, "checklist" for documents or steps, and "handoff" only when a decision needs a person (eligibility, a complaint); the chat already offers a specialist where one is needed, so don't point to a button or suggest booking an adviser in the text. Put numbers only in facts, one figure per fact, each copied exactly from one search result with that result's URL as its source. A fact value is the figure with its unit in English, short ("9.52%", "2,906.42 lei a month", "up to 200,000 euro"), never a pasted Romanian phrase; put what it describes in the label ("Monthly payment, 50,000 lei over 18 months"). A payment and its APR are two facts; titles, summaries, fit and reasons stay free of numbers unless they repeat the customer's own figures. Never calculate, estimate or convert. Keep the final text to two or three sentences that frame the cards; don't repeat every fact. Skip the cards when the sources don't support them.${modelCards.length ? ` This question's pattern shows ${modelCards.map(k => CARD_NAMES[k]).join(" or ")}: call ${SHOW_CARDS_TOOL_NAME} with one whenever the cited results support it, including facts without numbers (who it's for, access, term, conditions) for a product explanation.` : ""}` },
           ...(plan.scope === "solution" ? [{ type: "text" as const, text: "Solution answer: search for and present at least three routes from the sources, including one without new borrowing when the sources support it, and say plainly if coverage is missing. The comparison calculator isn't connected, so recommend one route by fit (the customer's stated purpose, amount and term against the conditions in the sources), say why, and say when another route fits better. Never present the recommendation as an approval or a personal offer; the customer makes the final choice." }] : []),
           ...(euro ? [{ type: "text" as const, text: "The customer gave the amount in euro. No dated exchange rate is available, so never convert it. If the sources only show lei products, say so plainly, then use the same number in lei as a clearly labelled example (for example, 'a loan of 50,000 lei') to explain the routes, and say a Raiffeisen adviser can confirm whether a euro option exists." }] : []),
           ...(brief ? [{ type: "text" as const, text: `Customer inputs for this pattern (stated by the customer or defaulted; never bank terms): ${JSON.stringify(brief)}. Use them as the customer's scenario. You may repeat a figure the customer gave exactly as given, but never derive new figures from it. Name each defaulted input as an assumption. If examplesRequested is true, the customer skipped some required inputs: describe typical cases clearly labelled as examples and make no recommendation. For a missing optional input that would change the answer, say briefly what it would change.` }] : [])], tools, messages }),
@@ -666,6 +696,7 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       used.push({ name: "check_affordability" });
       const result = runCalculator(data, memory.customerTexts, await ctx.runQuery(internal.regulatoryLimits.affordabilityLimits, {}));
       t.step("affordability.done", { status: result.status });
+      if (result.status === "ok") affordabilityCard = affordabilityBlock(result.content) ?? affordabilityCard;
       return result;
     } } : {}),
     // The host attaches this message as the source; the store checks the quote, screens it and waits for consent.
@@ -687,11 +718,16 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   // Every comparison shows in the fixed rows: the catalog table with the model's facts in its gaps, or the facts alone
   const compared = comparisonBlock({ host: compareFromTool as CompareTable | null, cards: answer.cards ?? [], cited });
   const others = compared.block ? (answer.cards ?? []).filter(c => (c as { type?: unknown }).type !== "comparison") : answer.cards ?? [];
-  const built = [...(card && cited(card.sourceUrl) ? [card] : []), ...(price && cited(price.sourceUrl) ? [price] : []), ...(compared.block ? [compared.block] : [])];
+  const checkedAffordability = affordabilityCard as AffordabilityBlock | null;
+  const built = [...(card && cited(card.sourceUrl) ? [card] : []), ...(price && cited(price.sourceUrl) ? [price] : []), ...(compared.block ? [compared.block] : []),
+    ...(checkedAffordability ? [checkedAffordability] : [])];
   if (!built.length) return answer;
   t.step("cards.built", { types: built.map(b => b.type), comparisonsReplaced: compared.replaced });
   return { ...answer, cards: [...built, ...others], ...(needsTiming ? { needsTiming: true as const } : {}) };
 }
+
+const CARD_NAMES = { comparison: "a \"comparison\" card", routes: "a \"routes\" card", simulation: "a \"simulation\" card",
+  keyFacts: "a \"keyFacts\" card", checklist: "a \"checklist\" card" } as const;
 
 /** CLI/API harness uses the identical UI pipeline, including Jev and server-side ownership checks. */
 export const ask = action({

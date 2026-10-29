@@ -3,11 +3,11 @@ import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
-import { requireMemoryScope } from "./memoryAuth";
+import { memoryEnvironment, requireMemoryScope } from "./memoryAuth";
 import { memoryChangeResult, memoryKind, memoryTrack, memoryView, proposalView } from "./memoryValidators";
 import { memoryRecordSchema } from "../lib/agent/memory";
 import {
-  memoryChangeResultSchema, memoryDeleteResultSchema, memoryListSchema, sameMemoryScope, verifyMemoryEvidence,
+  memoryChangeResultSchema, memoryDeleteResultSchema, memoryListSchema, memoryWritesAllowed, sameMemoryScope, verifyMemoryEvidence,
   type MemoryScope,
 } from "../lib/agent/memory-store";
 
@@ -126,7 +126,7 @@ export const reject = mutation({
 });
 
 export const listMine = query({
-  args: { track: memoryTrack }, returns: v.object({ memories: v.array(memoryView), proposals: v.array(proposalView) }),
+  args: { track: memoryTrack }, returns: v.object({ memories: v.array(memoryView), proposals: v.array(proposalView), writesEnabled: v.boolean() }),
   handler: async (ctx, { track }) => {
     const scope = await requireMemoryScope(ctx, track);
     const now = Date.now();
@@ -137,6 +137,7 @@ export const listMine = query({
         .map((m) => ({ id: m._id, kind: m.kind, text: m.text, statedAt: m.statedAt, updatedAt: m.updatedAt, expiresAt: m.expiresAt })),
       proposals: proposals.filter((p) => p.expiresAt > now && p.createdAt <= now)
         .map((p) => ({ id: p._id, operation: p.operation, kind: p.kind, text: p.text, customerQuote: p.customerQuote, createdAt: p.createdAt, expiresAt: p.expiresAt })),
+      writesEnabled: memoryWritesAllowed(scope, memoryEnvironment()),
     });
   },
 });

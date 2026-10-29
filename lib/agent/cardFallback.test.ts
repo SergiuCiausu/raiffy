@@ -55,6 +55,21 @@ describe("server fallback when the model shows no card", () => {
     expect(r.cards[0]).toMatchObject({ type: "keyFacts", facts: [{ label: "Administration", source: CARD }, { label: "Other banks' ATMs" }] });
   });
 
+  it("keeps cited facts without figures, so a product explanation gets its key facts", () => {
+    const guess = guessCards({ inquiry: "product_explanation", hits, segments: [
+      seg("The savings account in short:\n"),
+      seg("- **Access:** withdraw any time, without penalties\n", 2),
+      seg("- **Who it's for:** anyone with a Raiffeisen current account\n", 2),
+      seg("- **Not cited:** no source behind this line\n"),
+    ] });
+    const r = ok(checkCards(guess, hits));
+    expect(r.cards[0]).toMatchObject({ type: "keyFacts", facts: [
+      { label: "Access", value: "withdraw any time, without penalties", source: DEP },
+      { label: "Who it's for", value: "anyone with a Raiffeisen current account", source: DEP },
+    ] });
+    expect((r.cards[0] as { facts: unknown[] }).facts).toHaveLength(2);
+  });
+
   it("guesses nothing without a cited figure, for other patterns, or with no pattern", () => {
     expect(guessCards({ inquiry: "purchase_goal", hits, segments: [seg("Rates start at 7,95% a year.")] })).toBeNull();
     expect(guessCards({ inquiry: "security_complaint", hits, segments: [seg("Interest rate 7,95%", 0)] })).toBeNull();

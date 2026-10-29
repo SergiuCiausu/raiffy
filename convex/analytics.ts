@@ -3,7 +3,7 @@ import { internalMutation, query } from "./_generated/server";
 import { requireRole } from "./roles";
 import { keysOf } from "./sentiment";
 import { MESSAGE_RETENTION_DAYS, retentionExpiry } from "../lib/agent/memory-store";
-import { ANALYTICS_MIN_GROUP } from "../lib/analytics/schemas";
+import { analyticsMinGroup } from "./analyticsConfig";
 import { summarize } from "../lib/analytics/summarize";
 import { traceFields } from "../lib/analytics/trace";
 
@@ -50,7 +50,8 @@ export const summary = query({
     const now = Date.now();
     const rows = await ctx.db.query("answerTraces").withIndex("by_at", (q) => q.gte("at", filter.from).lt("at", `${filter.to}￿`)).take(50_000);
     const answers = rows.filter((r) => r.expiresAt > now).map(({ _id, _creationTime, expiresAt, ...a }) => a);
-    return { ...summarize(answers, [], { ...filter, minCount: Math.max(ANALYTICS_MIN_GROUP, Math.floor(minCount ?? ANALYTICS_MIN_GROUP)) }), minCount: ANALYTICS_MIN_GROUP };
+    const min = analyticsMinGroup();
+    return { ...summarize(answers, [], { ...filter, minCount: Math.max(min, Math.floor(minCount ?? min)) }), minCount: min };
   },
 });
 

@@ -18,6 +18,7 @@ export const ADMIN_NAV: NavArea = {
     { id: "sentiment", href: "/admin/sentiment", label: "Sentiment", icon: "smile" },
     { id: "audit", href: "/admin/audit", label: "Audit log", icon: "scroll-text" },
     { id: "users", href: "/admin/users", label: "Users and roles", icon: "users" },
+    { id: "specialists", href: "/admin/specialists", label: "Specialists", icon: "calendar-clock" },
   ],
   later: [],
 };
@@ -27,9 +28,10 @@ export const CONSOLE_NAV: NavArea = {
   work: [
     { id: "reviews", href: "/console/reviews", label: "Reviews", icon: "inbox" },
     { id: "win-rate", href: "/console/reviews#win-rate", label: "Win rate", icon: "trending-up" },
+    { id: "calendar", href: "/console/calendar", label: "Calendar", icon: "calendar-days" },
+    { id: "products", href: "/console/products", label: "Products", icon: "package" },
   ],
   later: [
-    { label: "Approvals", icon: "git-pull-request-arrow" }, { label: "Calendar", icon: "calendar-days" }, { label: "Products", icon: "package" },
     { label: "Parameters", icon: "sliders-horizontal" }, { label: "Audit log", icon: "scroll-text" },
   ],
 };

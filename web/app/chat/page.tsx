@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { AgentChat } from "@/components/agent/AgentChat";
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Raiffy",
   description: "Chat with Raiffy, an AI financial assistant for Raiffeisen Bank Romania customers.",
 };
+
+/** As in chat.html: the on-screen keyboard shrinks the layout (and 100dvh), so the composer stays above it on Android. */
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content" };
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 

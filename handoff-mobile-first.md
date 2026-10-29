@@ -1,6 +1,6 @@
 # Handoff: mobile-first UI pass
 
-29 Oct 2026. The user asked for the whole UI to be mobile-first, page by page, with a clean layout at phone width. The rules are in `DESIGN.md` §12 (read it first). The work runs in four phases. **Phases 0 and 1 are done for the HTML prototypes. Phase 1 still has one React gap (below). Phases 2 and 3 are not started.**
+29 Oct 2026. The user asked for the whole UI to be mobile-first, page by page, with a clean layout at phone width. The rules are in `DESIGN.md` §12 (read it first). The work runs in four phases. **Phases 0, 1 and 2 are done and synced into the app. Phase 3 is not started.**
 
 ## Git state (read this first)
 
@@ -32,32 +32,51 @@
 - **Chat:** the composer placeholder is "Ask a follow-up" on coarse pointers.
 - `pnpm sync:prototypes` has been run, so `web/styles/generated/*` match.
 
-### The React gap left in Phase 1 (do this first)
-The generated staff CSS now stacks **React** staff tables as cards on phones too, but their cells have no `data-label`, so the labels are missing. These React components use `className="tbl"`: `components/staff/{ReviewsConsole,ProductsList,ProductDetail,RulesPage,AuditLog,AnalyticsDashboard,SentimentDashboard}.tsx`. `UsersAndRoles.tsx` already has its labels. Fix it in one of two ways:
-- add a `data-label` per `<td>`, or
-- port `labelCells()` (from the end of `console.html`) as a `useEffect` with a MutationObserver in `components/staff/StaffShell.tsx`.
-
-Also check `web/styles/agent.css` and `web/styles/admin.css`. Those are hand-written and the sync doesn't cover them.
+### The React gap left in Phase 1 (done)
+- `components/staff/StaffShell.tsx` now ports `labelCells()` as an effect with a MutationObserver on `#content`. Every React staff table (`className="tbl"`) gets `data-label` on its cells, including rows that arrive later with live data; existing labels win, so `UsersAndRoles.tsx` keeps its own.
+- The React rows already use the prototype classes (`tr.rowlink a.t-main`, `tr.click`, `td.go`), so the generated CSS makes the whole card tappable.
+- Not seen in a browser yet: the staff routes need a signed-in Clerk session.
+- `web/styles/admin.css` is dead code (nothing imports it, no page uses `.pg-admin`) and needs no pass. `web/styles/agent.css` is hand-written and still needs its Phase 2 pass.
 
 None of this has been checked in the running Next.js app yet. Run `pnpm dev` and `pnpm audit:mobile --app http://localhost:3000` for the public routes. The signed-in staff and chat routes need a Clerk session.
 
-## Phase 2: per page (not started)
+## Phase 2: per page (done)
 Rewrite each page's layout CSS mobile-first (base = phone, then `min-width` only), sync, fix the React-only styles, and check the audit plus the screenshots at 375 and 390px. In order of impact:
 
-1. **Login** (`login.html`, `/sign-in`, `/sign-up`): the brand panel takes the first 393px, so the form is below the fold. Shrink it to a strip on phones.
-2. **Console:** the review detail, the calendar agenda and the sidebar drawer. The queue cards from Phase 1 are done.
-3. **Chat:** test with the keyboard open (`dvh`, composer above the keyboard), the drawer and the context panel, plus the React answer cards in `web/styles/agent.css`.
-4. **Did you know** (`swipe.html`): the card and its Skip and Save buttons should fit on the first screen.
-5. **Landing:** vignettes cut text mid-word ("Recommend…", "−186.4…"). Lay them out for the card width (§12 pattern 3).
-6. **Admin:** forms in the product editor, and the analytics data tables (cards at the moment; they could stay tables).
-7. **Plan, Smart Mobile:** small fixes. Smart Mobile's `#raiffy`, `#apply` and `#repay` reset to home on load, so check them by hand.
+1. **Login** (done): `login.html`'s layout is mobile-first, with `min-width` queries only (the shared heading-token scale stays as it is).
+   - Phones get a 161px brand strip (logo and tagline), so the sign-in options start on the first screen. The strip was 393px.
+   - The illustration returns as a 200px band at 640px, and the sticky brand panel at 860px.
+   - Field hints and consent sub-lines are 13px.
+   - Synced into `/sign-in` and `/sign-up`. Checked with the audit (prototype and `--app`) at 375 and 390px, and with screenshots at 700 and 1280px.
+2. **Console** (done): 14 queries converted.
+   - **Review detail:** one column on phones, with the answer first and the conversation last. Answer plus facts come back at 960px, all three columns at 1440px. The section menu is hidden on phones.
+   - **Calendar:** an agenda on phones, the week grid from 760px. Below 1100px "Next up" comes first (CSS `order` only, so focus order is unchanged).
+   - **Sidebar:** the drawer is the base; the sidebar sits beside the page from 860px.
+3. **Chat** (done): 10 queries converted in `chat.html` and 5 in `web/styles/agent.css`.
+   - **Keyboard:** `interactive-widget=resizes-content` is in chat.html's viewport and in the `viewport` export of `/chat` and `/chat/demo`, so the composer stays above the Android keyboard.
+   - **Drawers:** they fit at 375px. Their breakpoints (1200, 860) mirror the `matchMedia` max-width 1199/859 checks in chat.html, `AgentChat.tsx` and `ChatApp.tsx`, so change them together.
+   - **Comparison tables:** the 3- and 4-option tables restack cleanly until 640px.
+4. **Did you know** (done): 4 queries converted. Phones get tighter spacing and a 5:6 card, so Skip and Save end at 793px on 375×812. They were at 965px. Checked in the app too.
+5. **Landing** (done): 8 queries converted. The chat-comparison, fee-statement and advisor-handoff vignettes fit their card at every width from 375 to 1280px (a check found no cut text).
+6. **Admin** (done): 9 queries converted.
+   - **Product editor:** one column with fields stacked until 640px; the side panel is sticky from 1100px.
+   - **Analytics:** the data tables stay compact tables that scroll sideways (a 30-day series reads down its columns), bar-list labels sit above their bars on phones, and the KPI tiles are two per row.
+7. **Plan, Smart Mobile** (done): 7 and 2 queries converted. On touch screens, Smart Mobile's composer placeholder now reads "Ask Raiffy" instead of mentioning Tab. `#raiffy`, `#apply` and `#repay` were checked by clicking through.
 
-Also convert every remaining `max-width` layout query and the off-scale breakpoints (1199, 1439, 859, 759, 600, 560, 520, 479, 380) as each page is done.
+No layout `max-width` query is left in any prototype or in `agent.css`; only each page's shared heading-token block remains. Desktop at 1280px is pixel-identical on every page.
+- **Checks:** prototype audit 48/48, app public routes 8/8, `web/` tsc, lint and 60 tests.
+- **Left for later:**
+  - About 150 sentences under 13px remain as warnings (meta and source lines).
+  - The loan-vs-overdraft card inside a console review's answer scrolls sideways at 375px.
+  - With the chat keyboard open, the disclaimer could hide to free about 40px.
+  - The signed-in React pages (`/chat`, the staff routes) still need a pass in a browser with a Clerk session.
 
 ## Phase 3 (not started)
 Run the audit inside Playwright (`web/playwright.config.ts` already has a mobile project, but e2e is disabled with `testIgnore`) so regressions fail.
 
 ## Gotchas
+- **CRLF checkouts:** with `core.autocrlf` on, a merge or pull rewrites the prototypes with CRLF endings. `sync-prototypes.mjs` now normalizes them to LF before applying its patches. Before that fix, the `raiffy.html` footer patch failed with "patch target not found".
+- **Shared `node_modules`:** running `pnpm exec` in `web/` after a lockfile change makes pnpm reconcile `node_modules`, and the other session's run left it without `next`. Only one session should run installs.
 - **Probe rounding:** the audit probes 1px inside the 44px edge, because hit testing rounds to whole pixels. Hit areas that exactly touch pass. A failure line names what overlapped it.
 - **Specificity:** the core uses `:where()`, so any page rule wins. A control styled `position: absolute` keeps it. A plain `select` lost to `.select`, which is why the field rules use `:is(input:not(…), select, textarea)`.
 - **Clipping:** a horizontal scroller (`overflow-x: auto`) clips vertically, so chip rows need `padding-block` for the hit areas. `.crumbs` stretches to the header's height for the same reason.

@@ -8,6 +8,8 @@ export type Reason = "wrong" | "unclear" | "missing" | "other";
 
 /** A hidden count (fewer customers than the minimum group) is null, and so is any share built on it. */
 export type SentimentSummary = {
+  /** The minimum group size this deployment applies (ANALYTICS_MIN_GROUP, 1 on dev), when the backend reports it */
+  minCount?: number;
   kpis: { conversations: number | null; turns: number | null; negativeConversationShare: number | null; thumbsDownShare: number | null; votes: number | null };
   daily: { date: string; turns: number | null; positive: number | null; neutral: number | null; negative: number | null }[];
   mix: { sentiment: Sentiment; turns: number | null; share: number | null }[];
@@ -23,5 +25,5 @@ export const sentimentApi = {
   summary: makeFunctionReference<"query", SentimentFilter, SentimentSummary>("sentiment:summary"),
 };
 
-/** The minimum group size the backend applies (convex/sentiment.ts MIN_GROUP), for the "<10" labels. */
+/** The default minimum group size (convex/analyticsConfig.ts), for the "<10" labels when the summary doesn't say. */
 export const MIN_GROUP = 10;

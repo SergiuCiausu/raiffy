@@ -11,6 +11,8 @@ export const conversationStateSchema = z.object({
   pending: pendingInputsSchema.nullable(),
   /** Labels Raiffy offered as choices on its last turn; a tapped choice is accepted only if it was offered. */
   offered: z.array(inquirySchema),
+  /** Raiffy already offered a specialist in this conversation (button, handoff card or booking card): it isn't offered again unasked. */
+  specialistOffered: z.boolean().optional(),
 });
 export type ConversationState = Omit<z.infer<typeof conversationStateSchema>, "pending" | "inputs"> & {
   pending: PendingInputs | null; inputs: Partial<Record<SlotKey, KnownInput>>;
@@ -45,11 +47,12 @@ export function buildRecentContext(state: ConversationState, history: { role: "u
 
 /** The state after this turn. Inputs carry over between patterns; a question that was answered is cleared. */
 export function nextState(prev: ConversationState, turn: {
-  inquiry: Inquiry | null; scope: ConversationState["scope"]; resolved?: ResolvedInputs; asked?: PendingInputs | null; offered?: Inquiry[];
+  inquiry: Inquiry | null; scope: ConversationState["scope"]; resolved?: ResolvedInputs; asked?: PendingInputs | null; offered?: Inquiry[]; specialist?: boolean;
 }): ConversationState {
   const inputs = { ...prev.inputs };
   for (const [key, x] of Object.entries(turn.resolved?.known ?? {})) {
     if (x && x.source !== "default") inputs[key as SlotKey] = { value: x.value, source: x.source === "conversation" ? (prev.inputs[key as SlotKey]?.source ?? "conversation") : x.source };
   }
-  return { version: 1, inquiry: turn.inquiry ?? prev.inquiry, scope: turn.scope ?? prev.scope, inputs, pending: turn.asked ?? null, offered: turn.offered ?? [] };
+  return { version: 1, inquiry: turn.inquiry ?? prev.inquiry, scope: turn.scope ?? prev.scope, inputs, pending: turn.asked ?? null, offered: turn.offered ?? [],
+    ...(prev.specialistOffered || turn.specialist ? { specialistOffered: true } : {}) };
 }

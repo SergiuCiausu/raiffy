@@ -42,6 +42,24 @@ export const handoffApi = {
   request: makeFunctionReference<"mutation", { messageId: MessageId; reason: HandoffReason }, HandoffRequest>("handoff:request"),
 };
 
+export type AnswerCheckStatus = "open" | "confirmed" | "corrected" | "returned";
+/** lib/review/answerCheck.ts AnswerCheckView: the reviewer is named only once the check is decided. */
+export type AnswerCheck = {
+  reference: string; status: AnswerCheckStatus; createdAt: number; decidedAt: number | null;
+  reviewer: { name: string; role: string } | null; note: string | null;
+};
+
+/** Answer checks (convex/answerChecks.ts): the customer flags an answer, a specialist confirms, corrects or returns it. */
+export const answerCheckApi = {
+  forThread: makeFunctionReference<"query", { threadId: ThreadId }, (AnswerCheck & { messageId: MessageId })[]>("answerChecks:forThread"),
+  request: makeFunctionReference<"mutation", { messageId: MessageId; note?: string }, AnswerCheck>("answerChecks:request"),
+  /** The customer's own checks on one track, newest first; `question` is their masked question. */
+  mine: makeFunctionReference<"query", { track: Track }, MyAnswerCheck[]>("answerChecks:mine"),
+  /** convex/answerCheckEmails.ts: whether e-mail is on here, the masked address, and Resend's test mode. */
+  emailAvailability: makeFunctionReference<"query", Record<string, never>, { enabled: boolean; address: string | null; testMode: boolean }>("answerCheckEmails:availability"),
+};
+export type MyAnswerCheck = AnswerCheck & { id: string; threadId: ThreadId; messageId: MessageId; question: string | null };
+
 /** One route card, reshaped by the backend composer from the checked answer's route list (lib/agent/routes.ts). */
 export type RouteCard = { title: string; recommended: boolean; summary: string; mainRisk?: string; why?: string; sourceIds: string[] };
 /** `start`/`end` locate the route list in the joined segment text; the cards replace it on screen. */
@@ -57,7 +75,7 @@ type MemoryChange = { status: "proposed" | "saved" | "rejected" | "forgotten"; i
 
 /** The customer's own memory store. Every call is scoped to the signed-in identity on the server. */
 export const memoryApi = {
-  listMine: makeFunctionReference<"query", { track: Track }, { memories: MemoryView[]; proposals: ProposalView[] }>("memory:listMine"),
+  listMine: makeFunctionReference<"query", { track: Track }, { memories: MemoryView[]; proposals: ProposalView[]; writesEnabled: boolean }>("memory:listMine"),
   confirm: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:confirm"),
   reject: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:reject"),
   forgetOne: makeFunctionReference<"mutation", { track: Track; memoryId: string }, MemoryChange>("memory:forgetOne"),
@@ -122,6 +140,15 @@ export type CompareBlock = {
   };
   recommendation?: CardRecommendation;
 };
+/** The indicative affordability check (lib/agent/affordabilityBlock.ts), built by code from check_affordability. */
+export type AffordabilityBlock = {
+  type: "affordability"; indicativeOnly: true;
+  inputs: { netMonthlyIncome: number; loanAmount: number; termMonths: number; existingMonthlyInstalments: number; currency: string; age?: number };
+  limit: { maxDebtSharePercent: number; maxConsumerTermMonths?: number | null; source: string; validFrom: string; reviewStatus: string };
+  results: { maxNewMonthlyInstalment: number; instalmentWithNoInterest: number; fitsEvenWithNoInterest: boolean;
+    fitsAtAnyAnnualRateUpToPercent: number | null; termWithinConsumerLimit: boolean; ageAtEndOfLoan?: number };
+  notChecked: string[];
+};
 export type UiBlock =
   | { type: "callout"; state: "ready" | "unavailable"; text: string; sourceIds: string[] }
   | { type: "inputs_request"; pattern: string; round: number; fields: InputField[] }
@@ -129,6 +156,7 @@ export type UiBlock =
   | SpendingBlock
   | OfferBlock
   | CompareBlock
+  | AffordabilityBlock
   | RoutesBlock
   | MemoryBlock;
 /** Account sources (`raiffy:account/...`) aren't web pages: show them as chips without a link. */
@@ -147,12 +175,15 @@ export type Reply =
 
 export type Step = { query: string; focus: string; results?: number };
 
+/** The paperclip attaches the chosen sample customer's statement, never a real file (convex/agent.ts send). */
+export type Attachment = "sample_statement";
 export type Message = {
   _id: MessageId;
   _creationTime: number;
   threadId: ThreadId;
   role: "user" | "assistant";
   text: string;
+  attachment?: Attachment;
   answer?: Answer;
   /** Absent on rows written before streaming existed: those are done. */
   status?: "streaming" | "done" | "stopped" | "failed";
@@ -167,7 +198,7 @@ export const VOTE_REASONS: readonly [VoteReason, string][] = [["wrong", "Wrong"]
 
 export const agentApi = {
   run: makeFunctionReference<"action", { messageId: MessageId }, null>("agent:run"),
-  send: makeFunctionReference<"mutation", { question: string; track: Track; threadId?: ThreadId; reply?: Reply }, { threadId: ThreadId; messageId: MessageId }>("agent:send"),
+  send: makeFunctionReference<"mutation", { question: string; track: Track; threadId?: ThreadId; reply?: Reply; attachment?: Attachment }, { threadId: ThreadId; messageId: MessageId }>("agent:send"),
   stop: makeFunctionReference<"mutation", { messageId: MessageId }, null>("agent:stop"),
   /** A thumbs up or down, with an optional reason after a thumbs down. Labels only, for the Console's Sentiment page. */
   rate: makeFunctionReference<"mutation", { messageId: MessageId; vote: "up" | "down"; reason?: VoteReason }, null>("sentiment:rate"),
@@ -202,4 +233,19 @@ export const pricingApi = {
   listReviews: makeFunctionReference<"query", Record<string, never>, { open: ReviewCaseView[]; decided: ReviewCaseView[] }>("pricing:listReviews"),
   decideReview: makeFunctionReference<"mutation", { caseId: GenericId<"reviewCases">; decision: "approve" | "decline"; rateBps?: number; waiveFee?: boolean; note?: string }, null>("pricing:decideReview"),
   winRate: makeFunctionReference<"query", Record<string, never>, WinRate>("pricing:winRate"),
+};
+
+export type AnswerCheckId = GenericId<"answerChecks">;
+/** A queue row (convex/answerChecks.ts list). No customer identity; `topic` is the customer's last question, masked. */
+export type AnswerCheckRow = { id: AnswerCheckId; reference: string; status: AnswerCheckStatus; track: Track; topic: string | null; inquiry: string | null;
+  hasNote: boolean; ungroundedNumbers: number; createdAt: number; decidedAt: number | null; decidedBy: string | null };
+export type AnswerCheckCase = AnswerCheckRow & { customerNote: string | null; emailOptIn: boolean;
+  emails: { kind: "received" | "decided"; outcome: "sent" | "test" | "skipped"; reason: string | null; at: number }[]; snapshot: {
+  questions: string[]; paragraphs: string[]; sources: { title: string; url: string; collectedOn: string }[];
+  inquiry: string | null; handler: string | null; ungroundedNumbers: number; note: string | null } };
+/** Operators and admins (review.answer): the answer-check queue in /console/reviews. */
+export const answerCheckStaffApi = {
+  list: makeFunctionReference<"query", Record<string, never>, { open: AnswerCheckRow[]; decided: AnswerCheckRow[] }>("answerChecks:list"),
+  get: makeFunctionReference<"query", { checkId: AnswerCheckId }, AnswerCheckCase | null>("answerChecks:get"),
+  decide: makeFunctionReference<"mutation", { checkId: AnswerCheckId; decision: "confirm" | "correct" | "return"; note?: string }, null>("answerChecks:decide"),
 };

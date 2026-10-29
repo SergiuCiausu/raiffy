@@ -130,3 +130,57 @@ describe("plans", () => {
     await expect(alice.mutation(anyApi.plans.create, { threadId: thread, ...ASK, amount: 1000.5 })).rejects.toThrow();
   });
 });
+
+describe("a plan from a simulation answer", () => {
+  const SIM = { type: "simulation", title: "Repayment simulation", product: "Credit de nevoi personale", ratePercent: 5.55, source: "https://www.raiffeisen.ro/loan.html", amount: 50_000, months: 60, income: 9_000, obligations: 0 };
+  async function answered(blocks: unknown[] = [SIM], withProduct = true) {
+    const s = await setup();
+    const messageId = await s.t.run(async (ctx) => {
+      if (withProduct) await ctx.db.insert("products", { productId: PRODUCT, bank: "raiffeisen", product: "Credit de nevoi personale", kind: "personal_loan", url: SIM.source,
+        collectedAt: "2026-10-28T07:45:27+00:00", summary: "Personal loan", guide: false, personal_bank_product_docs: true, personal_competitor_docs: false, personal_banking_help: false,
+        business_bank_product_docs: false, business_competitor_docs: false, business_banking_help: false });
+      const question = await ctx.db.insert("ragMessages", { threadId: s.thread, role: "user", text: "I want to fix up the kitchen" });
+      return ctx.db.insert("ragMessages", { threadId: s.thread, role: "assistant", text: "…", status: "done", requestMessageId: question, answer: { ui: { blocks, actions: [] } } });
+    });
+    return { ...s, messageId };
+  }
+
+  it("builds it from the stored card and the catalog, never from the client, and links it to the answer", async () => {
+    const { alice, thread, messageId } = await answered();
+    const built = await alice.mutation(anyApi.plans.buildFromAnswer, { messageId });
+    expect(built).toMatchObject({ status: "ok", version: 1 });
+    const { plan } = await alice.query(anyApi.plans.get, { planId: built.planId });
+    expect(plan.goal).toMatchObject({ summary: "I want to fix up the kitchen", productId: PRODUCT, amount: 5_000_000, termMonths: 60 });
+    expect(plan.affordability).toMatchObject({ income: 900_000, obligations: 0 });
+    expect(await alice.query(anyApi.plans.listForThread, { threadId: thread })).toMatchObject([{ planId: built.planId, messageId }]);
+  });
+
+  it("says why when the card, the catalog or the template can't back a plan, and saves nothing", async () => {
+    const noFigures = await answered([{ ...SIM, amount: undefined }]);
+    expect(await noFigures.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: noFigures.messageId })).toMatchObject({ status: "unavailable", why: "no_figures" });
+    const notInCatalog = await answered([SIM], false);
+    expect(await notInCatalog.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: notInCatalog.messageId })).toMatchObject({ status: "unavailable", why: "not_in_catalog" });
+    const noTemplate = await answered();
+    await noTemplate.t.run(async (ctx) => { for (const row of await ctx.db.query("planTemplates").collect()) await ctx.db.delete(row._id); });
+    expect(await noTemplate.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: noTemplate.messageId })).toMatchObject({ status: "unavailable", why: "no_template" });
+    expect(await noTemplate.t.run((ctx) => ctx.db.query("planSummaries").collect())).toEqual([]);
+  });
+
+  it("takes the amount and term the customer set on the simulator, within the card's longest term", async () => {
+    const { alice, messageId } = await answered([{ ...SIM, months: undefined, termMaxMonths: 84 }]);
+    expect(await alice.mutation(anyApi.plans.buildFromAnswer, { messageId })).toMatchObject({ status: "unavailable", why: "no_figures" });
+    const built = await alice.mutation(anyApi.plans.buildFromAnswer, { messageId, amount: 40_000, termMonths: 48 });
+    const { plan } = await alice.query(anyApi.plans.get, { planId: built.planId });
+    expect(plan.goal).toMatchObject({ amount: 4_000_000, termMonths: 48 });
+    await expect(alice.mutation(anyApi.plans.buildFromAnswer, { messageId, termMonths: 96 })).rejects.toThrow("plan_term_invalid");
+    await expect(alice.mutation(anyApi.plans.buildFromAnswer, { messageId, amount: -5, termMonths: 48 })).rejects.toThrow("plan_amount_invalid");
+  });
+
+  it("refuses someone else's answer, anyone signed out, and an answer with no simulation", async () => {
+    const { t, bob, messageId } = await answered();
+    await expect(bob.mutation(anyApi.plans.buildFromAnswer, { messageId })).rejects.toThrow("conversation_unavailable");
+    await expect(t.mutation(anyApi.plans.buildFromAnswer, { messageId })).rejects.toThrow("authentication_required");
+    const other = await answered([{ type: "keyFacts", title: "Facts", facts: [] }]);
+    await expect(other.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: other.messageId })).rejects.toThrow("plan_unavailable");
+  });
+});

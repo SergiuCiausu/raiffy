@@ -67,8 +67,11 @@ export function MemoryProposals({ block, track, pendingIds, savedTexts }: {
   );
 }
 
-/** "What Raiffy remembers" in the Context panel: every saved memory, with its dates and a way to delete it. */
-export function MemoryPanel({ track, memories }: { track: Track; memories?: MemoryView[] }) {
+/**
+ * "What Raiffy remembers" in the Context panel: every saved memory, with its dates and a way to delete it. Where this
+ * deployment doesn't save memories, it says so instead of promising to ask, and saved items stay deletable.
+ */
+export function MemoryPanel({ track, memories, writesEnabled }: { track: Track; memories?: MemoryView[]; writesEnabled?: boolean }) {
   const forgetOne = useMutation(memoryApi.forgetOne);
   const forgetAll = useMutation(memoryApi.forgetAll);
   const [confirming, setConfirming] = useState(false);
@@ -89,7 +92,11 @@ export function MemoryPanel({ track, memories }: { track: Track; memories?: Memo
           ))}
         </ul>
       )}
-      <p className="empty-note" hidden={!memories || memories.length > 0}>Nothing saved yet. Raiffy asks before it remembers anything, and you can delete it here.</p>
+      <p className="empty-note" hidden={!memories || memories.length > 0}>
+        {writesEnabled === false ? "Memory is off in this preview. Raiffy doesn’t save anything from your chats."
+          : "Nothing saved yet. Raiffy asks before it remembers anything, and you can delete it here."}
+      </p>
+      {writesEnabled === false && memories && memories.length > 0 && <p className="empty-note">Saving is off in this preview. You can still delete what’s here.</p>}
       {memories && memories.length > 0 && (confirming ? (
         <div className="mem-confirm">
           <button type="button" className="btn btn-dark" onClick={() => void forgetAll({ track }).then(() => setConfirming(false))}>Yes, forget everything</button>

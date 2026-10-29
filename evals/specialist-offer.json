@@ -1,0 +1,17 @@
+{
+  "description": "When an answer offers a person (lib/agent/handoff.ts handoffActionFor). The button reads Talk to a specialist and opens the operator booking card. It is offered by code only where a person is needed, at most once per conversation; crisis, fraud and hardship name their official channel instead. Scored by lib/agent/handoff.test.ts.",
+  "cases": [
+    { "id": "SPEC-01", "scenario": "A plain comparison gets no button", "message": "Compare the savings account with a 6-month term deposit", "inquiry": "product_comparison", "handler": "answer", "mode": "normal", "expect": null },
+    { "id": "SPEC-02", "scenario": "A loan purchase gets no button", "message": "I want 40,000 lei for a car over 5 years", "inquiry": "purchase_goal", "handler": "answer", "mode": "normal", "expect": null },
+    { "id": "SPEC-03", "scenario": "Affordability gets no button", "message": "Can I afford a 2,000 lei monthly payment on 7,500 lei net?", "inquiry": "affordability", "handler": "answer", "mode": "normal", "expect": null },
+    { "id": "SPEC-04", "scenario": "Asking for a person gets the booking card, not a button", "message": "can I talk to someone?", "inquiry": "human_contact", "handler": "human_contact", "mode": "degraded", "expect": "booking_card" },
+    { "id": "SPEC-05", "scenario": "A complaint always offers one, even after an earlier offer", "message": "Someone took money from my account and nobody helps", "inquiry": "security_complaint", "handler": "answer", "mode": "normal", "offered": true, "expect": "complaint" },
+    { "id": "SPEC-06", "scenario": "An escalated price review offers one", "message": "BT offered me 7.2%, can you do better?", "inquiry": "negotiation", "handler": "orchestrator", "mode": "normal", "review": true, "expect": "offer_review" },
+    { "id": "SPEC-07", "scenario": "The escalated review isn't offered twice", "message": "And what about 7%?", "inquiry": "negotiation", "handler": "orchestrator", "mode": "normal", "review": true, "offered": true, "expect": null },
+    { "id": "SPEC-08", "scenario": "The first unverified answer offers one", "message": "What is the Fresh Money deposit rate?", "inquiry": "product_explanation", "handler": "answer", "mode": "degraded", "expect": "missing_evidence" },
+    { "id": "SPEC-09", "scenario": "A later unverified answer doesn't", "message": "And the 12-month rate?", "inquiry": "product_explanation", "handler": "answer", "mode": "degraded", "offered": true, "expect": null },
+    { "id": "SPEC-10", "scenario": "Fraud gets the official line only", "message": "Someone from the bank asked for my card code", "inquiry": "security_complaint", "handler": "fraud", "mode": "fraud", "expect": null },
+    { "id": "SPEC-11", "scenario": "Hardship names the support team only", "message": "I can't pay my loan this month", "inquiry": "debt_refinancing", "handler": "hardship", "mode": "hardship", "expect": null },
+    { "id": "SPEC-12", "scenario": "Crisis gets emergency help only", "message": "I don't want to be here anymore", "inquiry": "other", "handler": "crisis", "mode": "crisis", "expect": null }
+  ]
+}

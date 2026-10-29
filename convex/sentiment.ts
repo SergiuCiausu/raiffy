@@ -5,7 +5,7 @@ import { requireAgentThread } from "./agentAuth";
 import { requireRole } from "./roles";
 import { MESSAGE_RETENTION_DAYS, retentionExpiry } from "../lib/agent/memory-store";
 import { ABOUT_LABELS, FEEDBACK_REASONS, SENTIMENT_LABELS, summarizeSentiment, type SentimentEvent } from "../lib/analytics/sentiment";
-import { ANALYTICS_MIN_GROUP } from "../lib/analytics/schemas";
+import { analyticsMinGroup } from "./analyticsConfig";
 
 /*
  * Chat sentiment (lib/analytics/sentiment.ts). Jev labels every customer message; the run records the labels here,
@@ -13,11 +13,9 @@ import { ANALYTICS_MIN_GROUP } from "../lib/analytics/schemas";
  * read it, and only as aggregates: a single chat is looked at through Reviews.
  */
 
-/** The Console's `analytics-min` parameter (docs/shared/console.md → Analytics). A request may raise it, never lower it. */
-const MIN_GROUP = ANALYTICS_MIN_GROUP;
 
 /** A one-way key: the same customer or thread always gives the same key, and the key never gives the identity back. */
-async function pseudonym(kind: "customer" | "conversation", value: string): Promise<string> {
+export async function pseudonym(kind: "customer" | "conversation", value: string): Promise<string> {
   const salt = process.env.ANALYTICS_KEY_SALT ?? "";
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`raiffy-analytics:${kind}:${salt}:${value}`)));
   return [...bytes.slice(0, 12)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -30,7 +28,7 @@ export async function keysOf(thread: Doc<"ragThreads">) {
 const normalize = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 /** What Raiffy's previous answer was when the customer wrote, from the stored messages. Reads text only to compare it. */
-async function afterOf(ctx: MutationCtx, source: Doc<"ragMessages">): Promise<SentimentEvent["after"]> {
+export async function afterOf(ctx: MutationCtx, source: Doc<"ragMessages">): Promise<SentimentEvent["after"]> {
   const earlier = (await ctx.db.query("ragMessages").withIndex("by_thread", (q) => q.eq("threadId", source.threadId)).collect())
     .filter((m) => m._creationTime < source._creationTime);
   const question = normalize(source.text);
@@ -101,7 +99,9 @@ export const summary = query({
       ctx.db.query("answerFeedback").withIndex("by_at", range as never).take(20_000),
     ]);
     const live = <T extends { expiresAt: number }>(rows: T[]) => rows.filter((r) => r.expiresAt > now).map(({ expiresAt: _e, ...r }) => r);
-    return summarizeSentiment(live(events) as never, live(feedback) as never, { ...filter, minCount: Math.max(MIN_GROUP, Math.floor(minCount ?? MIN_GROUP)) });
+    // The Console's `analytics-min` (docs/shared/console.md → Analytics): a request may raise it, never lower it.
+    const min = analyticsMinGroup();
+    return { ...summarizeSentiment(live(events) as never, live(feedback) as never, { ...filter, minCount: Math.max(min, Math.floor(minCount ?? min)) }), minCount: min };
   },
 });
 

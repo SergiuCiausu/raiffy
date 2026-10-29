@@ -14,11 +14,16 @@ import type * as advice from "../advice.js";
 import type * as agent from "../agent.js";
 import type * as agentAuth from "../agentAuth.js";
 import type * as analytics from "../analytics.js";
+import type * as analyticsConfig from "../analyticsConfig.js";
+import type * as answerCheckEmails from "../answerCheckEmails.js";
+import type * as answerChecks from "../answerChecks.js";
 import type * as audit from "../audit.js";
 import type * as bookings from "../bookings.js";
 import type * as calculator from "../calculator.js";
 import type * as catalog from "../catalog.js";
+import type * as catalogChanges from "../catalogChanges.js";
 import type * as catalogQuery from "../catalogQuery.js";
+import type * as chatThreads from "../chatThreads.js";
 import type * as compare from "../compare.js";
 import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
@@ -39,6 +44,10 @@ import type * as rag from "../rag.js";
 import type * as regulatoryLimits from "../regulatoryLimits.js";
 import type * as retrievalEval from "../retrievalEval.js";
 import type * as roles from "../roles.js";
+import type * as seed_chatBuild from "../seed/chatBuild.js";
+import type * as seed_chatCards from "../seed/chatCards.js";
+import type * as seed_chatScripts from "../seed/chatScripts.js";
+import type * as seed_chats from "../seed/chats.js";
 import type * as seed_demoPersonas from "../seed/demoPersonas.js";
 import type * as seed_pricing from "../seed/pricing.js";
 import type * as sentiment from "../sentiment.js";
@@ -58,11 +67,16 @@ declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   agentAuth: typeof agentAuth;
   analytics: typeof analytics;
+  analyticsConfig: typeof analyticsConfig;
+  answerCheckEmails: typeof answerCheckEmails;
+  answerChecks: typeof answerChecks;
   audit: typeof audit;
   bookings: typeof bookings;
   calculator: typeof calculator;
   catalog: typeof catalog;
+  catalogChanges: typeof catalogChanges;
   catalogQuery: typeof catalogQuery;
+  chatThreads: typeof chatThreads;
   compare: typeof compare;
   conversations: typeof conversations;
   crons: typeof crons;
@@ -83,6 +97,10 @@ declare const fullApi: ApiFromModules<{
   regulatoryLimits: typeof regulatoryLimits;
   retrievalEval: typeof retrievalEval;
   roles: typeof roles;
+  "seed/chatBuild": typeof seed_chatBuild;
+  "seed/chatCards": typeof seed_chatCards;
+  "seed/chatScripts": typeof seed_chatScripts;
+  "seed/chats": typeof seed_chats;
   "seed/demoPersonas": typeof seed_demoPersonas;
   "seed/pricing": typeof seed_pricing;
   sentiment: typeof sentiment;
@@ -116,4 +134,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
+};

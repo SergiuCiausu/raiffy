@@ -35,6 +35,27 @@ export function StaffShell({ logoHref, nav, me, crumbs, top, children }: {
     return () => { document.removeEventListener("keydown", onKey); wide.removeEventListener("change", onWide); };
   }, [open]);
 
+  // Phone tables are cards (DESIGN.md §12): each cell shows its column header from data-label, copied here as in
+  // the prototypes' labelCells(). Rows arrive with live data, so a MutationObserver relabels; existing labels win.
+  useEffect(() => {
+    const root = document.getElementById("content");
+    if (!root) return;
+    let queued = false;
+    const label = () => {
+      queued = false;
+      root.querySelectorAll<HTMLTableElement>("table.tbl").forEach((t) => {
+        const heads = [...t.querySelectorAll("thead th")].map((th) => th.querySelector(".sr-only") ? "" : th.textContent?.trim() ?? "");
+        t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => {
+          if (heads[i] && !td.hasAttribute("data-label")) td.setAttribute("data-label", heads[i]);
+        }));
+      });
+    };
+    label();
+    const observer = new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(label); } });
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       <a className="skip" href="#content">Skip to content</a>

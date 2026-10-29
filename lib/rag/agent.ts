@@ -102,8 +102,10 @@ export type HostTool = {
 export type CardsTool = {
   tool: BetaTool;
   check: (input: unknown, hits: readonly Citable[]) => { ok: true; cards: unknown[]; urls: string[]; note: string } | { ok: false; error: string };
-  /** Cards guessed from a checked answer when the model showed none; null when nothing fits or nothing is supported. */
+  /** Cards guessed from a checked answer when the model showed none, or none of the pattern's card; null when nothing fits or nothing is supported. */
   fallback?: (segments: readonly CitedSegment[], hits: readonly Citable[]) => { cards: unknown[]; urls: string[] } | null;
+  /** Whether the shown cards include the one the answer's pattern expects (lib/agent/cardContract.ts); without it any card will do. */
+  complete?: (cards: readonly unknown[]) => boolean;
 };
 
 /**
@@ -254,7 +256,11 @@ export async function runAgent({ question, track, history = [], model, allowedCo
       continue;
     }
     const status = !passed ? "failed_checks" : hits.length || trusted.length ? "answered" : "no_results";
-    if (status === "answered" && !shown && cards?.fallback) shown = cards.fallback(segments, hits);
+    if (status === "answered" && cards?.fallback && (!shown || cards.complete?.(shown.cards) === false)) {
+      const guess = cards.fallback(segments, hits);
+      // The guess adds the missing card to what the model showed; show_cards allows three at most.
+      if (guess) shown = shown ? { cards: [...shown.cards, ...guess.cards].slice(0, 3), urls: [...new Set([...shown.urls, ...guess.urls])] } : guess;
+    }
     return result({ status, ...assembleCitations(segments, hits), checks: { ...checks, attempts } });
   }
 

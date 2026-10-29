@@ -4,17 +4,28 @@
  */
 
 /* Answer formatting (lib/markup.ts): paragraphs and lists on the 4px grid, ink markers, no new colours */
-.pg-chat .answer { display: grid; gap: 12px; max-width: 64ch; }
-.pg-chat p.answer { white-space: pre-line; } /* plain-text messages without a parsed answer */
-.pg-chat .answer :is(ul, ol) { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
-.pg-chat .answer ul { list-style: disc; }
-.pg-chat .answer ol { list-style: decimal; }
-.pg-chat .answer :is(ul, ol) :is(ul, ol) { margin-top: 8px; }
-.pg-chat .answer ul ul { list-style: circle; }
-.pg-chat .answer li { padding-left: 4px; }
-.pg-chat .answer li::marker { color: var(--ink); font-variant-numeric: tabular-nums; }
-.pg-chat .answer strong { font-weight: 600; color: var(--text-1); }
-.pg-chat .answer em { font-style: italic; }
+/* Text keeps its 64ch measure; answer cards placed between paragraphs (.card-slot) use the full width and their own styles. */
+.pg-chat .answer { display: grid; gap: 12px; }
+.pg-chat .answer > :not(.card-slot) { max-width: 64ch; }
+.pg-chat p.answer { white-space: pre-line; max-width: 64ch; } /* plain-text messages without a parsed answer */
+.pg-chat .answer :is(ul, ol):not(.card-slot *) { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.pg-chat .answer ul:not(.card-slot *) { list-style: disc; }
+.pg-chat .answer ol:not(.card-slot *) { list-style: decimal; }
+.pg-chat .answer :is(ul, ol) :is(ul, ol):not(.card-slot *) { margin-top: 8px; }
+.pg-chat .answer ul ul:not(.card-slot *) { list-style: circle; }
+.pg-chat .answer li:not(.card-slot *) { padding-left: 4px; }
+.pg-chat .answer li:not(.card-slot *)::marker { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pg-chat .answer strong:not(.card-slot *) { font-weight: 600; color: var(--text-1); }
+.pg-chat .answer em:not(.card-slot *) { font-style: italic; }
+
+/* Answer cards in the text (lib/card-placement.ts): each fades in once its paragraph has typed, 80ms apart */
+.pg-chat .card-slot { display: grid; gap: 12px; min-width: 0; }
+.pg-chat .card-slot p { max-width: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .pg-chat .card-slot.enter > * { animation: pg-chat-fade 300ms var(--ease-out) backwards; }
+  .pg-chat .card-slot.enter > :nth-child(2) { animation-delay: 80ms; }
+  .pg-chat .card-slot.enter > :nth-child(3) { animation-delay: 160ms; }
+}
 
 /* Citation marker: the number of the source chip under the answer. Ink on the surface tint, warm on hover. */
 .pg-chat .cite {
@@ -80,7 +91,9 @@
 .pg-chat .mini-docstack .mini-sheet:nth-child(2) { top: 7px; left: 24px; }
 .pg-chat .mini-docstack .mini-sheet.front { top: 14px; left: 14px; }
 
-@media (max-width: 600px) { .pg-chat .mini-v .dim { display: none; } }
+/* Phones (one starter per row): the faded extras drop out; from 640px, with two starters per row, they return */
+.pg-chat .mini-v .dim { display: none; }
+@media (min-width: 640px) { .pg-chat .mini-v .mini-line.dim { display: flex; } .pg-chat .mini-v .mini-frag.dim { display: grid; } }
 
 /* GPU layers only while a clip plays (StarterVignette adds and removes .is-playing). Measured: without the hint
    Chrome promotes layers mid-clip, about 3x the layout work during playback. */
@@ -106,8 +119,6 @@
 .agent-retry { height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--color-ink, #1A1A1A); color: #fff; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .agent-retry:focus-visible { outline: 2px solid var(--color-ink, #1A1A1A); outline-offset: 2px; }
 .pg-chat .answer-notice { color: var(--text-3); font-size: 11px; line-height: 1.5; margin: 12px 0 0; }
-.pg-chat .gfoot .qbtn { background: var(--surface); color: var(--text-2); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer; }
-.pg-chat .gfoot .qbtn:disabled { opacity: .5; cursor: default; }
 
 /* Answer list card (DESIGN.md): a list of 2+ items in the .gcard shell. Hairline rows, label in ink, description in text-2. */
 .pg-chat .answer .list-card { max-width: 100%; }
@@ -127,12 +138,21 @@
 
 /* Answer cards filled by the model (components/agent/AnswerCards.tsx): the demo card classes, plus 3 or 4 options */
 .pg-chat .answer-cards { display: grid; gap: 12px; margin-top: 14px; }
-.pg-chat .cmp[data-cols="3"] { grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr)); min-width: 560px; }
-.pg-chat .cmp[data-cols="4"] { grid-template-columns: minmax(0, 1.1fr) repeat(4, minmax(0, 1fr)); min-width: 680px; }
-@media (max-width: 640px) {
-  .pg-chat .cmp[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; }
-  .pg-chat .cmp[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 520px; }
-  .pg-chat .cmp .rk + div + div + div, .pg-chat .cmp .rk + div + div + div + div { border-top: 0; padding-top: 2px; }
+/* Mobile first (DESIGN.md §12): 3 or 4 options restack below 640px like chat.html's two-option .cmp does below 480px
+   (each row label spans the card, the options sit under it); from 640px it's the table with its label column */
+.pg-chat .cmp[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: 0; }
+.pg-chat .cmp[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 520px; }
+.pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) > .th:first-child { display: none; }
+.pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) .rk { grid-column: 1 / -1; padding-bottom: 2px; font-size: var(--text-micro); }
+.pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) :is(.rk + div, .rk + div + div, .rk + div + div + div),
+.pg-chat .cmp[data-cols="4"] .rk + div + div + div + div { border-top: 0; padding-top: 2px; }
+@media (min-width: 640px) {
+  .pg-chat .cmp[data-cols="3"] { grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr)); min-width: 560px; }
+  .pg-chat .cmp[data-cols="4"] { grid-template-columns: minmax(0, 1.1fr) repeat(4, minmax(0, 1fr)); min-width: 680px; }
+  .pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) > .th:first-child { display: block; }
+  .pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) .rk { grid-column: auto; padding-bottom: 9px; font-size: inherit; }
+  .pg-chat .cmp:is([data-cols="3"], [data-cols="4"]) :is(.rk + div, .rk + div + div, .rk + div + div + div),
+  .pg-chat .cmp[data-cols="4"] .rk + div + div + div + div { border-top: 1px solid var(--border); padding-top: 9px; }
 }
 .pg-chat .cmp .na { color: var(--text-3); }
 .pg-chat .answer-cards .kv-list { display: grid; gap: 10px; }
@@ -150,13 +170,14 @@
 .pg-chat .answer-cards .opts > .opt { align-content: start; }
 /* Three or four routes: full-width rows, after chat.html's .saves */
 .pg-chat .answer-cards .routes { display: grid; gap: 8px; }
-.pg-chat .answer-cards .route { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 20px; align-items: start;
+.pg-chat .answer-cards .route { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px 20px; align-items: start;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
 .pg-chat .answer-cards .route.rec { border-color: var(--rec-line-mid); background: var(--tint-rec-card); }
 .pg-chat .answer-cards .route-main { display: grid; gap: 6px; min-width: 0; }
 .pg-chat .answer-cards .route .opt-h .rec-badge { justify-self: start; }
-@media (max-width: 560px) {
-  .pg-chat .answer-cards .route { grid-template-columns: minmax(0, 1fr); }
+/* Phones: one column; from 640px the route and its figures sit side by side */
+@media (min-width: 640px) {
+  .pg-chat .answer-cards .route { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 .pg-chat .answer-cards .cks.plain { margin: 0; padding: 0; list-style: none; }
 .pg-chat .answer-cards .ck .bx.num { font: 500 var(--text-micro) var(--font-mono); color: var(--text-2); }
@@ -169,8 +190,8 @@
  * Answer-card hierarchy (DESIGN.md §11): a 16px title with its sources under it, the icon on a yellow tint, one lead
  * figure per card on a --tint-hl band, 15px values over 13px labels. Yellow is only light: tints, halos, the dot.
  */
-.pg-chat { --fig-lead: 28px; --fig-sub: 20px; }
-@media (max-width: 640px) { .pg-chat { --fig-lead: 24px; --fig-sub: 18px; } }
+.pg-chat { --fig-lead: 24px; --fig-sub: 18px; }
+@media (min-width: 640px) { .pg-chat { --fig-lead: 28px; --fig-sub: 20px; } }
 
 .pg-chat .answer-cards .gc-h.ac-h { justify-content: flex-start; gap: 10px; padding: 12px 14px; flex-wrap: nowrap; }
 .pg-chat .answer-cards .ac-h > .ac-ic, .pg-chat .answer .list-card .gc-h svg {
@@ -223,8 +244,9 @@
 .pg-chat .answer-cards .handoff h3 { font-size: var(--fig-sub); letter-spacing: -.02em; }
 .pg-chat .answer-cards .handoff p { font-size: var(--text-sm); }
 /* On phones a card title may take two lines; the simulation's figures never wrap mid-range */
-@media (max-width: 640px) {
-  .pg-chat .answer-cards .ac-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
+.pg-chat .answer-cards .ac-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
+@media (min-width: 640px) {
+  .pg-chat .answer-cards .ac-title { display: block; -webkit-line-clamp: none; white-space: nowrap; }
 }
 .pg-chat .answer-cards .sim-out .kv.fact b { white-space: nowrap; }
 
@@ -245,7 +267,9 @@
 .pg-chat .access-pick select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .pg-chat .access-pick small { font-weight: 400; color: var(--text-2); line-height: 1.45; }
 .pg-chat .access .switch:disabled { opacity: .4; cursor: not-allowed; }
-.pg-chat .src.local { cursor: default; }
+.pg-chat button.src { max-width: 300px; font-family: inherit; }
+/* A lit source scrolls into the Context panel with room to spare */
+.pg-chat .src-item { scroll-margin: 16px; }
 
 /* ── Price and counter-offer card (sample pricing): rows, total cost side by side, pills ── */
 .pg-chat .offer-card .prices { margin-top: 6px; }
@@ -265,7 +289,7 @@
 .pg-chat .booking-close { justify-self: start; }
 
 /* Answer formatting: bold stays ink, the list markers come through as bullets in the text itself. */
-.pg-chat .answer strong { font-weight: 600; color: var(--text-1); }
+.pg-chat .answer strong:not(.card-slot *) { font-weight: 600; color: var(--text-1); }
 
 /* Route cards from the answer text (components/agent/RouteCards.tsx): the demo's .opts grid, flowing to as many columns as fit. */
 .pg-chat .text-routes { list-style: none; margin: 0; padding: 0; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
@@ -301,3 +325,8 @@
 .pg-chat .handoff-note { margin: 0; padding: 0 14px 12px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
 .pg-chat .handoff-acts { padding: 0 14px 14px; }
 .pg-chat .handoff-card .mem-status { padding: 0 14px 12px; }
+
+/* A pin's title opens its answer (or its chat); it keeps .pin's type, with no button chrome */
+.pg-chat .pin-open { min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pg-chat .pin-open b, .pg-chat .pin-open small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { .pg-chat .pin-open:hover b { text-decoration: underline; text-underline-offset: 2px; } }

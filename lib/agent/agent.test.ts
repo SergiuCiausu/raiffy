@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_POLICY } from "./config";
 import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema, MEMORY_CANDIDATES, MEMORY_OPERATIONS, SCOPES } from "./jev";
-import { memoryContextNote, memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
+import { memoryContextNote, memoryProposalSchema, notConnectedClause, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
 import { scoreRouting } from "./routing-eval";
 import { bankingIntent } from "./confidence";
-import { composeAnswer, memoryResponse, routeResponse } from "./composer";
+import { composeAnswer, memoryResponse, offersSpecialist, routeResponse } from "./composer";
+import { SPECIALIST_LABEL, handoffActionFor } from "./handoff";
+import { EMPTY_STATE, nextState, readState } from "./state";
 import { ragAnswerSchema } from "../rag/answer";
 
 function choice<T extends Record<string, string>>(criteria: T, selected: keyof T & string, confidence = 0.95) {
@@ -215,6 +217,15 @@ describe("backend route policy", () => {
     expect(planAgentRoute(raw, full).handler).toBe("orchestrator");
   });
 
+  // Live Jev values for "What do you remember about me?" on cloud dev: no banking pattern (other 0.50, affordability 0.45).
+  it("answers a memory question from the store even when no banking pattern is clear", () => {
+    const raw = response(); raw.answers.inquiry = spread({ other: 0.5, affordability: 0.45, purchase_goal: 0.05 });
+    raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect");
+    expect(planAgentRoute(raw, { ...full, availableTools: ["search_knowledge"] })).toMatchObject({ handler: "unavailable", reason: "explicit_memory_request", memoryOperation: "inspect" });
+    raw.answers.memory_operation = choice(MEMORY_OPERATIONS, "none");
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "low_route_confidence" });
+  });
+
   it("does not use a product document to fabricate an expense analysis", () => {
     const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "expense_insights");
     const plan = planAgentRoute(raw, { track: "personal", availableTools: ["search_knowledge"], availableCollections: ["bank_product_docs"] });
@@ -398,20 +409,67 @@ describe("answer envelope", () => {
       .toEqual(["What conditions and documents does Save first require?", "Compare Save first with Personal loan for my situation"]);
   });
 
-  it("offers an adviser where a person can take it further, and never in a crisis", () => {
-    const handoff = (inquiry: keyof typeof INQUIRIES, answer = rag("Sourced answer.")) => {
+  it("offers a specialist only where a person is needed, never on ordinary answers", () => {
+    const handoff = (inquiry: keyof typeof INQUIRIES, answer = rag("Sourced answer."), offered = false) => {
       const raw = response(); raw.answers.inquiry = choice(INQUIRIES, inquiry);
-      return composeAnswer("m1", planAgentRoute(raw, full), answer).actions.find((a) => a.kind === "handoff");
+      return composeAnswer("m1", planAgentRoute(raw, full), answer, { specialistOffered: offered }).actions.find((a) => a.kind === "handoff");
     };
-    expect(handoff("negotiation")).toEqual({ kind: "handoff", label: "Book an adviser", reason: "offer_review" });
-    expect(handoff("purchase_goal")).toEqual({ kind: "handoff", label: "Book an adviser", reason: "customer_request" });
-    expect(handoff("product_explanation")).toBeUndefined();
+    // Comparisons, purchases, affordability and refinancing answer without a button: the header's is always there
+    for (const inquiry of ["purchase_goal", "product_comparison", "affordability", "debt_refinancing", "product_explanation", "negotiation"] as const) {
+      expect(handoff(inquiry)).toBeUndefined();
+    }
+    // A negotiation the pricing rules escalated offers a specialist review, once
+    const negotiation = response(); negotiation.answers.inquiry = choice(INQUIRIES, "negotiation");
+    const priced = planAgentRoute(negotiation, full);
+    expect(handoffActionFor(priced, "normal", { review: true })).toEqual({ kind: "handoff", label: SPECIALIST_LABEL, reason: "offer_review" });
+    expect(handoffActionFor(priced, "normal", { review: true, offered: true })).toBeNull();
+    // An answer Raiffy couldn't verify offers one, once
+    const unverified = { ...rag(""), status: "failed_checks" as const };
+    expect(handoff("product_explanation", unverified)).toEqual({ kind: "handoff", label: SPECIALIST_LABEL, reason: "missing_evidence" });
+    expect(handoff("product_explanation", unverified, true)).toBeUndefined();
+    // A complaint always does
     const complaint = response(); complaint.answers.inquiry = choice(INQUIRIES, "security_complaint");
     const plan = planAgentRoute(complaint, { ...full, availableTools: ["search_knowledge"] });
-    expect(routeResponse(plan).text).toMatch(/Talk to an adviser below/);
-    expect(composeAnswer("m1", plan, routeResponse(plan)).actions).toEqual([{ kind: "handoff", label: "Talk to an adviser", reason: "complaint" }]);
-    const crisis = response(); crisis.answers.crisis.noul = 0.9;
-    expect(composeAnswer("m1", planAgentRoute(crisis, full), rag("Help.")).actions).toEqual([]);
+    expect(routeResponse(plan).text).toMatch(/Talk to a specialist below/);
+    expect(composeAnswer("m1", plan, routeResponse(plan), { specialistOffered: true }).actions)
+      .toEqual([{ kind: "handoff", label: SPECIALIST_LABEL, reason: "complaint" }]);
+  });
+
+  it("gives crisis, fraud and hardship their official channel, without a booking button", () => {
+    for (const risk of ["crisis", "fraud", "hardship"] as const) {
+      const raw = response(); raw.answers[risk].noul = 0.9;
+      const plan = planAgentRoute(raw, full);
+      expect(composeAnswer("m1", plan, routeResponse(plan)).actions).toEqual([]);
+    }
+    const fraud = response(); fraud.answers.fraud.noul = 0.9;
+    expect(routeResponse(planAgentRoute(fraud, full)).text).toMatch(/official app or the number on your card/);
+  });
+
+  it("shows Claude's handoff card instead of the button, and only once per conversation", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "affordability");
+    const plan = planAgentRoute(raw, full);
+    const card = { type: "handoff", title: "Eligibility needs a person", reason: "Only the bank can assess a probation contract." };
+    const first = composeAnswer("m1", plan, { ...rag("Sourced answer."), cards: [card] });
+    expect(first.blocks.some((b) => b.type === "handoff")).toBe(true);
+    expect(first.actions.some((a) => a.kind === "handoff")).toBe(false);
+    expect(offersSpecialist(first, plan.handler)).toBe(true);
+    const later = composeAnswer("m2", plan, { ...rag("Sourced answer."), cards: [card] }, { specialistOffered: true });
+    expect(later.blocks.some((b) => b.type === "handoff")).toBe(false);
+    expect(offersSpecialist(later, plan.handler)).toBe(false);
+  });
+
+  it("offers a specialist at most once in a six-turn loan chat, even when no answer could be verified", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "purchase_goal");
+    const plan = planAgentRoute(raw, full);
+    const unverified = { ...rag(""), status: "failed_checks" as const };
+    let state = EMPTY_STATE;
+    const buttons = Array.from({ length: 6 }, (_, i) => {
+      const envelope = composeAnswer(`m${i}`, plan, unverified, { specialistOffered: state.specialistOffered });
+      state = readState(nextState(state, { inquiry: plan.inquiry, scope: plan.scope, specialist: offersSpecialist(envelope, plan.handler) }));
+      return envelope.actions.filter((a) => a.kind === "handoff").length;
+    });
+    expect(buttons).toEqual([1, 0, 0, 0, 0, 0]);
+    expect(state.specialistOffered).toBe(true);
   });
 });
 
@@ -425,6 +483,11 @@ describe("memory in answers", () => {
     expect(note).toMatch(/only a calculator input/);
     expect(note).toMatch(/never use them to judge creditworthiness/);
     expect(memoryContextNote([])).toBeUndefined();
+  });
+
+  it("doesn't tell Claude saved memory is missing when the turn loaded some", () => {
+    expect(notConnectedClause(saved.length)).not.toMatch(/memory/);
+    expect(notConnectedClause(0)).toMatch(/saved memory are connected/);
   });
 
   it("answers inspect and forget from the store, and says plainly when memory is off", () => {

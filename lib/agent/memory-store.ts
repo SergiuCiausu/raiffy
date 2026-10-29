@@ -68,6 +68,11 @@ export function requireMemoryPersistence(scope: MemoryScope, environment: Memory
     || !isDemoMemoryEnvironment(env)) throw new Error("memory_persistence_disabled");
 }
 
+/** Whether this scope may save memories here: the panel says so when it can't, instead of implying it asks first. */
+export function memoryWritesAllowed(scope: MemoryScope, environment: MemoryEnvironment): boolean {
+  try { requireMemoryPersistence(scope, environment); return true; } catch { return false; }
+}
+
 export function sameMemoryScope(a: MemoryScope, b: MemoryScope): boolean {
   const pick = (s: MemoryScope) => ({ ownerKey: s.ownerKey, track: s.track, organizationKey: s.organizationKey });
   const first = memoryScopeSchema.parse(pick(a)); const second = memoryScopeSchema.parse(pick(b));
@@ -118,7 +123,7 @@ export const proposalViewSchema = z.object({
   id: z.string(), operation: z.enum(["remember", "update"]), kind: z.enum(MEMORY_KINDS), text: z.string().min(1).max(500),
   customerQuote: z.string(), createdAt: z.number(), expiresAt: z.number(),
 }).strict();
-export const memoryListSchema = z.object({ memories: z.array(memoryViewSchema), proposals: z.array(proposalViewSchema) }).strict();
+export const memoryListSchema = z.object({ memories: z.array(memoryViewSchema), proposals: z.array(proposalViewSchema), writesEnabled: z.boolean() }).strict();
 export const memoryChangeResultSchema = z.object({ status: z.enum(["proposed", "saved", "rejected", "forgotten"]), id: z.string() }).strict();
 export const memoryDeleteResultSchema = z.object({ memoriesDeleted: z.number().int().nonnegative(), proposalsDeleted: z.number().int().nonnegative() }).strict();
 export const recordedMemorySourceSchema = z.object({ conversationId: z.string().min(1), messageId: z.string().min(1), memoryEligible: z.boolean() }).strict();

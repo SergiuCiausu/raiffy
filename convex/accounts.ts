@@ -137,10 +137,12 @@ const switchesFrom = (access: Switches): Switches => Object.fromEntries(SWITCHES
 export const expenseInputSchema = z.object({ period: expensePeriodSchema }).strict();
 
 /** The customer's summary for this turn; business conversations have no sample account yet. */
-export async function expenseSummaryFor(ctx: ActionCtx, track: Track, period: z.infer<typeof expensePeriodSchema>, now = Date.now()): Promise<ExpenseSummary> {
+export async function expenseSummaryFor(ctx: ActionCtx, track: Track, period: z.infer<typeof expensePeriodSchema>, now = Date.now(), statement = false): Promise<ExpenseSummary> {
   const scope = await requireAgentScope(ctx, track);
   const access = await ctx.runQuery(internal.accounts.accessFor, { ownerKey: scope.ownerKey });
-  return summarizeExpenses({ persona: track === "personal" ? personaById(access.persona) : null, switches: switchesFrom(access), period,
+  // Attaching the statement shares it for that question: the account and its transactions, whatever the switches say
+  const switches = statement ? { ...switchesFrom(access), account: true, transactions: true } : switchesFrom(access);
+  return summarizeExpenses({ persona: track === "personal" ? personaById(access.persona) : null, switches, period,
     today: new Date(now).toISOString().slice(0, 10), rules: INSIGHT_RULES });
 }
 
@@ -152,10 +154,10 @@ export const EXPENSE_TOOL = {
   input_schema: schemaOf(expenseInputSchema),
 };
 
-export async function expenseTool(ctx: ActionCtx, track: Track, raw: unknown): Promise<{ outcome: { citables: Citable[]; note?: string } | { error: string }; summary?: ExpenseSummary }> {
+export async function expenseTool(ctx: ActionCtx, track: Track, raw: unknown, statement = false): Promise<{ outcome: { citables: Citable[]; note?: string } | { error: string }; summary?: ExpenseSummary }> {
   const input = expenseInputSchema.safeParse(raw);
   if (!input.success) return { outcome: { error: `Invalid input: ${input.error.issues.map((i) => i.message).join("; ")}` } };
-  const summary = await expenseSummaryFor(ctx, track, input.data.period);
+  const summary = await expenseSummaryFor(ctx, track, input.data.period, Date.now(), statement);
   const citable = expenseCitable(summary);
   return { summary, outcome: citable ? { citables: [citable], ...(summary.notUsed.length ? { note: expenseGapsNote(summary) } : {}) } : { citables: [], note: expenseGapsNote(summary) } };
 }

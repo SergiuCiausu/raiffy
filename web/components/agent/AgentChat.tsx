@@ -2,25 +2,33 @@
 
 import { Fragment, useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAction, useMutation, useQueries, useQuery, type RequestForQueries } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import {
-  ArrowDownIcon, ArrowUpIcon, BriefcaseIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon,
+  ArrowDownIcon, ArrowUpIcon, BadgePercentIcon, PaperclipIcon, BriefcaseIcon, CalculatorIcon, ChartColumnIcon, InfoIcon, PencilIcon, PinIcon, ScaleIcon, SignpostIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon,
   MessageCircleIcon, PanelRightCloseIcon, PanelRightOpenIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
-  ThumbsUpIcon, UserIcon, XIcon,
+  ThumbsUpIcon, UserCheckIcon, UserIcon, XIcon,
 } from "lucide-react";
-import { agentApi, memoryApi, isWebSource, type Answer, type MemoryBlock, type InputField, type Message, type Reply, type Source, type ThreadId, type ThreadSummary, type Track, type UiAction, type UiBlock, VOTE_REASONS, type VoteReason } from "@/lib/agent-api";
+import { accountsApi, agentApi, answerCheckApi, memoryApi, isWebSource, type Attachment, type Answer, type AnswerCheck, type MemoryBlock, type InputField, type Message, type MessageId, type Reply, type Source, type ThreadId, type ThreadSummary, type Track, type UiBlock, VOTE_REASONS, type VoteReason } from "@/lib/agent-api";
 import { errorInfo, logChatError } from "@/lib/chat-log";
-import { AnswerCards } from "@/components/agent/AnswerCards";
+import { AnswerCards, isAnswerCard } from "@/components/agent/AnswerCards";
 import { AccessPanel } from "@/components/agent/AccessPanel";
+import { PlanBuild, PlanForAnswer } from "@/components/agent/PlanCard";
 import { BookingCard } from "@/components/booking/BookingCard";
 import { SpendingCard, categoryLabel, isSpending } from "@/components/agent/SpendingCard";
 import { OfferCard, isOffer } from "@/components/agent/OfferCard";
 import { CompareTable, isCompare } from "@/components/agent/CompareTable";
 import { StarterVignette, type StarterVignetteKind } from "@/components/agent/StarterVignettes";
 import { listTitle, parseAnswer, segmentCites, splitItem, withoutShown, type Block, type Line, type List, type Run } from "@/lib/markup";
+import { blockEnd, placeCards } from "@/lib/card-placement";
+import { nextSuggestion, suggestionsFor } from "@/lib/suggestions";
+import { chatApi, pinFor, type PinInput, type PinKind, type PinView } from "@/lib/chat-api";
 import { MemoryPanel, MemoryProposals } from "./Memory";
-import { AdviserHandoff } from "./Handoff";
+import { SpecialistOffer } from "./Handoff";
+import { AffordabilityCard, isAffordability } from "./AffordabilityCard";
+import { AnswerCheckButton, AnswerCheckZone, canAskSpecialist } from "./AnswerCheck";
+import { SpecialistChecks, type CheckRow } from "./SpecialistChecks";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
 
 /*
@@ -61,12 +69,45 @@ const greetingFor = (h: number) => `${h < 12 ? "Good morning" : h < 18 ? "Good a
 const stepLines = (steps: { query: string; results?: number }[]) =>
   steps.map((s) => <>Searching bank sources: <b className="q">{s.query}</b>{s.results !== undefined && <> · {s.results} {s.results === 1 ? "result" : "results"}</>}</>);
 
-export function AgentChat() {
+/** `view="checks"` is /chat/checks: the same shell, with "Your specialist checks" in the thread's place (chat.html#checks). */
+export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   const { user } = useUser();
   const { signOut } = useClerk();
+  const router = useRouter();
+  const params = useSearchParams();
   const threads = useQuery(agentApi.listThreads, {});
-  const [threadId, setThreadId] = useState<ThreadId | null>(null);
-  const messages = useQuery(agentApi.listMessages, threadId ? { threadId } : "skip");
+  // /chat?thread=<id> opens that conversation (from Your specialist checks or an e-mail). An id that isn't the customer's
+  // comes back as an error value below and shows the "conversation unavailable" note.
+  const [threadId, setThreadId] = useState<ThreadId | null>(() => view === "chat" ? params.get("thread") as ThreadId | null : null);
+  useEffect(() => { if (view === "chat" && params.get("thread")) router.replace("/chat", { scroll: false }); }, [view, params, router]);
+  // The customer's checks on both tracks: the sidebar count, and the list on /chat/checks. Business needs an
+  // organization, so without one its query returns an error value and is left out.
+  const mine = useQueries(useMemo((): RequestForQueries => ({
+    personal: { query: answerCheckApi.mine, args: { track: "personal" } },
+    business: { query: answerCheckApi.mine, args: { track: "business" } },
+  }), []));
+  const myChecks = useMemo((): CheckRow[] | undefined => {
+    if (mine.personal === undefined) return undefined;
+    const of = (rows: unknown, track: Track) => Array.isArray(rows) ? (rows as Omit<CheckRow, "track">[]).map((c) => ({ ...c, track })) : [];
+    return [...of(mine.personal, "personal"), ...of(mine.business, "business")].sort((x, y) => y.createdAt - x.createdAt);
+  }, [mine.personal, mine.business]);
+  const openChecks = myChecks?.filter((c) => c.status === "open").length ?? 0;
+  const titles = useMemo(() => new Map((threads ?? []).map((t) => [t._id as string, t.title])), [threads]);
+  // useQueries returns a server error as a value instead of throwing it into the page's error boundary, so a
+  // conversation deleted while open (another tab, a re-seed, retention) brings back an empty chat, not the error page.
+  const results = useQueries(useMemo((): RequestForQueries => threadId ? {
+    messages: { query: agentApi.listMessages, args: { threadId } },
+    checks: { query: answerCheckApi.forThread, args: { threadId } },
+  } : {}, [threadId]));
+  const loaded = results.messages;
+  // Answer checks by message. If they can't load, the "Ask a specialist" button stays hidden rather than failing on send.
+  const checks = useMemo(() => Array.isArray(results.checks)
+    ? new Map((results.checks as (AnswerCheck & { messageId: string })[]).map((c) => [c.messageId, c])) : null, [results.checks]);
+  const gone = loaded instanceof Error;
+  const messages = gone ? undefined : (loaded as Message[] | undefined);
+  const [goneNote, setGoneNote] = useState<ThreadId | null>(null);
+  if (gone && threadId) { setGoneNote(threadId); setThreadId(null); }
+  useEffect(() => { if (goneNote) logChatError("conversation unavailable", { threadId: goneNote }); }, [goneNote]);
   const sendMutation = useMutation(agentApi.send);
   const runAction = useAction(agentApi.run);
   const stopMutation = useMutation(agentApi.stop);
@@ -81,7 +122,9 @@ export function AgentChat() {
   // New chats are personal; the business track returns with Clerk Organizations (it needs an org_id)
   const track: Track = "personal";
   const [input, setInput] = useState("");
-  const [pending, setPending] = useState<{ text: string; base: number } | null>(null);
+  const [pending, setPending] = useState<{ text: string; base: number; attachment?: Attachment } | null>(null);
+  // The paperclip (chat.html #attach): the chosen sample customer's statement, attached to the next question
+  const [attached, setAttached] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [drawer, setDrawerState] = useState<"side" | "ctx" | null>(null);
@@ -89,6 +132,8 @@ export function AgentChat() {
   // Off until the saved choice is applied, so a closed panel doesn't animate shut on load
   const [ctxAnimate, setCtxAnimate] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
+  /** The source (by url) lit in "Sources in this chat" while its tag under an answer is hovered or focused. */
+  const [litSource, setLitSource] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, "up" | "down">>({});
   const [whys, setWhys] = useState<Record<string, VoteReason>>({});
   const rateMutation = useMutation(agentApi.rate);
@@ -115,6 +160,15 @@ export function AgentChat() {
 
   const thread = threads?.find((t) => t._id === threadId);
   const activeTrack = thread?.track ?? track;
+  // Renaming a chat and pinning answer cards to Context (convex/chatThreads.ts)
+  const renameMutation = useMutation(chatApi.rename);
+  const pinMutation = useMutation(chatApi.pin);
+  const unpinMutation = useMutation(chatApi.unpin);
+  const pins = useQuery(chatApi.listPins, { track: activeTrack });
+  const pinByMessage = useMemo(() => new Map((pins ?? []).map((p) => [p.messageId as string, p])), [pins]);
+  const [renaming, setRenaming] = useState(false);
+  const renameBtn = useRef<HTMLButtonElement>(null);
+  const access = useQuery(accountsApi.getAccess, activeTrack === "personal" ? {} : "skip");
   // Memory is personal for now: business memories need an organization scope the chat doesn't carry yet.
   const memoryState = useQuery(memoryApi.listMine, activeTrack === "personal" ? { track: activeTrack } : "skip");
   const memoryView = memoryState && {
@@ -125,6 +179,13 @@ export function AgentChat() {
   const streaming = list.findLast((m) => m.role === "assistant" && m.status === "streaming");
   const busy = showPending || !!streaming;
   const empty = !threadId && !showPending;
+  // Follow-ups for the latest finished answer sit above the composer, and Tab fills them (chat.html setChips).
+  const suggestions = useMemo(() => busy ? [] : suggestionsFor(messages ?? []), [busy, messages]);
+  const lastId = messages?.at(-1)?._id;
+  // Which chip carries the Tab hint; it restarts at the first chip with each new answer.
+  const [tab, setTab] = useState<{ for?: string; at: number }>({ at: 0 });
+  const tabAt = tab.for === lastId ? tab.at : 0;
+  const coarse = useMedia("(pointer: coarse)");
 
   function announce(msg: string) { setLiveMsg(""); window.setTimeout(() => setLiveMsg(msg), 60); }
 
@@ -151,6 +212,9 @@ export function AgentChat() {
     const el = inputEl.current!;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    // scrollHeight is rounded, so a box sized to it can overflow by a fraction of a pixel, and Windows then draws
+    // scrollbar arrows beside one line of text. Scroll only once the text passes the cap.
+    el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
   }, [input]);
 
   useEffect(() => { document.title = (thread ? `${thread.title} · ` : "") + "Raiffy"; }, [thread]);
@@ -177,15 +241,17 @@ export function AgentChat() {
   }, [messages]);
 
   /* ───────────── Sending ───────────── */
-  async function send(text: string, reply?: Reply) {
+  async function send(text: string, reply?: Reply, attachment?: Attachment) {
     const question = text.trim();
     if (!question || busy) return;
     setSendError(null);
-    setPending({ text: question, base: list.length });
+    setGoneNote(null);
+    setPending({ text: question, base: list.length, ...(attachment ? { attachment } : {}) });
     setInput("");
+    setAttached(false);
     stick.current = true;
     try {
-      const r = await sendMutation({ question, track: activeTrack, ...(threadId ? { threadId } : {}), ...(reply && threadId ? { reply } : {}) });
+      const r = await sendMutation({ question, track: activeTrack, ...(threadId ? { threadId } : {}), ...(reply && threadId ? { reply } : {}), ...(attachment ? { attachment } : {}) });
       if (!threadId) { announced.current = null; setThreadId(r.threadId); }
       startedHere.current.add(r.messageId);
       void runAction({ messageId: r.messageId }).catch((error: unknown) => {
@@ -196,19 +262,43 @@ export function AgentChat() {
       logChatError("agent:send failed", { threadId, hasReply: !!reply, ...errorInfo(error) });
       setPending(null);
       setInput(question);
+      if (attachment) setAttached(true);
       setSendError("Your question didn't reach Raiffy. Check your connection and try again.");
     }
   }
   function stop() { if (streaming) void stopMutation({ messageId: streaming._id }); }
 
+  /** Typed text that is a suggestion's prompt (filled with Tab) carries that suggestion's reply, as pressing its chip does. */
+  function sendInput() { void send(input, suggestions.find((s) => s.prompt === input.trim())?.reply, attached ? "sample_statement" : undefined); }
+
+  /* Tab with an empty composer fills the first suggestion, Tab again the next one, and after the last one Tab moves
+     focus as usual. Enter sends. */
   function onComposerKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input); }
+    // Up arrow in an empty composer brings back the last question to edit (chat.html)
+    if (e.key === "ArrowUp" && !input && !busy) {
+      const last = list.findLast((m) => m.role === "user" && m.text);
+      if (last) { e.preventDefault(); setInput(last.text); return; }
+    }
+    if (e.key === "Tab" && !e.shiftKey && !busy) {
+      const n = nextSuggestion(suggestions, input);
+      if (n !== null) {
+        e.preventDefault();
+        setInput(suggestions[n]!.prompt);
+        setTab({ for: lastId, at: n + 1 });
+        announce(`Suggestion: ${suggestions[n]!.prompt}. Press Enter to send.`);
+        return;
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); sendInput(); }
   }
 
   function openThread(id: ThreadId | null) {
+    if (view === "checks") { router.push(id ? `/chat?thread=${id}` : "/chat"); return; }
     setThreadId(id);
+    setRenaming(false);
     setPending(null);
     setSendError(null);
+    setGoneNote(null);
     announced.current = null;
     if (narrowSide) closeDrawers();
     if (!id) inputEl.current?.focus();
@@ -224,11 +314,59 @@ export function AgentChat() {
   function closeDrawers() {
     const was = drawerRef.current !== null;
     setDrawer(null);
+    setLitSource(null);
     const o = opener.current;
     // After the commit: until then the page behind the drawer is still inert and can't take focus
     if (was && o instanceof HTMLElement) window.setTimeout(() => { if (document.contains(o)) o.focus(); }, 0);
   }
   const ctxOpen = narrowCtx ? drawer === "ctx" : !ctxClosed;
+
+  /* Rename (chat.html #rename): Enter or leaving the field saves, Escape cancels, and focus returns to the pencil */
+  function finishRename(title: string | null) {
+    setRenaming(false);
+    // After the pencil is back in the header
+    window.setTimeout(() => renameBtn.current?.focus(), 30);
+    if (!thread || title === null || !title.trim() || title.trim() === thread.title) return;
+    renameMutation({ threadId: thread._id, title }).then(() => announce("Chat renamed."), () => announce("Couldn’t rename this chat. Try again."));
+  }
+
+  /* Pins (chat.html PIN_META): an answer's first card, kept in Context across chats until unpinned */
+  function togglePin(messageId: MessageId, input: PinInput) {
+    const pinned = pinByMessage.get(messageId);
+    if (pinned) { void unpinMutation({ pinId: pinned.id }).then(() => announce("Unpinned."), () => announce("Couldn’t unpin this card.")); return; }
+    pinMutation({ messageId, ...input }).then(() => announce("Pinned to context."), (error: unknown) =>
+      announce(String(error).includes("pin_limit") ? "You can pin up to 50 cards. Unpin one first." : "Couldn’t pin this card."));
+  }
+  function openPin(p: PinView) {
+    if (p.threadId !== threadId) { openThread(p.threadId); return; }
+    if (narrowCtx) closeDrawers();
+    document.getElementById(`m-${p.messageId}`)?.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }
+
+  /* The paperclip attaches the sample customer's statement; with none chosen yet, it shows where to choose one */
+  function attach() {
+    if (access === undefined) return;
+    if (!access.persona) {
+      if (narrowCtx) openDrawer("ctx"); else setCtxClosed(false);
+      announce("Choose a sample customer under What Raiffy can see, then attach their statement.");
+      return;
+    }
+    setAttached(true);
+    inputEl.current?.focus();
+    announce(`${statementName()} attached. It's sample data, not your account.`);
+  }
+
+  /* A source tag under an answer lights its row in "Sources in this chat" (chat.html lightSource), and an open panel
+     scrolls to it, since the list often sits below the fold. Pressing a tag that has no page to open also shows the
+     Context panel. */
+  function lightSource(url: string | null, reveal = false) {
+    setLitSource(url);
+    if (!url || (!reveal && !ctxOpen)) return;
+    if (reveal && narrowCtx) openDrawer("ctx");
+    else if (reveal && ctxClosed) setCtxClosed(false);
+    window.setTimeout(() => document.querySelector(`[data-src-item="${CSS.escape(url)}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" }), 40);
+  }
 
   /* Wide screens: the context panel opens or closes in place, and the choice is remembered on this device */
   function setCtxClosed(closed: boolean) {
@@ -293,7 +431,7 @@ export function AgentChat() {
   const meta = thread
     ? `${TRACKS.find((t) => t.k === thread.track)?.label ?? "Business profile"} · ${sources.length ? `${sources.length} ${sources.length === 1 ? "source" : "sources"}` : "no sources yet"}`
     : "New conversation";
-  const appClass = ["app", drawer === "side" && "side-open", drawer === "ctx" && "ctx-open", ctxClosed && "ctx-closed", !ctxAnimate && "no-anim"].filter(Boolean).join(" ");
+  const appClass = ["app", view === "checks" && "view-checks", drawer === "side" && "side-open", drawer === "ctx" && "ctx-open", ctxClosed && "ctx-closed", !ctxAnimate && "no-anim"].filter(Boolean).join(" ");
   const ctxKbd = mac ? "⌘\\" : "Ctrl \\";
 
   return (
@@ -312,6 +450,10 @@ export function AgentChat() {
             <input type="search" id="search" ref={searchEl} placeholder="Search chats" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
             <kbd id="kbd-k">{mac ? "⌘K" : "Ctrl K"}</kbd>
           </label>
+          <Link className="conv checks-link" href="/chat/checks" aria-current={view === "checks"} onClick={() => { if (narrowSide) closeDrawers(); }}
+            aria-label={`Your specialist checks${openChecks ? `, ${openChecks} waiting` : ""}`}>
+            <UserCheckIcon /><span>Your specialist checks</span><small>{openChecks || ""}</small>
+          </Link>
           <nav className="conv-list" id="conv-list" aria-label="Conversations" aria-busy={threads === undefined}>
             {groups.map((g) => (
               <GroupList key={g.label} label={g.label}>
@@ -339,7 +481,12 @@ export function AgentChat() {
             <button type="button" className="icon-btn menu" id="open-side" aria-label="Open chats" aria-controls="side"
               aria-expanded={drawer === "side"} onClick={(e) => openDrawer("side", e.currentTarget)}><MenuIcon /></button>
             <div className="title-wrap">
-              <div id="title-box"><h1 id="title">{thread?.title ?? "New chat"}</h1><span className="meta" id="meta">{meta}</span></div>
+              {renaming && thread && view !== "checks"
+                ? <RenameField key={thread._id} title={thread.title} onDone={finishRename} />
+                : <div id="title-box">{view === "checks"
+                  ? <><h1 id="title">Your specialist checks</h1><span className="meta" id="meta">Answers you sent to a person</span></>
+                  : <><h1 id="title">{thread?.title ?? "New chat"}</h1><span className="meta" id="meta">{meta}</span></>}</div>}
+              {thread && !renaming && view !== "checks" && <button type="button" className="icon-btn rename" id="rename" ref={renameBtn} aria-label="Rename chat" onClick={() => setRenaming(true)}><PencilIcon /></button>}
             </div>
             <div className="top-actions">
               <button type="button" className="btn btn-ghost btn-sm advisor" id="advisor-btn" aria-label="Talk to a specialist"
@@ -355,6 +502,8 @@ export function AgentChat() {
             </div>
           </header>
 
+          {view === "checks" && <SpecialistChecks rows={myChecks} titles={titles} />}
+
           <div className="scroll" id="scroll" ref={scroller} onScroll={() => {
             const s = scroller.current!;
             stick.current = s.scrollHeight - s.scrollTop - s.clientHeight < 80;
@@ -362,10 +511,12 @@ export function AgentChat() {
           }}>
             <div className="thread" id="thread" role="log" aria-label="Conversation with Raiffy" hidden={empty}>
               {list.map((m, i) => (m.role === "user"
-                ? <UserBubble key={m._id} text={m.text} />
+                ? <UserBubble key={m._id} text={m.text} attachment={m.attachment} />
                 : <AssistantMessage key={m._id} m={m} threadId={threadId} onGrow={follow} vote={votes[m._id]} why={whys[m._id]} track={activeTrack} memory={memoryView}
                     onFollowUp={(prompt, reply) => void send(prompt, reply)}
-                    latest={i === list.length - 1}
+                    latest={i === list.length - 1} litSource={litSource} onLight={lightSource}
+                    pinned={pinByMessage.has(m._id)} onPin={(input) => togglePin(m._id, input)}
+                    checks={checks} announce={announce}
                     onVote={(v) => {
                       const off = votes[m._id] === v;
                       setVotes((x) => { const next = { ...x }; if (off) delete next[m._id]; else next[m._id] = v; return next; });
@@ -385,7 +536,7 @@ export function AgentChat() {
                     retryDisabled={busy} />))}
               {showPending && (
                 <>
-                  <UserBubble text={pending.text} enter />
+                  <UserBubble text={pending.text} attachment={pending.attachment} enter />
                   <div className="msg msg-raiffy enter">
                     <span className="ava-raiffy" aria-hidden="true"><CompassIcon /></span>
                     <div className="raiffy-body">
@@ -410,6 +561,7 @@ export function AgentChat() {
                 <span className="ava-raiffy" aria-hidden="true"><CompassIcon /></span>
                 <h2 id="greet">{greetingFor(hour)}{user?.firstName ? `, ${user.firstName}` : ""}</h2>
                 <p>Explore accounts, cards, loans and savings using dated public bank sources. Exact prices and personalized offers aren’t available in this preview.</p>
+                {goneNote && <p className="stopped send-error" role="status">That conversation is no longer available. It may have been deleted in another tab.</p>}
               </div>
               <div className="starters">
                 {STARTERS[track].map((s, i) => (
@@ -429,12 +581,30 @@ export function AgentChat() {
               jumpBtn.current!.hidden = true;
               inputEl.current?.focus();
             }}><ArrowDownIcon />Jump to latest</button>
-            <form className="composer" id="composer" onSubmit={(e) => { e.preventDefault(); if (streaming) stop(); else void send(input); }}>
+            <div className="chips" id="chips" role="group" aria-label="Suggested questions" hidden={!suggestions.length}>
+              {suggestions.map((s, i) => (
+                <button key={s.prompt} type="button" className="chip" onClick={() => { void send(s.prompt, s.reply); inputEl.current?.focus(); }}>
+                  {s.label}{i === tabAt && <kbd className="tab-kbd" aria-hidden="true">Tab</kbd>}
+                </button>
+              ))}
+            </div>
+            <form className="composer" id="composer" onSubmit={(e) => { e.preventDefault(); if (streaming) stop(); else sendInput(); }}>
               <label className="sr-only" htmlFor="input">Message Raiffy</label>
               <textarea id="input" ref={inputEl} rows={1} enterKeyHint="send" value={input} maxLength={2000}
-                placeholder={threadId ? "Ask a follow-up" : activeTrack === "business" ? "Ask about a product for your business…" : "Ask about an account, a card, a loan, your savings…"}
-                onChange={(e) => setInput(e.target.value)} onKeyDown={onComposerKey} />
+                placeholder={threadId ? (suggestions.length && !coarse ? "Ask a follow-up, or press Tab for a suggestion" : "Ask a follow-up") : activeTrack === "business" ? "Ask about a product for your business…" : "Ask about an account, a card, a loan, your savings…"}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // Typing over a suggestion hides the Tab hint; clearing the box puts it back on the first chip
+                  if (!suggestions.some((s) => s.prompt === e.target.value.trim())) setTab({ for: lastId, at: e.target.value ? -1 : 0 });
+                }} onKeyDown={onComposerKey} />
               <div className="comp-row">
+                {activeTrack === "personal" && !attached && <button type="button" className="icon-btn" id="attach" aria-label="Attach your statement" onClick={attach}><PaperclipIcon /></button>}
+                {attached && (
+                  <span className="file-chip" id="att">
+                    <span className="ft"><FileTextIcon /></span><span className="fn">{statementName()}</span><small>Sample</small>
+                    <button type="button" className="icon-btn x" aria-label="Remove attachment" onClick={() => { setAttached(false); inputEl.current?.focus(); announce("Statement removed."); }}><XIcon /></button>
+                  </span>
+                )}
                 <span className="track-note">{TRACKS.find((t) => t.k === activeTrack)?.label ?? "Business profile"}</span>
                 <button type="submit" className={streaming ? "btn btn-dark send is-stop" : "btn btn-dark send"} id="send"
                   aria-label={streaming ? "Stop reply" : "Send message"} disabled={!streaming && (showPending || !input.trim())}>
@@ -469,10 +639,28 @@ export function AgentChat() {
               <p className="perm-note">{thread ? "A conversation keeps its profile, so personal and business products never mix. Start a new chat to switch." : "This preview answers about products for individuals."}</p>
             </section>
             <section className="ctx-sec">
+              <h3>Pinned</h3>
+              {pins && pins.length > 0 && (
+                <ul className="pins" id="pins">
+                  {pins.map((p) => (
+                    <li key={p.id} className="pin">
+                      <span className="ic" aria-hidden="true"><PinKindIcon kind={p.kind} /></span>
+                      <button type="button" className="pin-open" onClick={() => openPin(p)}>
+                        <b>{p.title}</b><small>{p.meta}</small>
+                      </button>
+                      <button type="button" className="icon-btn" aria-label={`Unpin ${p.title}`}
+                        onClick={() => void unpinMutation({ pinId: p.id }).then(() => announce("Unpinned."), () => announce("Couldn’t unpin this card."))}><XIcon /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="empty-note" hidden={!pins || pins.length > 0}>Pin a comparison or a simulation to keep it here.</p>
+            </section>
+            <section className="ctx-sec">
               <h3>Sources in this chat</h3>
               <ul className="srcs" id="srcs">
                 {sources.map((s) => (
-                  <li key={s.url} className="src-item">
+                  <li key={s.url} className={s.url === litSource ? "src-item lit" : "src-item"} data-src-item={s.url}>
                     <FileTextIcon />
                     {isWebSource(s.url)
                       ? <div><a href={s.url} target="_blank" rel="noreferrer"><b>{s.title}</b></a><small>{new URL(s.url).hostname} · collected {dateOf(Date.parse(s.collectedOn))}</small></div>
@@ -482,7 +670,7 @@ export function AgentChat() {
               </ul>
               <p className="empty-note" hidden={sources.length > 0}>Every number Raiffy gives you will show its source here.</p>
             </section>
-            {activeTrack === "personal" && <MemoryPanel track={activeTrack} memories={memoryState?.memories} />}
+            {activeTrack === "personal" && <MemoryPanel track={activeTrack} memories={memoryState?.memories} writesEnabled={memoryState?.writesEnabled} />}
             <section className="ctx-sec">
               <div className="promise"><ShieldCheckIcon /><span>Raiffy uses dated public sources from Raiffeisen, ING and BCR, and only the sample account data you switch on above. It cannot move money or approve credit.</span></div>
             </section>
@@ -502,8 +690,19 @@ function uniqueSources(list: Message[]): Source[] {
   return [...seen.values()];
 }
 
-function UserBubble({ text, enter }: { text: string; enter?: boolean }) {
-  return <div className={enter ? "msg msg-user enter" : "msg msg-user"}><div className="bubble">{text}</div></div>;
+function UserBubble({ text, attachment, enter }: { text: string; attachment?: Attachment; enter?: boolean }) {
+  return (
+    <div className={enter ? "msg msg-user enter" : "msg msg-user"}>
+      <div className="bubble">{text}</div>
+      {attachment && <span className="file-chip"><span className="ft"><FileTextIcon /></span><span className="fn">Statement</span><small>Sample</small></span>}
+    </div>
+  );
+}
+
+/** The statement the paperclip attaches: the sample customer's last complete month, which is what Raiffy reads. */
+function statementName(now = new Date()) {
+  const month = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `Statement, ${month.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}`;
 }
 
 type AssistantProps = {
@@ -512,23 +711,41 @@ type AssistantProps = {
   onRetry: () => void; retryDisabled: boolean; onFollowUp: (prompt: string, reply?: Reply) => void; latest: boolean;
   threadId: ThreadId | null;
   track: Track; memory?: { pendingIds: ReadonlySet<string>; savedTexts: ReadonlySet<string> };
+  /** Answer checks in this conversation by message id; null while they can't be loaded. */
+  checks: ReadonlyMap<string, AnswerCheck> | null; announce: (msg: string) => void;
+  litSource: string | null; onLight: (url: string | null, reveal?: boolean) => void;
+  pinned: boolean; onPin: (input: PinInput) => void;
 };
 
-/** Pressing a reply: a follow-up is plain text; a choice or "skip" also tells the server which offer was taken. */
-function replyFor(a: UiAction): Reply | undefined {
-  return a.kind === "choose" ? { kind: "choose", inquiry: a.inquiry } : a.kind === "skip_inputs" ? { kind: "skip_inputs" } : undefined;
-}
-
-function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory }: AssistantProps) {
+function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory, checks, announce, litSource, onLight, pinned, onPin }: AssistantProps) {
   const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
   const handoff = m.answer?.ui?.actions.find((a) => a.kind === "handoff");
   const steps = m.answer?.searches ?? m.steps ?? [];
   const streaming = m.status === "streaming";
+  const [booking, setBooking] = useState(false);
   // Sources and actions rise in only for a reply this tab watched arrive, not for history being reopened
   const [arrivedLive] = useState(streaming);
+  const root = useRef<HTMLDivElement>(null);
+  const check = checks?.get(m._id);
+  const [drafting, setDrafting] = useState(false);
+  const canCheck = !!checks && !check && !drafting && canAskSpecialist(m.answer?.status);
+  const sources = m.answer?.sources ?? [];
+  const pinInput = useMemo(() => pinFor(m.answer?.ui?.blocks ?? []), [m.answer]);
+  const cite = (url?: string) => { const i = sources.findIndex((s) => s.url === url); return i < 0 ? null : <span className="cite" title={sources[i]!.title}>{i + 1}</span>; };
+  /** One content card; AnswerText places it in the answer after the paragraph that introduces it (lib/card-placement). */
+  const renderCard = (b: UiBlock): ReactNode =>
+    isAffordability(b) ? <AffordabilityCard block={b} />
+    : isSpending(b) ? <div className="answer-cards"><SpendingCard block={b} cite={cite} /></div>
+    : isOffer(b) ? <div className="answer-cards"><OfferCard block={b} latest={latest} cite={cite} /></div>
+    : isCompare(b) ? <CompareTable block={b} sources={sources} />
+    : b.type === "simulation" && threadId && !streaming
+      ? <><AnswerCards blocks={[b]} sources={sources} onAsk={(text) => onFollowUp(text)} onBook={() => setBooking(true)}
+          simulationFoot={(pick) => <PlanBuild messageId={m._id} threadId={threadId} pick={pick} announce={announce} />} />
+        <PlanForAnswer messageId={m._id} threadId={threadId} /></>
+    : <AnswerCards blocks={[b]} sources={sources} onAsk={(text) => onFollowUp(text)} onBook={() => setBooking(true)} />;
 
   return (
-    <div className={streaming ? "msg msg-raiffy enter" : "msg msg-raiffy"} aria-busy={streaming}>
+    <div ref={root} id={`m-${m._id}`} className={streaming ? "msg msg-raiffy enter" : "msg msg-raiffy"} aria-busy={streaming}>
       <span className="ava-raiffy" aria-hidden="true"><CompassIcon /></span>
       <div className="raiffy-body">
         {streaming
@@ -536,9 +753,9 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
           : steps.length > 0 && <Thinking lines={stepLines(steps)} />}
 
         <div className="raiffy-text">
-          {!streaming && (m.answer ? <AnswerText answer={m.answer} animate={arrivedLive} onGrow={onGrow} /> : m.text && <p className="answer">{m.text}</p>)}
+          {!streaming && (m.answer ? <AnswerText answer={m.answer} animate={arrivedLive} onGrow={onGrow} renderCard={renderCard} /> : m.text && <p className="answer">{m.text}</p>)}
           {!streaming && memoryBlock && <MemoryProposals block={memoryBlock} track={track} pendingIds={memory?.pendingIds} savedTexts={memory?.savedTexts} />}
-          {!streaming && handoff && <AdviserHandoff messageId={m._id} label={handoff.label} reason={handoff.reason} />}
+          {!streaming && handoff && !booking && <SpecialistOffer threadId={threadId} label={handoff.label} />}
           {streaming && <p className="sr-only">Raiffy is answering…</p>}
           {m.status === "stopped" && <p className="stopped">You stopped this reply.</p>}
           {m.status === "failed" && (
@@ -553,23 +770,8 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
         {/* A request for a person gets the booking card; only the customer's click books */}
         {!streaming && m.answer?.routing?.handler === "human_contact" && <BookingCard threadId={threadId} />}
 
-        {!streaming && m.answer?.ui?.blocks && (
-          <AnswerCards blocks={m.answer.ui.blocks} sources={m.answer.sources} onAsk={(text) => onFollowUp(text)} />
-        )}
-
-        {!streaming && m.answer?.ui?.blocks?.filter(isSpending).map((b) => (
-          <div className="answer-cards" key={b.sourceUrl}>
-            <SpendingCard block={b} cite={(url) => { const i = m.answer!.sources.findIndex((s) => s.url === url); return i < 0 ? null : <span className="cite" title={m.answer!.sources[i]!.title}>{i + 1}</span>; }} />
-          </div>
-        ))}
-
-        {!streaming && m.answer?.ui?.blocks?.filter(isOffer).map((b) => (
-          <div className="answer-cards" key={b.logId ?? b.sourceUrl}>
-            <OfferCard block={b} latest={latest} cite={(url) => { const i = m.answer!.sources.findIndex((s) => s.url === url); return i < 0 ? null : <span className="cite" title={m.answer!.sources[i]!.title}>{i + 1}</span>; }} />
-          </div>
-        ))}
-
-        {!streaming && m.answer?.ui?.blocks?.filter(isCompare).map((b) => <CompareTable key={b.title} block={b} sources={m.answer!.sources} />)}
+        {/* The handoff card's button opens the same booking card as the specialist button */}
+        {!streaming && booking && <BookingCard threadId={threadId} />}
 
         {!streaming && m.answer?.ui?.blocks?.map((b, i) => b.type === "inputs_request" &&
           <InputsCard key={i} fields={b.fields} active={latest && !retryDisabled}
@@ -577,22 +779,30 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
 
         {m.status !== "streaming" && m.status !== "failed" && m.status !== "stopped" && (
           <div className={arrivedLive ? "gfoot enter" : "gfoot"}>
-            {m.answer?.sources.map((s, i) => (
-              isWebSource(s.url)
-                ? <a key={s.id} className="src" href={s.url} target="_blank" rel="noreferrer" title={s.title}>
-                  <span className="src-n">{i + 1}</span><span className="src-t">{s.title}</span>
-                </a>
-                : <span key={s.id} className="src local" title={s.title}><span className="src-n">{i + 1}</span><span className="src-t">{s.title}</span></span>
-            ))}
-            {m.answer?.ui?.actions.map(a => a.kind !== "handoff" && <button key={a.prompt} className="qbtn" disabled={retryDisabled || (a.kind !== "followup" && !latest)}
-              onClick={() => onFollowUp(a.prompt, replyFor(a))}>{a.label}</button>)}
+            {m.answer?.sources.map((s, i) => {
+              // Hover or focus lights the source in the Context panel; a web source still opens its page
+              const light = { onMouseEnter: () => onLight(s.url), onMouseLeave: () => onLight(null), onFocus: () => onLight(s.url), onBlur: () => onLight(null) };
+              const cls = s.url === litSource ? " lit" : "";
+              const label = <><span className="src-n">{i + 1}</span><span className="src-t">{s.title}</span></>;
+              return isWebSource(s.url)
+                ? <a key={s.id} className={`src${cls}`} href={s.url} target="_blank" rel="noreferrer" title={s.title} {...light}>{label}</a>
+                : <button key={s.id} type="button" className={`src local${cls}`} title={s.title} {...light} onClick={() => onLight(s.url, true)}>{label}</button>;
+            })}
+            {canCheck && <AnswerCheckButton onOpen={() => setDrafting(true)} />}
             <div className="acts">
+              {pinInput && <button type="button" className="icon-btn" aria-pressed={pinned} aria-label="Pin to context" onClick={() => onPin(pinInput)}><PinIcon /></button>}
               <button type="button" className="icon-btn" aria-label="Copy answer" onClick={onCopy}><CopyIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "up"} aria-label="Helpful" onClick={() => onVote("up")}><ThumbsUpIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "down"} aria-label="Not helpful" onClick={() => onVote("down")}><ThumbsDownIcon /></button>
             </div>
           </div>
         )}
+        {!streaming && <AnswerCheckZone messageId={m._id} check={check} drafting={drafting} announce={announce}
+          onClose={(sent) => {
+            setDrafting(false);
+            // Cancel returns focus to the button it came from
+            if (!sent) requestAnimationFrame(() => root.current?.querySelector<HTMLButtonElement>('[data-act="verify"]')?.focus());
+          }} />}
         {vote === "down" && (
           <div className="vote-why" role="group" aria-label="What was wrong?">
             <span>What was wrong?</span>
@@ -697,7 +907,10 @@ function cardNames(blocks: UiBlock[]): string[] {
   });
 }
 
-function AnswerText({ answer, animate, onGrow }: { answer: Answer; animate: boolean; onGrow: () => void }) {
+/** The answer's content cards, which sit inside the text; booking, inputs and memory cards stay below it. */
+const isContentCard = (b: UiBlock) => isAnswerCard(b) || isAffordability(b) || isSpending(b) || isOffer(b) || isCompare(b);
+
+function AnswerText({ answer, animate, onGrow, renderCard }: { answer: Answer; animate: boolean; onGrow: () => void; renderCard: (b: UiBlock) => ReactNode }) {
   const number = new Map(answer.sources.map((s, i) => [s.id, i + 1]));
   const byId = new Map(answer.sources.map((s) => [s.id, s]));
   const parsed = useMemo(() => {
@@ -707,6 +920,9 @@ function AnswerText({ answer, animate, onGrow }: { answer: Answer; animate: bool
   const text = parsed.plain;
   // List items an answer card already shows (by name or label) aren't repeated in the text.
   const blocks = useMemo(() => withoutShown(parsed.blocks, cardNames(answer.ui?.blocks ?? [])), [parsed, answer]);
+  // Content cards sit after the paragraph that introduces them and appear once it has typed out (lib/card-placement).
+  const cards = useMemo(() => (answer.ui?.blocks ?? []).filter(isContentCard), [answer]);
+  const placed = useMemo(() => placeCards(blocks, cards, answer.sources), [blocks, cards, answer]);
   const cardId = useId();
   const reducedMotion = useMedia("(prefers-reduced-motion: reduce)");
   const reveal = animate && !reducedMotion;
@@ -794,13 +1010,48 @@ function AnswerText({ answer, animate, onGrow }: { answer: Answer; animate: bool
       </div>
     );
   };
+  // A lead-in that becomes a list card's title is drawn inside that card, so its cards follow the list card.
+  const anchor = (i: number) => i >= 0 && isCard(blocks[i + 1]) && listTitle(blocks[i]!) ? i + 1 : i;
+  const slot = (i: number) => {
+    const here = cards.filter((_, k) => anchor(placed[k]!) === i);
+    if (!here.length || shown < (i < 0 ? text.length : blockEnd(blocks[i]!))) return null;
+    return (
+      <div key={`cards-${i}`} className={`card-slot${reveal ? " enter" : ""}`}>
+        {here.map((b, k) => <Fragment key={k}>{renderCard(b)}</Fragment>)}
+      </div>
+    );
+  };
   return (
     <div className="answer">
       {blocks.map((b, i) => {
-        if (b.kind === "list") return isCard(b) ? card(b, i) : <Fragment key={i}>{list(b)}</Fragment>;
-        if (isCard(blocks[i + 1]) && listTitle(b)) return null; // shown as the card's title
-        return b.lines.some(started) ? <p key={i}>{lines(b.lines)}</p> : null;
+        const body = b.kind === "list" ? (isCard(b) ? card(b, i) : <Fragment key={i}>{list(b)}</Fragment>)
+          : isCard(blocks[i + 1]) && listTitle(b) ? null // shown as the card's title
+          : b.lines.some(started) ? <p key={i}>{lines(b.lines)}</p> : null;
+        return <Fragment key={i}>{body}{slot(i)}</Fragment>;
       })}
+      {slot(-1)}
     </div>
+  );
+}
+
+const PIN_ICONS: Record<PinKind, typeof PinIcon> = {
+  comparison: ScaleIcon, compare_table: ScaleIcon, routes: SignpostIcon, keyFacts: InfoIcon, checklist: ListChecksIcon,
+  simulation: CalculatorIcon, offer: BadgePercentIcon, spending: ChartColumnIcon, affordability: CalculatorIcon,
+};
+function PinKindIcon({ kind }: { kind: PinKind }) { const Icon = PIN_ICONS[kind] ?? PinIcon; return <Icon />; }
+
+/** The chat name, edited in place of the title (chat.html .title-input). */
+function RenameField({ title, onDone }: { title: string; onDone: (title: string | null) => void }) {
+  const field = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  const finish = (value: string | null) => { if (done.current) return; done.current = true; onDone(value); };
+  useEffect(() => { field.current?.focus(); field.current?.select(); }, []);
+  return (
+    <input ref={field} className="title-input" defaultValue={title} aria-label="Chat name" maxLength={80}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); finish(e.currentTarget.value); }
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(null); }
+      }}
+      onBlur={(e) => finish(e.currentTarget.value)} />
   );
 }

@@ -100,17 +100,31 @@ a { color: inherit; }
 .logo small { font-size: 12px; font-weight: 500; color: #8E8E93; letter-spacing: 0; }
 .nav-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .nav .btn { height: 34px; padding: 0 14px; }
-@media (max-width: 860px) { .nav .btn-ghost { display: none; } }
+.nav .btn-ghost { display: none; }
+@media (min-width: 860px) { .nav .btn-ghost { display: inline-flex; } }
 
 /* ───────────── Page layout ───────────── */
-.page { min-height: 100vh; padding: calc(60px + 64px) 0 96px; }
-.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas: "head stage" "guide stage"; column-gap: 48px; row-gap: 32px; align-items: start; }
-.head { grid-area: head; display: grid; gap: 16px; max-width: 620px; align-self: end; }
-.stage { grid-area: stage; display: grid; justify-items: center; gap: 20px; }
-.guide { grid-area: guide; }
-@media (max-width: 860px) {
-  .page { padding-top: calc(60px + 40px); padding-bottom: 64px; }
-  .split { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "guide"; row-gap: 32px; }
+/*
+ * Mobile first (DESIGN.md §12): on phones the first screen holds the heading, the card and its Skip and Save buttons
+ * (tighter spacing, a 5:6 card); the guide follows below. From 860px the heading and guide sit beside the deck.
+ */
+.page { min-height: 100vh; min-height: 100dvh; padding: calc(60px + 16px) 0 64px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "guide"; row-gap: 16px; align-items: start; }
+.head { grid-area: head; display: grid; gap: 10px; max-width: 620px; align-self: end; }
+.head .lead { font-size: var(--text-sm); line-height: 1.5; }
+.stage { grid-area: stage; display: grid; justify-items: center; gap: 10px; }
+.guide { grid-area: guide; margin-top: 16px; }
+@media (min-width: 640px) {
+  .page { padding-top: calc(60px + 40px); }
+  .split { row-gap: 32px; }
+  .head { gap: 16px; }
+  .head .lead { font-size: var(--text-lead); line-height: var(--lh-lead); }
+  .stage { gap: 20px; }
+  .guide { margin-top: 0; }
+}
+@media (min-width: 860px) {
+  .page { padding: calc(60px + 64px) 0 96px; }
+  .split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas: "head stage" "guide stage"; column-gap: 48px; }
 }
 
 /* "Your guide": the saved list, a rules-list style card */
@@ -128,7 +142,8 @@ a { color: inherit; }
 .foot-note { margin-top: 12px; }
 
 /* ───────────── Deck ───────────── */
-.deck-wrap { position: relative; width: min(360px, 100%); aspect-ratio: 3 / 4; margin-bottom: 20px; }  /* margin leaves room for the peeking cards */
+.deck-wrap { position: relative; width: min(360px, 100%); aspect-ratio: 5 / 6; margin-bottom: 14px; }  /* margin leaves room for the peeking cards */
+@media (min-width: 640px) { .deck-wrap { aspect-ratio: 3 / 4; margin-bottom: 20px; } }
 .deck { position: absolute; inset: 0; border-radius: var(--radius-card); }
 .deck:focus-visible { outline: 2px solid var(--ink); outline-offset: 8px; box-shadow: 0 0 0 12px rgba(255,210,63,.25); }
 
@@ -187,7 +202,10 @@ a { color: inherit; }
 .keys { display: flex; gap: 14px; font-size: 12px; color: var(--text-3); }
 .keys kbd { font: 500 11px/1 var(--font-mono); padding: 3px 6px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); margin-right: 6px; }
 @media (hover: none) { .keys { display: none; } }
-@media (max-width: 380px) { .controls { width: min(360px, 100%); } .controls .btn:not(.btn-undo) { flex: 1; min-width: 0; } }
+/* Phones: Skip and Save share the card's width; from 480px they keep their own width */
+.controls { width: min(360px, 100%); }
+.controls .btn:not(.btn-undo) { flex: 1; min-width: 0; }
+@media (min-width: 480px) { .controls { width: auto; } .controls .btn:not(.btn-undo) { flex: none; min-width: 128px; } }
 
 /* ───────────── Vignette parts (from raiffy.html) ───────────── */
 .bloom { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * 1.6); height: calc(var(--size) * 1.6); translate: -50% -50%;
@@ -291,9 +309,12 @@ a { color: inherit; }
   box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 0 4px rgba(255,210,63,.3); }
 .v-note .nt-foot { position: absolute; right: 14px; bottom: 11px; max-width: 128px; text-align: right; font-size: 11px; line-height: 1.35; color: var(--text-3); }
 
-@media (max-width: 480px) {
-  .sc-body { padding: 16px 20px 18px; }
-  .v-opts .v-opt.dim, .v-stmt .line:nth-child(n+5) { display: none; }
+/* Phones: a tighter card body, and the vignettes drop their background extras */
+.sc-body { padding: 16px 20px 18px; }
+.v-opts .v-opt.dim, .v-stmt .line:nth-child(n+5) { display: none; }
+@media (min-width: 480px) {
+  .sc-body { padding: 20px 24px 22px; }
+  .v-opts .v-opt.dim, .v-stmt .line:nth-child(n+5) { display: grid; }
 }
 
 /* ───────────── Motion (decorative only, gated) ───────────── */

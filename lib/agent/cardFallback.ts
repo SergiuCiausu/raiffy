@@ -10,7 +10,7 @@ import type { Inquiry } from "./confidence";
  *   asks for documents or steps, a cited list           → checklist (the first list of 2+ items)
  *   loan patterns, a cited interest rate                → simulation (amount and term from the customer, when given)
  *   saving goal, 2+ "- **Product:** rate…"               → savings options as key facts (no recommendation is invented)
- *   explanation, fees, listing: 2+ "- **Label:** value" → key facts (only items with a figure and a citation)
+ *   explanation, fees, listing: 2+ "- **Label:** value" → key facts (cited items; a figure must be in its cited result)
  *
  * The chat leaves list items a card shows out of the answer text (web/lib/markup.ts withoutShown).
  */
@@ -117,22 +117,26 @@ function answerLines(segments: readonly FallbackSegment[]): AnswerLine[] {
 const sourceFor = (text: string, cited: readonly number[], hits: readonly FallbackHit[]) =>
   cited.map((i) => hits[i]).find((h) => grounds(text, h));
 
-/** A value short enough for a card: the whole value, or its first clause with a figure ("3.5% a year"). */
+/** A value short enough for a card: the whole value, or its first clause (with a figure, when the value has one: "3.5% a year"). */
 function shortValue(value: string): string | null {
   if (value.length <= FACT_VALUE_MAX) return value;
+  const figure = /\d/.test(value);
   // A clause ends at ", " (not a decimal comma), ";", "(", a dash or a sentence end.
-  const clause = value.split(/,\s|[;(—–]|\.\s/).map((c) => c.trim()).find((c) => /\d/.test(c));
+  const clause = value.split(/,\s|[;(—–]|\.\s/).map((c) => c.trim().replace(/\.$/, "")).find((c) => c && (!figure || /\d/.test(c)));
   return clause && clause.length <= FACT_VALUE_MAX ? clause : null;
 }
 
-/** Bold-labelled list items whose value has a figure that one of the item's cited results contains. */
+/**
+ * Cited bold-labelled list items. A figure must be in one of the item's cited results; a fact without one (who it's
+ * for, access, conditions) takes the item's first cited result as its source. Most explanations have no figures.
+ */
 function keyFacts(segments: readonly FallbackSegment[], hits: readonly FallbackHit[], title: string) {
   const facts: { label: string; value: string; source: string }[] = [];
   for (const line of answerLines(segments)) {
     const m = LABELLED.exec(ITEM.exec(line.text)?.[1] ?? "");
-    if (!m || !/\d/.test(m[2]!)) continue;
+    if (!m || !m[2]!.trim() || !line.cited.length) continue;
     const value = shortValue(plain(m[2]!));
-    const hit = value && sourceFor(value, line.cited, hits);
+    const hit = value && (/\d/.test(value) ? sourceFor(value, line.cited, hits) : hits[line.cited[0]!]);
     if (value && hit) facts.push({ label: plain(m[1]!).slice(0, FACT_LABEL_MAX), value, source: hit.url });
     if (facts.length === 8) break;
   }

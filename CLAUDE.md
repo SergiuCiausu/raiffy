@@ -4,7 +4,7 @@
 
 ## Current runtime
 
-`/chat` uses real Clerk authentication and cloud Convex: screened message → Jev → trusted route → allowed public collections → Claude with citations → checked answer and UI envelope. The scripted UI is explicitly at `/chat/demo`. Read the latest entry in `progress.md` and `web/README.md` for configuration and acceptance. Account data, catalog-backed calculations, approved offers and real-user memory writes are not connected; never present them as available. The privacy screen is pattern-based, not a complete semantic privacy classifier.
+`/chat` uses real Clerk authentication and cloud Convex: screened message → Jev → trusted route → allowed public collections → Claude with citations → checked answer and UI envelope. The scripted UI is explicitly at `/chat/demo`. Read the latest entry in `progress.md` and `web/README.md` for configuration and acceptance. Account data, catalog-backed calculations and approved offers are not connected; never present them as available. Customer memory (proposals the customer confirms, recall in later chats, forget) is on for signed-in testers on the cloud dev deployment only, through `RAIFFY_MEMORY_WRITES_ENABLED` pinned to its URL; it stays off everywhere else. The privacy screen is pattern-based, not a complete semantic privacy classifier.
 
 ## Design
 

@@ -95,7 +95,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .pill.line { background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); --c: #5C5C5F; }
 
 /* ───────────── App shell ───────────── */
-.app { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr); height: 100vh; height: 100dvh; }
 .side { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px 12px; background: var(--surface-2); border-right: 1px solid var(--border); }
 .logo { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 6px; text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -.01em; border-radius: 6px; }
 .logo small { font-weight: 400; font-size: 12px; color: var(--text-3); }
@@ -218,18 +218,29 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .wait.late { color: var(--danger); }
 
 /* KPI strip */
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: 14px; background: var(--surface); margin-bottom: 20px; }
-.kpi { padding: 14px 16px; border-left: 1px solid var(--border); }
-.kpi:first-child { border-left: 0; }
+/* Phones: two per row (three-up strips stack); one row from 760px. */
+.kpis { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); margin-bottom: 20px; }
+.kpi { padding: 14px 16px; }
+.kpi:nth-child(even) { border-left: 1px solid var(--border); }
+.kpi:nth-child(n+3) { border-top: 1px solid var(--border); }
 .kpi b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: 12px; color: var(--text-3); }
-.kpis-3 { grid-template-columns: repeat(3, 1fr); }
+.kpis-3 { grid-template-columns: 1fr; }
+.kpis-3 .kpi { border-left: 0; }
+.kpis-3 .kpi + .kpi { border-top: 1px solid var(--border); }
+@media (min-width: 760px) {
+  .kpis { grid-template-columns: repeat(4, 1fr); }
+  .kpis-3 { grid-template-columns: repeat(3, 1fr); }
+  .kpi:nth-child(n+3), .kpis-3 .kpi + .kpi { border-top: 0; }
+  .kpi + .kpi, .kpis-3 .kpi + .kpi { border-left: 1px solid var(--border); }
+}
 .tbl-title { font-size: 16px; letter-spacing: -.01em; }
 
 /* Counter-offer win rate, below the queue: one headline row, one breakdown with a group-by switch, one empty state */
 .wr { display: grid; gap: 12px; margin-top: 32px; }
 .wr .kpis { margin-bottom: 0; }
-.wr-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 16px; align-items: start; }
+.wr-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 960px) { .wr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 280px); } }
 .wr-grid .card-h { flex-wrap: wrap; }
 .wr-note { padding: 10px 16px; border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--text-2); }
 .wr-none { padding: 16px; font-size: var(--text-xs); color: var(--text-2); }
@@ -237,15 +248,14 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .wr-empty svg { width: 18px; height: 18px; margin-top: 2px; color: var(--text-2); }
 .wr-empty b { font-size: 14px; font-weight: 500; }
 .wr-empty p { margin-top: 4px; font-size: var(--text-xs); color: var(--text-2); max-width: 70ch; }
-@media (max-width: 959px) { .wr-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 760px) { .kpis-3 { grid-template-columns: 1fr; } .kpis-3 .kpi { border-left: 0; } .kpis-3 .kpi + .kpi { border-top: 1px solid var(--border); } }
-@media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--border); } }
 
 /* Review workspace: context · answer · facts */
-.ws { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: start; }
+/* Phones: one column, the answer first and the conversation last; answer + facts from 960px; all three from 1440px. */
+.ws { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+.ws .ctx-col { grid-column: 1 / -1; order: 3; }
 .col > * { min-width: 0; }
-@media (max-width: 1439px) { .ws { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); } .ws .ctx-col { grid-column: 1 / -1; order: 3; } }
-@media (max-width: 959px) { .ws { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 960px) { .ws { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); } }
+@media (min-width: 1440px) { .ws { grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px); } .ws .ctx-col { grid-column: auto; order: 0; } }
 .col { display: grid; gap: 16px; min-width: 0; }
 .access { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); font-size: 12px; color: var(--text-2); }
 .access svg { width: 13px; height: 13px; flex: none; }
@@ -322,19 +332,25 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .chk.warn small { color: #7A5A00; }
 
 /* Plan document (indicative simulation, laid out like the SECCI) */
-.doc { padding: 22px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.doc { padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+@media (min-width: 640px) { .doc { padding: 22px 24px; } }
 .answer, .decide, .sheet-b { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 640px) { .doc { padding: 16px; } }
 .doc-label { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.3); font-size: 12.5px; color: #6B5200; }
 .doc-label svg { width: 14px; height: 14px; flex: none; }
 .doc h3 { font-size: 13px; margin-bottom: 8px; }
-.doc-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); border-radius: 12px; }
-.doc-grid > div { padding: 10px 14px; border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
-.doc-grid > div:nth-child(3n+1) { border-left: 0; }
-.doc-grid > div:nth-child(-n+3) { border-top: 0; }
+/* Phones: two per row; three from 640px. */
+.doc-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 12px; }
+.doc-grid > div { padding: 10px 14px; border-top: 1px solid var(--border); }
+.doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border); }
+.doc-grid > div:nth-child(-n+2) { border-top: 0; }
+@media (min-width: 640px) {
+  .doc-grid { grid-template-columns: repeat(3, 1fr); }
+  .doc-grid > div { border-left: 1px solid var(--border); }
+  .doc-grid > div:nth-child(3n+1) { border-left: 0; }
+  .doc-grid > div:nth-child(3) { border-top: 0; }
+}
 .doc-grid span { display: block; font-size: 11.5px; color: var(--text-3); }
 .doc-grid b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-@media (max-width: 560px) { .doc-grid { grid-template-columns: 1fr 1fr; } .doc-grid > div { border-left: 0 !important; border-top: 1px solid var(--border) !important; } .doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border) !important; } .doc-grid > div:nth-child(-n+2) { border-top: 0 !important; } }
 .lines { display: grid; border: 1px solid var(--border); border-radius: 12px; }
 .lines .ln { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px; }
 .lines .ln:first-child { border-top: 0; }
@@ -400,8 +416,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .input.mono { font-family: var(--font-mono); font-size: 13px; }
 .input[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: var(--danger); }
 .err { font-size: 12px; color: var(--danger); }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 480px) { .row2 { grid-template-columns: 1fr 1fr; } }
 .check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 13px; line-height: 1.45; color: var(--text-2); cursor: pointer; }
 .check input { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin: 1px 0 0; border: 1px solid var(--border-strong); border-radius: 6px;
   background: #fff center / 12px no-repeat; cursor: pointer; }
@@ -409,9 +425,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 
 /* Product detail */
-.pd { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
-@media (max-width: 959px) { .pd { grid-template-columns: minmax(0, 1fr); } .secnav { display: none !important; } }
-.secnav { position: sticky; top: 0; display: grid; gap: 2px; }
+.pd { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
+.secnav { position: sticky; top: 0; display: none; gap: 2px; }
+@media (min-width: 960px) { .pd { grid-template-columns: 200px minmax(0, 1fr); } .secnav { display: grid; } }
 .secnav a { display: flex; justify-content: space-between; align-items: center; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--text-2); text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { .secnav a:hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
 .secnav a.on { background: var(--surface); color: var(--text-1); box-shadow: 0 0 0 1px var(--border); }
@@ -421,7 +437,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .sec-intro { padding: 0 16px 12px; font-size: 12.5px; color: var(--text-3); }
 
 /* Dated-value row: the value, its source and its review date, always together */
-.dv { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--border); font-size: 13px; }
+.dv { display: grid; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--border); font-size: 13px; }
 .dv:first-child { border-top: 0; }
 .dv-name b { display: block; font-weight: 500; }
 .dv-name small { display: block; font-size: 11.5px; color: var(--text-3); }
@@ -432,7 +448,15 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .dv.is-stale { background: #FFFCF0; }
 .dv.is-pending { background: #FBFAF8; }
 .dv .internal { --c: #5C5C5F; }
-@media (max-width: 760px) { .dv { grid-template-columns: 1fr auto; } .dv-meta { grid-column: 1 / -1; } .dv-val { text-align: right; } .dv > .btn, .dv > .icon-btn, .dv > .dv-act { grid-row: 1; grid-column: 2; } .dv-val { grid-column: 1 / -1; text-align: left; } }
+/* Phones: name and action on the first row, value and source below; four columns from 760px. */
+.dv { grid-template-columns: 1fr auto; }
+.dv-meta, .dv-val { grid-column: 1 / -1; }
+.dv > .btn, .dv > .icon-btn, .dv > .dv-act { grid-row: 1; grid-column: 2; }
+@media (min-width: 760px) {
+  .dv { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; }
+  .dv-meta, .dv-val { grid-column: auto; }
+  .dv > .btn, .dv > .icon-btn, .dv > .dv-act { grid-row: auto; grid-column: auto; }
+}
 .dv-act { display: flex; gap: 4px; }
 .adj { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
 .band { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); font-size: 13px; }
@@ -471,11 +495,19 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
 .from-review svg { width: 14px; height: 14px; }
 
 /* Operator calendar: week grid, agenda on narrow screens, rules column */
-.cal-ws { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: start; }
-@media (max-width: 1099px) { .cal-ws { grid-template-columns: minmax(0, 1fr); } }
+/* Phones: one column with Next up first, so the first screen shows the next meeting; week and rules side by side from 1100px. */
+.cal-ws { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+.cal-ws > .col { display: contents; }
+.cal-ws > .col > :first-child { order: -1; }
+@media (min-width: 1100px) {
+  .cal-ws { grid-template-columns: minmax(0, 1fr) minmax(0, 300px); }
+  .cal-ws > .col { display: grid; }
+  .cal-ws > .col > :first-child { order: 0; }
+}
 .weeknav { display: flex; align-items: center; gap: 4px; }
-.weeknav .mono { min-width: 128px; text-align: center; font-size: 12.5px; color: var(--text-1); }
-@media (max-width: 479px) { .weeknav .mono { min-width: 0; } .av-lbl { display: none; } }
+.weeknav .mono { min-width: 0; text-align: center; font-size: 12.5px; color: var(--text-1); }
+.av-lbl { display: none; }
+@media (min-width: 480px) { .weeknav .mono { min-width: 128px; } .av-lbl { display: inline; } }
 .cal { display: grid; grid-template-columns: 52px repeat(5, minmax(0, 1fr)); grid-auto-rows: 34px; }
 .cal .hd { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: 6px; padding: 8px 10px 0; background: var(--surface); border-left: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
 .cal .hd small { font: 500 11px var(--font-mono); color: var(--text-2); }
@@ -502,8 +534,10 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
 .bk .st { font-size: 11px; color: var(--text-2); }
 .cal .bk .st { display: none; }
 @media (hover: hover) and (pointer: fine) { .bk:hover { box-shadow: inset 0 0 0 1px var(--border-hover), inset 3px 0 0 var(--ink); } .bk.done:hover, .bk.no_show:hover { box-shadow: inset 0 0 0 1px var(--border-strong); } }
-.agenda { display: none; }
-@media (max-width: 759px) { .cal { display: none; } .agenda { display: grid; } }
+/* Phones get the agenda; the week grid from 760px. */
+.agenda { display: grid; }
+.cal { display: none; }
+@media (min-width: 760px) { .cal { display: grid; } .agenda { display: none; } }
 .ag-day { padding: 10px 16px 6px; border-top: 1px solid var(--border); font-size: 12.5px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
 .ag-day:first-child { border-top: 0; }
 .ag-day small { font: 500 11px var(--font-mono); color: var(--text-2); }
@@ -530,15 +564,22 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
 
 /* Drawer for the sidebar on narrow screens */
 .scrim { position: fixed; inset: 0; z-index: 30; background: rgba(20,20,20,.28); }
-@media (max-width: 859px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
-  .side { position: fixed; z-index: 40; top: 0; left: 0; bottom: 0; width: min(280px, 86vw); box-shadow: 20px 0 50px rgba(20,20,40,.12);
-    transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
-  .app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
-  .top { padding: 0 12px 0 16px; }
-  .top .menu { display: grid; }
-  .page { padding: 20px 16px 48px; }
-  .hide-sm { display: none; }
+/* Phones and tablets: the sidebar is a drawer over the scrim (§12); from 860px it sits beside the page. */
+.side { position: fixed; z-index: 40; top: 0; left: 0; bottom: 0; width: min(280px, 86vw); box-shadow: 20px 0 50px rgba(20,20,40,.12);
+  transform: translateX(-100%); visibility: hidden; transition: transform 260ms var(--ease-out), visibility 0s linear 260ms; }
+.app.side-open .side { transform: none; visibility: visible; transition: transform 260ms var(--ease-out), visibility 0s; }
+.top { padding: 0 12px 0 16px; }
+.top .menu { display: grid; }
+.page { padding: 20px 16px 48px; }
+/* Only table cells carry .hide-sm, and no rule sets their display, so revert gives back table-cell. */
+.hide-sm { display: none; }
+@media (min-width: 860px) {
+  .app { grid-template-columns: 240px minmax(0, 1fr); }
+  .side, .app.side-open .side { position: static; z-index: auto; width: auto; box-shadow: none; transform: none; visibility: visible; transition: none; }
+  .top { padding: 0 16px 0 24px; }
+  .top .menu { display: none; }
+  .page { padding: 28px 24px 64px; }
+  .hide-sm { display: revert; }
 }
 
 /* ───────────── Motion ───────────── */
@@ -1094,8 +1135,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
         (count ? '<small class="' + (hot ? 'due' : '') + '" aria-label="' + count + ' need attention">' + count + '</small>' : '') + '</a>';
     }
     $('nav').innerHTML = '<span class="grp eyebrow">Work</span>' +
-      item('reviews', 'inbox', 'Reviews', open, true) +
-      item('approvals', 'git-pull-request-arrow', 'Approvals', pend, role === 'admin') +
+      item('reviews', 'inbox', 'Reviews', open + pend, true) +
       item('calendar', 'calendar-days', 'Calendar', meetingsToday(), false) +
       '<span class="grp eyebrow">Catalog</span>' +
       item('products', 'package', 'Products', due) +
@@ -1129,12 +1169,15 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     $('top-actions').innerHTML = '';
     var open = REVIEWS.filter(function (r) { return r.status === 'open'; });
     var late = open.filter(function (r) { return minsAgo(r.createdAt) > PARAMS.review_target.value; }).length;
-    var types = [['all', 'All'], ['customer', 'Flagged answers'], ['plan', 'Plan checks'], ['escalation', 'Automatic reviews'], ['counterOffer', 'Counter-offers']];
+    var types = [['all', 'All'], ['customer', 'Flagged answers'], ['plan', 'Plan checks'], ['escalation', 'Automatic reviews'], ['counterOffer', 'Counter-offers'], ['change', 'Catalog changes']];
+    var changes = CHANGES.filter(function (c) { return ui.revStatus === 'open' ? c.status === 'pending' : c.status !== 'pending'; });
     var rows = REVIEWS.filter(function (r) { return (ui.revType === 'all' || r.trigger === ui.revType) && (ui.revStatus === 'open' ? r.status === 'open' : r.status !== 'open'); })
       .sort(function (a, b) { return a.status === 'open' ? d(a.createdAt) - d(b.createdAt) : d(b.createdAt) - d(a.createdAt); });
-    function count(t) { return open.filter(function (r) { return t === 'all' || r.trigger === t; }).length; }
-    return '<div class="page-head"><div><h1>Reviews</h1><p>Answers customers asked a specialist to check, plans sent before applying, automatic reviews and counter-offers above the band. Oldest first. You confirm information, not credit approval.</p></div></div>' +
-      '<div class="kpis"><div class="kpi"><b>' + open.length + '</b><span>Open requests</span></div><div class="kpi"><b>' + late + '</b><span>Past the ' + PARAMS.review_target.value + '-min target</span></div>' +
+    function count(t) { return (t === 'change' ? 0 : open.filter(function (r) { return t === 'all' || r.trigger === t; }).length) + (t === 'all' || t === 'change' ? pendingChanges().length : 0); }
+    if (ui.revType === 'change') rows = [];
+    var showChanges = ui.revType === 'all' || ui.revType === 'change';
+    return '<div class="page-head"><div><h1>Reviews</h1><p>Answers customers asked a specialist to check, plans sent before applying, automatic reviews, counter-offers above the band and catalog changes waiting for an admin. Oldest first. You confirm information, not credit approval.</p></div></div>' +
+      '<div class="kpis"><div class="kpi"><b>' + (open.length + pendingChanges().length) + '</b><span>Open requests</span></div><div class="kpi"><b>' + late + '</b><span>Past the ' + PARAMS.review_target.value + '-min target</span></div>' +
       '<div class="kpi"><b>96%</b><span>Confirmed without edits, last 30 days (QA sample)</span></div><div class="kpi"><b>22 min</b><span>Median wait this week</span></div></div>' +
       '<div class="toolbar"><div class="chips" role="group" aria-label="Request type">' + types.map(function (t) {
         return '<button type="button" class="qbtn" data-revtype="' + t[0] + '" aria-pressed="' + (ui.revType === t[0]) + '">' + t[1] + ' <small>' + count(t[0]) + '</small></button>';
@@ -1151,7 +1194,16 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
           '<td>' + waitHTML(r) + '</td>' +
           '<td class="hide-sm">' + (r.approvalLevel ? '<span class="t-main">' + LEVELS[r.approvalLevel] + '</span><span class="t-sub">' + (can ? 'You can decide' : 'Above your level') + '</span>' : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (STATUS[r.status] || '') + '</td></tr>';
-      }).join('') : '<tr><td colspan="6" class="empty-row">Nothing here. New requests from customers appear at the top.</td></tr>') +
+      }).join('') : '') +
+      (showChanges ? changes.map(function (c) {
+        return '<tr class="rowlink" data-href="#approvals/' + c.id + '"><td><a class="t-main" href="#approvals/' + c.id + '">' + esc(targetName(c)) + '</a><span class="t-sub mono">' + c.id + (c.rollback ? ' · rollback' : '') + '</span></td>' +
+          '<td><span class="pill line">' + ic('git-pull-request-arrow') + 'Catalog change</span></td>' +
+          '<td class="hide-sm"><span class="t-main">' + esc(c.by) + '</span><span class="t-sub">Proposed the change</span></td>' +
+          '<td>' + changeDiff(c) + '<span class="t-sub">' + when(c.at) + '</span></td>' +
+          '<td class="hide-sm"><span class="t-main">Admin</span><span class="t-sub">' + (c.status !== 'pending' ? 'Decided' : role === 'admin' ? 'You can decide' : 'Needs an admin') + '</span></td>' +
+          '<td>' + STATUS[c.status] + '</td></tr>';
+      }).join('') : '') +
+      (!rows.length && !(showChanges && changes.length) ? '<tr><td colspan="6" class="empty-row">Nothing here. New requests from customers appear at the top.</td></tr>' : '') +
       '</tbody></table></div></div>' + winRateHTML();
   }
 
@@ -1488,6 +1540,8 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       '<div class="row2"><div class="field"><label for="ed-val">New value</label><input class="input mono" id="ed-val" inputmode="decimal" value="' + val + '" aria-describedby="ed-unit"><small id="ed-unit">' + unitHint(o) + '</small></div>' +
       '<div class="field"><label for="ed-from">Goes live</label><input class="input mono" id="ed-from" type="date" value="' + liso(NOW).slice(0, 10) + '" min="' + liso(NOW).slice(0, 10) + '"><small>Today publishes now. A later date schedules it.</small></div></div>' +
       '<div class="field"><label for="ed-src">Source</label><input class="input" id="ed-src" value="' + esc(preset && preset.source || '') + '" placeholder="For example: Fee schedule, 1 Oct 2026"><small>Required. Every value shows its source to the customer.</small></div>' +
+      '<div class="field"><label for="ed-quote">Words from the source</label><textarea class="textarea" id="ed-quote" placeholder="The exact sentence that states this value"></textarea><small>Required in the app: answers cite these words next to the value.</small></div>' +
+      '<div class="field"><label for="ed-review">Review by</label><input class="input mono" id="ed-review" type="date" min="' + liso(NOW).slice(0, 10) + '"><small>Past this date, answers stop using the value.</small></div>' +
       '<div class="field"><label for="ed-note">Note <span class="muted">(optional)</span></label><textarea class="textarea" id="ed-note">' + esc(preset && preset.note || '') + '</textarea></div>' +
       (stale ? '<p class="note-q" style="font-size:12.5px">' + ic('clock-alert') + ' This value is past or near its review date. Keeping the same value with a fresh source re-confirms it.</p>' : '') +
       '<div class="field"><span class="lbl">Impact preview</span><div id="ed-impact"></div></div>' +
@@ -1646,7 +1700,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       '<section class="card" aria-labelledby="ap2"><div class="card-h"><h2 id="ap2">' + ic('history') + 'Decided</h2></div><div class="tbl-wrap"><table class="tbl">' + head + '<tbody>' + rows(done) + '</tbody></table></div></section></div>';
   }
   function pageChange(c) {
-    crumbs([['Approvals', 'approvals'], [c.id]]);
+    crumbs([['Reviews', 'reviews'], [c.id]]);
     $('top-actions').innerHTML = '';
     var o = target(c.entity, c.entityId, c.key), canAct = role === 'admin' && c.status === 'pending';
     var link = c.entity === 'product' ? '#products/' + c.entityId : '#parameters';
@@ -1921,6 +1975,8 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     var a = avDraft, sh = $('sheet'), names = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     sh.innerHTML = '<div class="sheet-h"><h2 id="sheet-title">Availability</h2><button type="button" class="icon-btn" data-close-sheet aria-label="Close">' + ic('x') + '</button></div>' +
       '<form class="sheet-b" id="av-form" novalidate><p style="font-size:13px;color:var(--text-2)">Customers see open slots inside these hours. Changes apply to new bookings; meetings already booked stay.</p>' +
+      '<label class="check"><input type="checkbox" id="av-active"' + (a.active === false ? '' : ' checked') + '><span>Customers can book calls with me from the chat</span></label>' +
+      '<div class="field"><label for="av-title">Title shown to customers</label><input class="input" id="av-title" maxlength="60" value="' + esc(a.title || 'Credit specialist') + '"></div>' +
       '<div class="field"><span class="lbl">Weekly hours</span>' + [1, 2, 3, 4, 5].map(function (i) {
         var h = a.weekly[i];
         return '<div class="day-row"><label class="check"><input type="checkbox" data-av-day="' + i + '"' + (h ? ' checked' : '') + '><span class="sr-only">Available on ' + names[i] + '</span></label><span class="lbl">' + DAYS[i] + '</span>' +
@@ -1949,6 +2005,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     }
     var bf = $('av-brk-from').value, bt = $('av-brk-to').value;
     a.breaks = bf && bt ? [[bf, bt]] : [];
+    a.active = $('av-active').checked; a.title = $('av-title').value.trim() || 'Credit specialist';
     a.dailyCap = parseInt($('av-cap').value, 10); a.minLeadHours = +$('av-lead').value; a.slotMinutes = +$('av-len').value; a.bufferMinutes = +$('av-buf').value;
     $('av-impact').innerHTML = avImpact(); icons();
   }
@@ -1967,8 +2024,8 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
   var BOOK_KEY = 'raiffy.demo.bookings', SLOT_KEY = 'raiffy.demo.slots', BSTAT_KEY = 'raiffy.demo.bookingStatus';
   function publishSlots() {
     var out = [], first = liso(NOW).slice(0, 10);
-    for (var i = 0; i < 21 && out.length < 4; i++) out = out.concat(openSlots(AVAIL, BOOKINGS, addDays(first, i), NOW).slice(0, 2));
-    try { localStorage.setItem(SLOT_KEY, JSON.stringify({ operator: { name: 'Ana M.', title: 'Credit specialist', initials: 'AM' }, minutes: AVAIL.slotMinutes, slots: out.slice(0, 4) })); } catch (e) {}
+    for (var i = 0; i < 21 && out.length < 4 && AVAIL.active !== false; i++) out = out.concat(openSlots(AVAIL, BOOKINGS, addDays(first, i), NOW).slice(0, 2));
+    try { localStorage.setItem(SLOT_KEY, JSON.stringify({ operator: { name: 'Ana M.', title: AVAIL.title || 'Credit specialist', initials: 'AM' }, minutes: AVAIL.slotMinutes, slots: out.slice(0, 4) })); } catch (e) {}
   }
   function writeBookingStatus(b) {
     try { var all = readJSON(BSTAT_KEY, {}); all[b.id] = { status: b.status, reason: b.cancelReason || '' }; localStorage.setItem(BSTAT_KEY, JSON.stringify(all)); } catch (e) {}
@@ -2075,8 +2132,10 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       html = pageProduct(p);
     } else if (top === 'approvals' && parts[1]) {
       var c = CHANGES.filter(function (x) { return x.id === parts[1]; })[0]; if (!c) { location.hash = 'approvals'; return; }
-      html = pageChange(c);
+      html = pageChange(c); top = 'reviews';
     } else {
+      // Approvals live in the review queue now: proposed changes are one more kind of request
+      if (top === 'approvals') { ui.revType = 'change'; top = 'reviews'; }
       top = { reviews: 1, products: 1, parameters: 1, approvals: 1, calendar: 1, audit: 1 }[top] ? top : 'reviews';
       html = { reviews: pageReviews, products: pageProducts, parameters: pageParameters, approvals: pageApprovals, calendar: pageCalendar, audit: pageAudit }[top]();
     }

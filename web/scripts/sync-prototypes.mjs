@@ -255,7 +255,8 @@ const write = (rel, text) => {
 };
 
 for (const page of PAGES) {
-  let html = readFileSync(join(PROTOTYPES, page.file), "utf8");
+  // A Windows checkout with core.autocrlf has CRLF endings; the patches and the generated files use LF.
+  let html = readFileSync(join(PROTOTYPES, page.file), "utf8").replace(/\r\n/g, "\n");
   for (const [find, replace] of page.patches || []) {
     if (!html.includes(find)) throw new Error(`${page.file}: patch target not found, update the patch in sync-prototypes.mjs:\n${find}`);
     html = html.replace(find, replace);

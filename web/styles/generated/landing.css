@@ -69,8 +69,11 @@
 .pg-landing .card-body { padding: 24px; display: grid; gap: 8px; }
 .pg-landing .card-body p { max-width: 54ch; }
 .pg-landing .bento { display: grid; gap: var(--grid-gap); grid-template-columns: repeat(12, 1fr); }
-.pg-landing .span-4 { grid-column: span 4; } .pg-landing .span-5 { grid-column: span 5; } .pg-landing .span-7 { grid-column: span 7; } .pg-landing .span-12 { grid-column: span 12; }
-@media (max-width: 860px) { .pg-landing .bento > * { grid-column: span 12; } }
+/* Mobile first (DESIGN.md §12): every card spans the row; the bento columns start at 860px. */
+.pg-landing .bento > * { grid-column: span 12; }
+@media (min-width: 860px) {
+  .pg-landing .span-4 { grid-column: span 4; } .pg-landing .span-5 { grid-column: span 5; } .pg-landing .span-7 { grid-column: span 7; } .pg-landing .span-12 { grid-column: span 12; }
+}
 
 .pg-landing .fade-b { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
 .pg-landing .fade-r { -webkit-mask-image: linear-gradient(to right, #000 62%, transparent); mask-image: linear-gradient(to right, #000 62%, transparent); }
@@ -137,7 +140,8 @@
 .pg-landing .nav.is-light .btn-dark { background: #1A1A1A; color: #fff; }
 @media (hover: hover) and (pointer: fine) { .pg-landing .nav.is-light .nav-links a:hover { color: #1A1A1A; } }
 .pg-landing .nav.is-dark { background: rgba(8,8,11,.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom-color: rgba(255,255,255,.06); }
-@media (max-width: 860px) { .pg-landing .nav-links, .pg-landing .nav .btn-ghost { display: none; } }
+.pg-landing .nav-links, .pg-landing .nav .btn-ghost { display: none; }
+@media (min-width: 860px) { .pg-landing .nav-links { display: flex; } .pg-landing .nav .btn-ghost { display: inline-flex; } }
 
 /* ───────────── Hero (Nocturne, isometric art) ───────────── */
 .pg-landing .hero { --focus-x: 72%; --focus-y: 50%; position: relative; isolation: isolate; overflow: hidden; min-height: 720px; padding: 164px 0 120px; }
@@ -266,12 +270,20 @@
 /* Don't keep animating the hero once it's scrolled away */
 .pg-landing .hero.is-off .slab, .pg-landing .hero.is-off .iso-note { animation-play-state: paused; }
 
-@media (max-width: 960px) {
-  .pg-landing .hero { --focus-x: 50%; --focus-y: 74%; padding: 120px 0 0; min-height: 0; }
-  .pg-landing .hero-copy { max-width: none; }
-  .pg-landing .iso { position: relative; right: auto; top: auto; translate: none; margin: 16px auto 0; width: 100%; max-width: 420px; height: 400px; }
-  .pg-landing .iso-stage { scale: .78; }
-  .pg-landing .iso-note, .pg-landing .ghost.hide-sm { display: none; }
+/* Phones and tablets: the copy, then the 3D stack below it; side by side from 960px. */
+.pg-landing .hero { --focus-x: 50%; --focus-y: 74%; padding: 120px 0 0; min-height: 0; }
+.pg-landing .hero-copy { max-width: none; }
+.pg-landing .iso { position: relative; right: auto; top: auto; margin: 16px auto 0; width: 100%; max-width: 420px; height: 400px; translate: none; }
+.pg-landing .iso-stage { scale: .78; }
+.pg-landing .iso-note { display: none; }
+.pg-landing .ghost.hide-sm { visibility: hidden; }
+@media (min-width: 960px) {
+  .pg-landing .hero { --focus-x: 72%; --focus-y: 50%; padding: 164px 0 120px; min-height: 720px; }
+  .pg-landing .hero-copy { max-width: 500px; }
+  .pg-landing .iso { position: absolute; right: max(24px, calc((100% - 1200px) / 2 + 8px)); top: 50%; margin: 0; width: 540px; max-width: none; height: 540px; translate: 0 -44%; }
+  .pg-landing .iso-stage { scale: none; }
+  .pg-landing .iso-note { display: flex; }
+  .pg-landing .ghost.hide-sm { visibility: visible; }
 }
 
 /* ───────────── Channels strip ───────────── */
@@ -325,6 +337,23 @@
 .pg-landing .rec-badge svg { width: 10px; height: 10px; stroke-width: 2.4; }
 .pg-landing .rec-badge[hidden] { display: none; }
 .pg-landing .mtable .th .rec-badge { height: 16px; margin: -2px 0 -2px 6px; padding: 0 6px; vertical-align: 1px; }
+/* Phones (§12 pattern 3): the chat fits the card instead of bleeding past its edge. The avatar steps aside and the
+   recommended column sizes to its badge, which sits under the column name, so no word is cut. */
+.pg-landing .chat { left: 12px; right: 12px; padding: 12px; }
+.pg-landing .chat .msg > .ava { display: none; }
+.pg-landing .me .bubble { margin-right: 0; }
+.pg-landing .mtable { grid-template-columns: minmax(0, 1fr) auto auto; }
+.pg-landing .mtable .th .rec-badge { display: flex; margin: 4px 0 0; }
+@media (min-width: 640px) {
+  .pg-landing .chat { left: 32px; right: -48px; padding: 16px; }
+  .pg-landing .chat .msg > .ava { display: grid; }
+  .pg-landing .me .bubble { margin-right: 56px; }
+  .pg-landing .mtable { grid-template-columns: 1.3fr 1fr 1fr; }
+  .pg-landing .mtable .th .rec-badge { display: inline-flex; margin: -2px 0 -2px 6px; }
+}
+/* At 860px the card drops to seven columns: the chat stays inside it until 960px. */
+@media (min-width: 860px) { .pg-landing .chat { right: 12px; } }
+@media (min-width: 960px) { .pg-landing .chat { right: -48px; } }
 .pg-landing .src { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Simulate */
@@ -376,7 +405,17 @@
 .pg-landing .pop p { color: var(--text-2); line-height: 1.5; }
 .pg-landing .tip { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 11.5px; color: var(--text-2); }
 .pg-landing .tip svg { width: 13px; height: 13px; flex: none; margin-top: 2px; color: #8A6A00; }
-@media (max-width: 1100px) { .pg-landing .pop { left: auto; right: -40px; } }
+/* Phones: the statement fits the card and the popover sits inside it; from 640px they bleed past the edge again. */
+.pg-landing .card-visual:has(> .stmt) { height: 390px; }
+.pg-landing .stmt { left: 12px; width: auto; right: 12px; }
+.pg-landing .pop { left: 28px; right: 12px; width: auto; top: 172px; }   /* under the highlighted fee, which stays visible */
+@media (min-width: 640px) {
+  .pg-landing .card-visual:has(> .stmt) { height: 300px; }
+  .pg-landing .stmt { left: 28px; right: auto; width: 330px; }
+  .pg-landing .pop { top: 112px; }
+  .pg-landing .pop { left: auto; right: 12px; width: 260px; }
+}
+@media (min-width: 1100px) { .pg-landing .pop { left: 300px; right: auto; } }
 
 /* Documents + advisor handoff */
 .pg-landing .docs-visual { height: 320px; }
@@ -404,16 +443,21 @@
 .pg-landing .summary b svg { width: 12px; height: 12px; }
 .pg-landing .handoff-dim { left: 770px; top: 96px; width: 280px; height: 200px; }
 .pg-landing .docs-link { position: absolute; left: 372px; top: 150px; width: 38px; height: 1px; background: repeating-linear-gradient(90deg, rgba(20,20,20,.25) 0 4px, transparent 4px 8px); }
-@media (max-width: 860px) {
-  .pg-landing .docs-visual { height: 470px; }
-  .pg-landing .checklist { left: 20px; right: 20px; width: auto; top: 24px; }
-  .pg-landing .handoff { left: 40px; right: -40px; width: auto; top: 252px; }
-  .pg-landing .handoff-dim, .pg-landing .docs-link { display: none; }
+/* Phones and tablets: the checklist above the advisor handoff. On phones the handoff fits the card; side by side from 860px. */
+.pg-landing .docs-visual { height: 470px; }
+.pg-landing .checklist { left: 20px; right: 20px; width: auto; top: 24px; }
+.pg-landing .handoff { left: 28px; right: 12px; width: auto; top: 252px; }
+.pg-landing .handoff-dim, .pg-landing .docs-link { display: none; }
+@media (min-width: 860px) {
+  .pg-landing .docs-visual { height: 320px; }
+  .pg-landing .checklist { left: 32px; right: auto; width: 340px; top: 36px; }
+  .pg-landing .handoff { left: 410px; right: auto; width: 330px; top: 64px; }
+  .pg-landing .handoff-dim, .pg-landing .docs-link { display: block; }
 }
 
 /* ───────────── Deep dive: simulator + safeguards ───────────── */
-.pg-landing .dive { display: grid; grid-template-columns: 5fr 7fr; gap: 48px; align-items: start; }
-@media (max-width: 960px) { .pg-landing .dive { grid-template-columns: 1fr; gap: 32px; } }
+.pg-landing .dive { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: start; }
+@media (min-width: 960px) { .pg-landing .dive { grid-template-columns: 5fr 7fr; gap: 48px; } }
 .pg-landing .rules { list-style: none; margin: 32px 0 0; padding: 0; display: grid; }
 .pg-landing .rules li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); }
 .pg-landing .rules li:last-child { border-bottom: 1px solid var(--border); }
@@ -445,8 +489,8 @@
 .pg-landing .range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
 .pg-landing .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
-.pg-landing .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; }
-@media (max-width: 480px) { .pg-landing .opts { grid-template-columns: 1fr; } }
+.pg-landing .opts { display: grid; grid-template-columns: 1fr; gap: 12px; position: relative; }
+@media (min-width: 480px) { .pg-landing .opts { grid-template-columns: 1fr 1fr; } }
 .pg-landing .opt { border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: grid; gap: 12px; background: var(--surface); transition: opacity 200ms ease; }
 .pg-landing .opt.na { opacity: .55; }
 .pg-landing .opt.rec { border-color: rgba(200,150,20,.35); background: #FFFDF5; }
@@ -511,12 +555,12 @@
 .pg-landing .why-foot { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); padding-top: 8px; border-top: 1px solid var(--border); }
 .pg-landing .why-dim { left: 40px; right: 8px; top: 12px; height: 180px; }
 
-.pg-landing .kpis { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
+.pg-landing .kpis { display: grid; grid-template-columns: 1fr; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
 .pg-landing .kpi { padding: 20px 24px; display: grid; gap: 4px; }
-.pg-landing .kpi + .kpi { border-left: 1px solid var(--border); }
+.pg-landing .kpi + .kpi { border-top: 1px solid var(--border); }
 .pg-landing .kpi b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .pg-landing .kpi span { font-size: 13px; color: var(--text-2); }
-@media (max-width: 760px) { .pg-landing .kpis { grid-template-columns: 1fr; } .pg-landing .kpi + .kpi { border-left: 0; border-top: 1px solid var(--border); } }
+@media (min-width: 760px) { .pg-landing .kpis { grid-template-columns: repeat(3, 1fr); } .pg-landing .kpi + .kpi { border-top: 0; border-left: 1px solid var(--border); } }
 .pg-landing .footnote { margin-top: 12px; font-size: 12px; color: var(--text-3); }
 
 /* ───────────── CTA + footer ───────────── */
@@ -526,7 +570,8 @@
 .pg-landing .cta-card .lead { margin: 0 auto; }
 .pg-landing .cta-card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
 .pg-landing footer { border-top: 1px solid var(--border); padding: 48px 0 40px; font-size: 13px; color: var(--text-3); }
-.pg-landing .foot { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 32px; }
+.pg-landing .foot { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.pg-landing .foot > :first-child { grid-column: 1 / -1; }
 .pg-landing .foot h5 { margin: 0 0 12px; font-size: 12px; font-weight: 500; color: var(--text-2); }
 .pg-landing .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .pg-landing .foot a { text-decoration: none; transition: color 150ms ease; }
@@ -535,7 +580,7 @@
 .pg-landing .foot .logo small { color: var(--text-3); }
 .pg-landing .foot p { max-width: 38ch; }
 .pg-landing .legal { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; }
-@media (max-width: 760px) { .pg-landing .foot { grid-template-columns: 1fr 1fr; } .pg-landing .foot > :first-child { grid-column: 1 / -1; } }
+@media (min-width: 760px) { .pg-landing .foot { grid-template-columns: 2fr repeat(3, 1fr); } .pg-landing .foot > :first-child { grid-column: auto; } }
 
 /* ───────────── Reveal on scroll (marketing: can run longer; stagger 60ms) ───────────── */
 @media (prefers-reduced-motion: no-preference) {

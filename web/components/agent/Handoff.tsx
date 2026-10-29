@@ -2,12 +2,25 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { CheckIcon, UserRoundIcon } from "lucide-react";
-import { handoffApi, type HandoffReason, type MessageId } from "@/lib/agent-api";
+import { CheckIcon, HeadsetIcon, UserRoundIcon } from "lucide-react";
+import { handoffApi, type HandoffReason, type MessageId, type ThreadId } from "@/lib/agent-api";
+import { BookingCard } from "@/components/booking/BookingCard";
 
 const day = (at: number) => new Date(at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /**
+ * "Talk to a specialist" under an answer, offered by code only where a person is needed and at most once per
+ * conversation (lib/agent/handoff.ts). It opens the booking card with an operator, who checks information with the
+ * customer and never advises or decides credit; only the customer's click books.
+ */
+export function SpecialistOffer({ threadId, label }: { threadId: ThreadId | null; label: string }) {
+  const [open, setOpen] = useState(false);
+  if (open) return <BookingCard threadId={threadId} />;
+  return <button type="button" className="btn btn-ghost handoff-btn" onClick={() => setOpen(true)}><HeadsetIcon aria-hidden="true" />{label}</button>;
+}
+
+/**
+ * Not shown in this preview: booking goes to operators (SpecialistOffer), so this adviser request is kept for later.
  * "Book an adviser" under an answer. The first tap shows exactly what the adviser will receive (the customer's own
  * messages, with identifiers masked); only "Send request" records it. The result says "requested", never "booked",
  * because no adviser queue is connected in this preview.

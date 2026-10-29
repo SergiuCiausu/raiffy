@@ -76,8 +76,9 @@ button { font: inherit; }
 [data-mode="nocturne"] :focus-visible { outline-color: var(--accent-a); }
 
 /* ───────────── Shell ───────────── */
-.auth { display: grid; grid-template-columns: 5fr 7fr; min-height: 100vh; min-height: 100dvh; }
-@media (max-width: 860px) { .auth { grid-template-columns: 1fr; } }
+/* Mobile first (DESIGN.md §12): one column with the brand as a short strip above the form; side by side from 860px. */
+.auth { display: grid; grid-template-columns: 1fr; min-height: 100vh; min-height: 100dvh; }
+@media (min-width: 860px) { .auth { grid-template-columns: 5fr 7fr; } }
 
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
 .logo-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--accent-a); display: grid; place-items: center;
@@ -86,8 +87,8 @@ button { font: inherit; }
 .logo small { font-size: 12px; font-weight: 500; color: var(--text-3); }
 
 /* ───────────── Brand panel (Nocturne) ───────────── */
-.brand { --focus-x: 50%; --focus-y: 50%; position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 600px;
-  display: flex; flex-direction: column; padding: 28px 40px; overflow: hidden; isolation: isolate; background: #07070A; }
+.brand { --focus-x: 50%; --focus-y: 70%; position: relative;
+  display: flex; flex-direction: column; padding: 16px 16px 18px; overflow: hidden; isolation: isolate; background: #07070A; }
 .brand > :not(.hl-bg) { position: relative; z-index: 10; }
 
 .hl-bg { position: absolute; inset: 0; z-index: 0; isolation: isolate; pointer-events: none; contain: strict; }
@@ -121,7 +122,8 @@ button { font: inherit; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
 .brand .logo { color: var(--text-1); }
-.brand-art { flex: 1; margin: 24px 0; }
+/* Phones: the strip is the logo and one tagline, so the form starts on the first screen; the illustration waits for 640px. */
+.brand-art { display: none; order: 3; }
 .art { position: absolute; inset: 0; display: grid; align-content: center;
   transition: opacity 300ms ease, transform 300ms var(--ease-out), visibility 0s linear 0s; }
 .art-glow { position: absolute; left: 50%; top: 58%; width: 120%; height: 60%; translate: -50% -50%; border-radius: 50%;
@@ -193,37 +195,56 @@ button { font: inherit; }
 .tagline b { color: var(--text-1); font-weight: 600; }
 [data-flow="login"] .tagline [data-for="signup"],
 [data-flow="signup"] .tagline [data-for="login"] { opacity: 0; visibility: hidden; transition: opacity 200ms ease, visibility 0s linear 200ms; }
-.brand-foot { margin-top: 20px; font-size: 12px; color: var(--text-3); }
+.brand-foot { display: none; margin-top: 20px; font-size: 12px; color: var(--text-3); }
+.tagline { order: 2; margin-top: 10px; }
+.ghost { display: none; }
 
-@media (max-width: 1100px) { .brand { padding: 24px 28px; } }
-@media (max-width: 860px) {
-  .brand { position: relative; height: auto; min-height: 0; padding: 20px 16px 24px; --focus-y: 70%; }
-  .brand-art { order: 3; flex: none; height: 200px; margin: 16px 0 0; overflow: hidden;
+/* 640px: the illustration returns as a short band under the tagline. */
+@media (min-width: 640px) {
+  .brand { padding: 20px 16px 24px; }
+  .tagline { margin-top: 16px; }
+  .brand-art { display: block; flex: none; height: 200px; margin: 16px 0 0; overflow: hidden;
     -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent); mask-image: linear-gradient(to bottom, #000 72%, transparent); }
   .art { align-content: start; padding-top: 12px; }
   .wb-stack, .steps { width: 340px; transform-origin: top left; scale: .8; }
   .steps { gap: 8px; }
-  .tagline { order: 2; margin-top: 16px; }
-  .wb-dim, .wb-note, .st:nth-child(4), .brand-foot, .ghost { display: none; }
+  .wb-dim, .wb-note, .st:nth-child(4) { display: none; }
 }
+/* 860px: the full brand panel, sticky beside the form. */
+@media (min-width: 860px) {
+  .brand { position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 600px; padding: 24px 28px; --focus-y: 50%; }
+  .brand-art { order: 0; flex: 1; height: auto; margin: 24px 0; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+  .art { align-content: center; padding-top: 0; }
+  .wb-stack, .steps { width: min(400px, 100%); scale: none; }
+  .steps { gap: 12px; }
+  .tagline { order: 0; margin-top: 0; }
+  .wb-dim, .brand-foot, .ghost { display: block; }
+  .wb-note { display: flex; }
+  .st:nth-child(4) { display: grid; }
+}
+@media (min-width: 1100px) { .brand { padding: 28px 40px; } }
 
 /* ───────────── Form panel (Daylight) ───────────── */
-.panel { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; padding: 24px 40px; }
+.panel { display: flex; flex-direction: column; padding: 16px; }
 .panel-top { display: flex; justify-content: space-between; align-items: center; height: 36px; }
 .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); text-decoration: none; border-radius: 6px;
   transition: color 150ms ease; }
 .back svg { width: 15px; height: 15px; }
-.panel-main { flex: 1; display: grid; justify-items: center; align-items: start; padding: clamp(24px, 9vh, 96px) 0 48px; }
+.panel-main { flex: 1; display: grid; justify-items: center; align-items: start; padding: 16px 0 40px; }
 .panel-foot { display: flex; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-3); }
 .panel-foot nav { display: flex; gap: 16px; }
 .panel-foot a { text-decoration: none; transition: color 150ms ease; }
 @media (hover: hover) and (pointer: fine) { .back:hover, .panel-foot a:hover { color: var(--text-1); } }
-@media (max-width: 1100px) { .panel { padding: 24px 28px; } }
-@media (max-width: 860px) { .panel { min-height: 0; padding: 16px; } .panel-main { padding: 24px 0 40px; } }
+@media (min-width: 640px) { .panel-main { padding-top: 24px; } }
+@media (min-width: 860px) {
+  .panel { min-height: 100vh; min-height: 100dvh; padding: 24px 28px; }
+  .panel-main { padding: clamp(24px, 9vh, 96px) 0 48px; }
+}
+@media (min-width: 1100px) { .panel { padding: 24px 40px; } }
 
-.auth-card { width: 100%; max-width: 440px; padding: 32px; background: var(--surface); border: 1px solid var(--border);
+.auth-card { width: 100%; max-width: 440px; padding: 24px 20px; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-card); box-shadow: var(--shadow-card); }
-@media (max-width: 480px) { .auth-card { padding: 24px 20px; } }
+@media (min-width: 480px) { .auth-card { padding: 32px; } }
 
 /* Segmented switch */
 .seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin-bottom: 28px; border-radius: 12px; background: var(--surface-2); }
@@ -260,11 +281,11 @@ button { font: inherit; }
 .control.is-invalid { border-color: rgba(180,35,24,.55); }
 .control.is-invalid:focus-within { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(180,35,24,.12); }
 .control input { flex: 1; min-width: 0; height: 100%; padding: 0 12px; border: 0; background: transparent; border-radius: inherit;
-  font: 400 14px var(--font-sans); color: var(--text-1); }
+  font: 400 16px var(--font-sans); color: var(--text-1); }   /* 16px on phones stops iOS zooming into the field */
 .control input:focus-visible { outline: none; }
 .control input::placeholder { color: var(--text-3); }
-@media (max-width: 640px) { .control input { font-size: 16px; } }   /* stops iOS zooming into the field */
-.hint { font-size: 12px; color: var(--text-3); }
+@media (min-width: 640px) { .control input { font-size: 14px; } }
+.hint { font-size: 13px; color: var(--text-3); }
 .err, .warn { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; line-height: 1.4; color: var(--danger); }
 .warn { color: #8A6A00; }
 .err svg, .warn svg { width: 14px; height: 14px; flex: none; margin-top: 1px; }
@@ -278,7 +299,7 @@ button { font: inherit; }
 .check input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .check.is-invalid input { border-color: var(--danger); }
 .check b { font-weight: 500; color: var(--text-1); }
-.check small { display: block; margin-top: 2px; font-size: 12px; color: var(--text-3); }
+.check small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-3); }
 .check a { color: var(--text-1); text-decoration-color: rgba(20,20,20,.25); text-underline-offset: 3px; }
 .consents { display: grid; gap: 12px; padding-top: 4px; }
 .consents .err { margin: -4px 0 0 28px; }

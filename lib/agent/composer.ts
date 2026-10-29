@@ -3,13 +3,14 @@ import { answerCardSchema } from "./blocks";
 import { spendingBlockSchema } from "../expenses/schemas";
 import { offerBlockSchema } from "../pricing/schemas";
 import { compareBlockSchema } from "../compare/block";
+import { affordabilityBlockSchema } from "./affordabilityBlock";
 import { ragAnswerSchema, type RagAnswer } from "../rag/answer";
 import type { RoutePlan } from "./route";
 import type { Inquiry } from "./confidence";
 import { inputFieldSchema, parseNumber, type InputField } from "./inputs";
 import { routesBlockSchema, routesFromAnswer, type RoutesBlock } from "./routes";
 import { MEMORY_KINDS, contextMemorySchema, type ContextMemory } from "./memory";
-import { handoffActionFor, handoffActionSchema } from "./handoff";
+import { SPECIALIST_LABEL, handoffActionFor, handoffActionSchema } from "./handoff";
 
 const calloutBlock = z.object({ type: z.literal("callout"), state: z.enum(["ready", "unavailable"]), text: z.string(), sourceIds: z.array(z.string()) });
 /** Asks only for missing required inputs. The customer can fill it or answer in their own words. */
@@ -30,7 +31,7 @@ export type MemoryBlock = z.infer<typeof memoryBlockSchema>;
 export const answerEnvelopeSchema = z.object({
   id: z.string(), locale: z.literal("en-GB"), pattern: z.string(),
   mode: z.enum(["normal", "hardship", "crisis", "fraud", "degraded"]), text: z.string(),
-  blocks: z.array(z.union([calloutBlock, inputsRequestBlock, answerCardSchema, spendingBlockSchema, offerBlockSchema, compareBlockSchema, routesBlockSchema, memoryBlockSchema])),
+  blocks: z.array(z.union([calloutBlock, inputsRequestBlock, answerCardSchema, spendingBlockSchema, offerBlockSchema, compareBlockSchema, affordabilityBlockSchema, routesBlockSchema, memoryBlockSchema])),
   sources: z.array(z.object({ id: z.string(), label: z.string(), publisher: z.string(), date: z.string(), url: z.url() })),
   actions: z.array(z.discriminatedUnion("kind", [followupAction, chooseAction, skipAction, handoffActionSchema])),
   flags: z.object({ aiDisclosure: z.literal(true), suppressOffers: z.boolean(), indicativeOnly: z.literal(true), staleData: z.array(z.string()) }),
@@ -80,7 +81,7 @@ export function routeResponse(plan: RoutePlan, extra: { inputs?: { fields: Input
     : plan.reason === "confirm_track_before_access" ? "Is this about a product for you personally or for a business? This chat uses your personal banking profile."
     : plan.reason === "uncertain_goal_count" ? "Which financial goal would you like us to work through first?"
     : plan.inquiry === "security_complaint" && plan.handler === "unavailable"
-      ? "I'm sorry this happened. I can't open a formal complaint or change anything on your account myself, but a Raiffeisen adviser can. Choose Talk to an adviser below to send them this conversation; you'll see exactly what they receive first. You can also contact Raiffeisen through the Smart Mobile app or any branch."
+      ? `I'm sorry this happened. I can't open a formal complaint or change anything on your account myself, but a Raiffeisen specialist can take it further. Choose ${SPECIALIST_LABEL} below to book a call; nothing is booked until you confirm a time. You can also contact Raiffeisen through the Smart Mobile app or any branch.`
     : RESPONSES[plan.handler] ?? RESPONSES.unavailable!;
   return ragAnswerSchema.parse({ status: "no_results", text, segments: [{ text, sourceIds: [] }], sources: [],
     checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 },
@@ -154,29 +155,42 @@ export function followUps(rag: RagAnswer, routes: RoutesBlock | null): string[] 
   return [`Which documents do I need for ${short(product)}?`, `Which other Raiffeisen products are similar to ${short(product)}?`];
 }
 
+/** Whether an answer offered a person: the button, a handoff card, or the booking card of a contact answer. Recorded once per conversation. */
+export function offersSpecialist(envelope: Pick<z.infer<typeof answerEnvelopeSchema>, "actions" | "blocks">, handler: RoutePlan["handler"]): boolean {
+  return handler === "human_contact" || envelope.actions.some(a => a.kind === "handoff") || envelope.blocks.some(b => b.type === "handoff");
+}
+
 /** Build the UI contract from checked evidence; the model cannot invent block kinds or actions. */
 export function composeAnswer(id: string, plan: RoutePlan, rag: RagAnswer,
-  extra: { inputs?: { fields: InputField[]; round: number }; followups?: string[]; proposals?: MemoryBlock["proposals"] } = {}) {
+  extra: { inputs?: { fields: InputField[]; round: number }; followups?: string[]; proposals?: MemoryBlock["proposals"]; specialistOffered?: boolean } = {}) {
   const mode = plan.handler === "crisis" || plan.handler === "fraud" || plan.handler === "hardship" ? plan.handler
     : (plan.handler === "answer" || plan.handler === "orchestrator") && rag.status === "answered" ? "normal" : "degraded";
   const text = rag.status === "failed_checks" || rag.status === "refused"
     ? "I couldn't verify a supported answer. Please rephrase the question or contact a Raiffeisen adviser." : rag.text;
   const asking = plan.handler === "collect_inputs" && extra.inputs;
   const choosing = plan.handler === "clarify" && plan.candidates.length >= 2;
-  // Checked answer cards (lib/agent/blocks.ts) and code-built cards such as the spending summary.
-  const cards = rag.status === "answered" ? (rag.cards ?? []).flatMap((c): unknown[] => {
+  // Checked answer cards (lib/agent/blocks.ts) and code-built cards such as the spending summary or the affordability check.
+  const parsed = rag.status === "answered" ? (rag.cards ?? []).flatMap((c): unknown[] => {
     const card = answerCardSchema.safeParse(c);
     if (card.success) return [card.data];
-    const built = z.union([spendingBlockSchema, offerBlockSchema, compareBlockSchema]).safeParse(c);
+    const built = z.union([spendingBlockSchema, offerBlockSchema, compareBlockSchema, affordabilityBlockSchema]).safeParse(c);
     return built.success ? [built.data] : [];
   }) : [];
+  const typeOf = (c: unknown) => (c as { type?: unknown }).type;
+  // Claude's handoff card offers a specialist like the button does: once per conversation (complaints aside), never both.
+  const cards = extra.specialistOffered && plan.inquiry !== "security_complaint" ? parsed.filter(c => typeOf(c) !== "handoff") : parsed;
+  const handoffCard = cards.some(c => typeOf(c) === "handoff");
+  // The pricing rules sent the price to a specialist (lib/pricing): the one negotiation that offers a person.
+  const review = cards.some(c => typeOf(c) === "offer" && (c as { resolution?: unknown }).resolution === "escalate");
   // Route cards from the checked text only where the answer scope calls for options side by side,
   // and only when no checked routes card already shows them.
-  const hasRoutesCard = cards.some(c => (c as { type?: unknown }).type === "routes");
+  const hasRoutesCard = cards.some(c => typeOf(c) === "routes");
   const routes = mode === "normal" && !hasRoutesCard && (plan.scope === "solution" || plan.scope === "compare") ? routesFromAnswer(rag.segments) : null;
   const followups = mode === "normal" ? extra.followups ?? followUps(rag, routes) : [];
-  // The adviser button: never next to a question Raiffy is still asking, nor on the contact answer, which has its own booking card.
-  const handoff = asking || choosing || plan.handler === "human_contact" ? null : handoffActionFor(plan, mode);
+  // The specialist button (lib/agent/handoff.ts): never next to a question Raiffy is still asking, nor on the contact answer,
+  // which has its own booking card, nor beside a handoff card.
+  const handoff = asking || choosing || handoffCard || plan.handler === "human_contact" ? null
+    : handoffActionFor(plan, mode, { offered: extra.specialistOffered, review });
   const actions = asking ? [{ kind: "skip_inputs", label: "Skip, show typical examples", prompt: "Skip the details and show me typical examples." }]
     : choosing ? plan.candidates.map(inquiry => ({ kind: "choose", label: CHOICE_LABELS[inquiry], prompt: CHOICE_LABELS[inquiry], inquiry }))
     : [...followups.map(prompt => ({ kind: "followup", label: prompt, prompt })), ...(handoff ? [handoff] : [])];

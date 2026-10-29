@@ -121,8 +121,9 @@ describe("UI to Jev to RAG pipeline", () => {
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(result.answer.ui.mode).toBe("hardship");
     expect(result.answer.ui.flags.suppressOffers).toBe(true);
-    // No sales follow-ups; only the human callback the hardship flow calls for.
-    expect(result.answer.ui.actions).toEqual([{ kind: "handoff", label: "Talk to an adviser", reason: "hardship" }]);
+    // No sales follow-ups and no booking button: the hardship text names Raiffeisen's support team.
+    expect(result.answer.ui.actions).toEqual([]);
+    expect(result.answer.text).toMatch(/support team/);
     expect(runAgentMock).not.toHaveBeenCalled();
   });
 
@@ -275,6 +276,27 @@ describe("UI to Jev to RAG pipeline", () => {
     runAgentMock.mockImplementation(async (_input, deps) => { expect(deps.proposeMemory).toBeUndefined(); return answer; });
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "I want to buy a used car next year." });
     expect(result.answer.ui.blocks.some((b: { type: string }) => b.type === "memory")).toBe(false);
+  });
+
+  it("attaches the chosen sample customer's statement, and reads it for that question even with the switches off", async () => {
+    jevMock.mockResolvedValue({ status: "classified", classification: classification("other") });
+    const t = fresh(); const alice = t.withIdentity(identity());
+    const attach = { ...args, question: "What stands out on this statement?", attachment: "sample_statement" as const };
+    await expect(alice.mutation(anyApi.agent.send, attach)).rejects.toThrow("statement_unavailable");
+    await expect(alice.mutation(anyApi.agent.send, { ...attach, track: "business" })).rejects.toThrow();
+    await t.run((ctx) => ctx.db.insert("accountAccess", { ownerKey: identity().tokenIdentifier, persona: "new-client", account: false, savings: false, cards: false, transactions: false, updatedAt: 0 }));
+    runAgentMock.mockImplementation(async (input) => {
+      const tool = input.hostTools.find((h: { tool: { name: string } }) => h.tool.name === "get_expense_summary");
+      expect(tool).toBeDefined();
+      const read = await tool.run({ period: "last_complete_month" });
+      expect(read.citables).toHaveLength(1);
+      expect(read.citables[0].text).toContain("Income:");
+      return { ...answer, status: "answered", text: "Most of the month went on rent." };
+    });
+    await alice.action(anyApi.agent.ask, attach);
+    expect(runAgentMock).toHaveBeenCalledOnce();
+    const stored = await t.run((ctx) => ctx.db.query("ragMessages").filter((q) => q.eq(q.field("role"), "user")).first());
+    expect(stored?.attachment).toBe("sample_statement");
   });
 
   it("enforces a per-owner request limit before provider spend", async () => {

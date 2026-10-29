@@ -44,8 +44,10 @@
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
-body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; color: var(--text-1); background: var(--surface-2);
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; color: var(--text-1); background: var(--bg);
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* Mobile first (DESIGN.md §12): on a phone the app fills the screen; from 480px it sits in a phone frame on the stage. */
+@media (min-width: 480px) { body { background: var(--surface-2); } }
 h1, h2, h3, h4 { margin: 0; font-weight: 600; text-wrap: balance; }
 p { margin: 0; text-wrap: pretty; }
 a { color: inherit; text-decoration: none; }
@@ -62,9 +64,13 @@ button { -webkit-tap-highlight-color: transparent; }
 kbd { font: 500 11px/1 var(--font-mono); color: var(--text-3); padding: 2px 5px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--surface); }
 
 /* ───────────── Stage: desktop frame + side panels ───────────── */
-.stage { min-height: 100%; display: grid; place-items: center; padding: 32px 24px; gap: 40px; position: relative; overflow: hidden; }
-.stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: 760px; height: 760px; translate: -50% -50%; pointer-events: none;
+.stage { display: block; height: 100%; padding: 0; gap: 40px; position: relative; overflow: hidden; }
+.stage::before { content: ""; display: none; position: absolute; left: 50%; top: 50%; width: 760px; height: 760px; translate: -50% -50%; pointer-events: none;
   background: radial-gradient(closest-side, rgba(255,210,63,.32), rgba(255,170,61,.14) 45%, rgba(255,154,61,.05) 70%, transparent); }
+@media (min-width: 480px) {
+  .stage { display: grid; place-items: center; height: auto; min-height: 100%; padding: 32px 24px; }
+  .stage::before { display: block; }
+}
 @media (min-width: 960px) { .stage { grid-template-columns: minmax(0, 280px) 390px minmax(0, 300px); justify-content: center; align-items: center; } }
 .side { position: relative; display: none; align-self: center; font-size: 13px; color: var(--text-2); }
 @media (min-width: 960px) { .side { display: grid; gap: 16px; } }
@@ -88,23 +94,23 @@ kbd { font: 500 11px/1 var(--font-mono); color: var(--text-3); padding: 2px 5px;
 .log .empty { border: 0; }
 
 /* The phone */
-.device { position: relative; width: 390px; height: 844px; max-height: calc(100dvh - 64px); border-radius: 46px; background: var(--bg); overflow: hidden;
-  border: 1px solid var(--border-strong); box-shadow: 0 0 0 7px #fff, 0 0 0 8px var(--border-strong), var(--shadow-float); isolation: isolate; }
-@media (max-width: 520px) {
-  body { background: var(--bg); }
-  .stage { display: block; padding: 0; min-height: 0; height: 100%; }
-  .stage::before { display: none; }
-  .device { width: 100%; height: 100dvh; max-height: none; border-radius: 0; border: 0; box-shadow: none; }
-  .screen-in { padding-top: max(12px, env(safe-area-inset-top)); }
-  .statusbar { display: none !important; }
+.device { position: relative; width: 100%; height: 100dvh; border-radius: 0; background: var(--bg); overflow: hidden; isolation: isolate; }
+@media (min-width: 480px) {
+  .device { width: 390px; height: 844px; max-height: calc(100dvh - 64px); border-radius: 46px;
+    border: 1px solid var(--border-strong); box-shadow: 0 0 0 7px #fff, 0 0 0 8px var(--border-strong), var(--shadow-float); }
 }
 .app { position: absolute; inset: 0; display: flex; flex-direction: column; }
-.statusbar { flex: none; height: 44px; padding: 0 30px 0 34px; display: flex; align-items: center; justify-content: space-between; font: 600 14px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+/* The drawn status bar belongs to the phone frame; a real phone has its own. */
+.statusbar { flex: none; height: 44px; padding: 0 30px 0 34px; display: none; align-items: center; justify-content: space-between; font: 600 14px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
 .statusbar .sys { display: flex; gap: 6px; align-items: center; }
 .statusbar svg { width: 15px; height: 15px; stroke-width: 2.2; }
 .screen { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .screen::-webkit-scrollbar { display: none; }
-.screen-in { padding: max(8px, env(safe-area-inset-top)) 16px 24px; display: grid; gap: 16px; align-content: start; }
+.screen-in { padding: max(12px, env(safe-area-inset-top)) 16px 24px; display: grid; gap: 16px; align-content: start; }
+@media (min-width: 480px) {
+  .statusbar { display: flex; }
+  .screen-in { padding-top: max(8px, env(safe-area-inset-top)); }
+}
 
 /* App top bar */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
@@ -249,10 +255,10 @@ kbd { font: 500 11px/1 var(--font-mono); color: var(--text-3); padding: 2px 5px;
 /* ───────────── Raiffy sheet ───────────── */
 .scrim { position: absolute; inset: 0; z-index: 20; background: rgba(20,20,20,.28); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
 .scrim.on { opacity: 1; pointer-events: auto; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 52px; z-index: 21; display: flex; flex-direction: column; background: var(--bg); border-radius: 24px 24px 0 0;
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 12px; z-index: 21; display: flex; flex-direction: column; background: var(--bg); border-radius: 24px 24px 0 0;
   box-shadow: 0 -1px 0 var(--border), 0 -8px 30px rgba(20,20,40,.08); transform: translateY(104%); transition: transform 320ms var(--ease-out); visibility: hidden; }
 .sheet.on { transform: none; visibility: visible; }
-@media (max-width: 520px) { .sheet { top: 12px; } }
+@media (min-width: 480px) { .sheet { top: 52px; } }
 .grab { flex: none; width: 36px; height: 4px; border-radius: 4px; background: var(--border-strong); margin: 8px auto 0; }
 .r-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px 16px; border-bottom: 1px solid var(--border); }
 .r-head .ava-raiffy { width: 30px; height: 30px; box-shadow: 0 0 0 4px rgba(255,210,63,.22); }
@@ -1779,6 +1785,8 @@ kbd { font: 500 11px/1 var(--font-mono); color: var(--text-3); padding: 2px 5px;
   function markTab(n) { document.querySelectorAll('#chips .chip').forEach(function (c, i) { var k = c.querySelector('.tab-kbd'); if (k) k.remove(); if (i === n) c.insertAdjacentHTML('beforeend', '<kbd class="tab-kbd">Tab</kbd>'); }); }
   $('#chips').onclick = function (e) { var c = e.target.closest('[data-chip]'); if (c) send(S.chips[+c.dataset.chip]); };
   var input = $('#r-input');
+  // Touch screens have no Tab key, and the longer hint is cut at phone width (as in chat.html)
+  if (matchMedia('(pointer: coarse)').matches) input.placeholder = 'Ask Raiffy';
   function updateSend() { $('#r-send').disabled = busy || !input.value.trim(); }
   input.oninput = function () { tabIdx = -1; updateSend(); };
   input.onkeydown = function (e) {

@@ -353,7 +353,77 @@ tools:
   - {
       "type": "custom",
       "name": "calculate_scenario",
-      "description": "Run a deterministic calculator; never perform the calculation in prose. The one calculation connected is loan_affordability: an indicative check of whether a loan fits the debt-service limit on the customer's income, with no product rate. Use it when the customer asks whether they can afford or qualify for a loan and has stated their net monthly income, the amount and the term. Pass only figures the customer wrote in this conversation: the host rejects any number they didn't state and returns the inputs it used, the limit's source and the results. It is never a credit decision. Missing inputs return unavailable instead of an estimate.",
+      "description": "Run a deterministic financial calculator over references to validated inputs and catalog records from this turn. Use for repayment costs, savings plans, budgets and product comparisons; never perform the calculation in prose. The host resolves each reference, checks required inputs and returns sourced figures and explicit assumptions for the composer. Missing inputs or an unimplemented calculator return unavailable instead of an estimate invented by the model.",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "calculation": {
+            "type": "string",
+            "enum": [
+              "loan_cost",
+              "savings_plan",
+              "budget_summary",
+              "product_comparison"
+            ]
+          },
+          "inputRefs": {
+            "minItems": 1,
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "calculation",
+          "inputRefs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  - {
+      "type": "custom",
+      "name": "propose_memory_change",
+      "description": "Propose remembering something lasting the customer said about themselves: a goal, a preference, a constraint or a figure about their own finances. Use it when the customer asks you to remember something, or when the route offers this tool because they stated one. customerQuote is their exact words from their current message, and text is the part of that quote worth keeping, copied verbatim with no paraphrase or translation; the host attaches the message, checks both and blocks sensitive details. The customer confirms each proposal in the app before anything is saved, so never say it is saved or remembered. Never propose health, religion, politics, other people's details, identifiers or anything you inferred.",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "goal",
+              "preference",
+              "constraint",
+              "stated_financial"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "customerQuote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "customerQuote"
+        ],
+        "additionalProperties": false
+      }
+    }
+  - {
+      "type": "custom",
+      "name": "check_affordability",
+      "description": "Run the indicative affordability calculator; never perform the calculation in prose. Its one calculation, loan_affordability, is an indicative check of whether a loan fits the debt-service limit on the customer's income, with no product rate. Use it when the customer asks whether they can afford or qualify for a loan and has stated their net monthly income, the amount and the term. Pass only figures the customer wrote in this conversation: the host rejects any number they didn't state and returns the inputs it used, the limit's source and the results. It is never a credit decision. Missing inputs return unavailable instead of an estimate.",
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -399,42 +469,6 @@ tools:
           "netMonthlyIncome",
           "loanAmount",
           "termMonths"
-        ],
-        "additionalProperties": false
-      }
-    }
-  - {
-      "type": "custom",
-      "name": "propose_memory_change",
-      "description": "Propose remembering something lasting the customer said about themselves: a goal, a preference, a constraint or a figure about their own finances. Use it when the customer asks you to remember something, or when the route offers this tool because they stated one. customerQuote is their exact words from their current message, and text is the part of that quote worth keeping, copied verbatim with no paraphrase or translation; the host attaches the message, checks both and blocks sensitive details. The customer confirms each proposal in the app before anything is saved, so never say it is saved or remembered. Never propose health, religion, politics, other people's details, identifiers or anything you inferred.",
-      "input_schema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "goal",
-              "preference",
-              "constraint",
-              "stated_financial"
-            ]
-          },
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "customerQuote": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "kind",
-          "text",
-          "customerQuote"
         ],
         "additionalProperties": false
       }

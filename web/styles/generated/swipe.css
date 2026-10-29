@@ -83,17 +83,31 @@
 .pg-swipe .logo small { font-size: 12px; font-weight: 500; color: #8E8E93; letter-spacing: 0; }
 .pg-swipe .nav-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .pg-swipe .nav .btn { height: 34px; padding: 0 14px; }
-@media (max-width: 860px) { .pg-swipe .nav .btn-ghost { display: none; } }
+.pg-swipe .nav .btn-ghost { display: none; }
+@media (min-width: 860px) { .pg-swipe .nav .btn-ghost { display: inline-flex; } }
 
 /* ───────────── Page layout ───────────── */
-.pg-swipe .page { min-height: 100vh; padding: calc(60px + 64px) 0 96px; }
-.pg-swipe .split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas: "head stage" "guide stage"; column-gap: 48px; row-gap: 32px; align-items: start; }
-.pg-swipe .head { grid-area: head; display: grid; gap: 16px; max-width: 620px; align-self: end; }
-.pg-swipe .stage { grid-area: stage; display: grid; justify-items: center; gap: 20px; }
-.pg-swipe .guide { grid-area: guide; }
-@media (max-width: 860px) {
-  .pg-swipe .page { padding-top: calc(60px + 40px); padding-bottom: 64px; }
-  .pg-swipe .split { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "guide"; row-gap: 32px; }
+/*
+ * Mobile first (DESIGN.md §12): on phones the first screen holds the heading, the card and its Skip and Save buttons
+ * (tighter spacing, a 5:6 card); the guide follows below. From 860px the heading and guide sit beside the deck.
+ */
+.pg-swipe .page { min-height: 100vh; min-height: 100dvh; padding: calc(60px + 16px) 0 64px; }
+.pg-swipe .split { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "guide"; row-gap: 16px; align-items: start; }
+.pg-swipe .head { grid-area: head; display: grid; gap: 10px; max-width: 620px; align-self: end; }
+.pg-swipe .head .lead { font-size: var(--text-sm); line-height: 1.5; }
+.pg-swipe .stage { grid-area: stage; display: grid; justify-items: center; gap: 10px; }
+.pg-swipe .guide { grid-area: guide; margin-top: 16px; }
+@media (min-width: 640px) {
+  .pg-swipe .page { padding-top: calc(60px + 40px); }
+  .pg-swipe .split { row-gap: 32px; }
+  .pg-swipe .head { gap: 16px; }
+  .pg-swipe .head .lead { font-size: var(--text-lead); line-height: var(--lh-lead); }
+  .pg-swipe .stage { gap: 20px; }
+  .pg-swipe .guide { margin-top: 0; }
+}
+@media (min-width: 860px) {
+  .pg-swipe .page { padding: calc(60px + 64px) 0 96px; }
+  .pg-swipe .split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas: "head stage" "guide stage"; column-gap: 48px; }
 }
 
 /* "Your guide": the saved list, a rules-list style card */
@@ -111,7 +125,8 @@
 .pg-swipe .foot-note { margin-top: 12px; }
 
 /* ───────────── Deck ───────────── */
-.pg-swipe .deck-wrap { position: relative; width: min(360px, 100%); aspect-ratio: 3 / 4; margin-bottom: 20px; }  /* margin leaves room for the peeking cards */
+.pg-swipe .deck-wrap { position: relative; width: min(360px, 100%); aspect-ratio: 5 / 6; margin-bottom: 14px; }  /* margin leaves room for the peeking cards */
+@media (min-width: 640px) { .pg-swipe .deck-wrap { aspect-ratio: 3 / 4; margin-bottom: 20px; } }
 .pg-swipe .deck { position: absolute; inset: 0; border-radius: var(--radius-card); }
 .pg-swipe .deck:focus-visible { outline: 2px solid var(--ink); outline-offset: 8px; box-shadow: 0 0 0 12px rgba(255,210,63,.25); }
 
@@ -170,7 +185,10 @@
 .pg-swipe .keys { display: flex; gap: 14px; font-size: 12px; color: var(--text-3); }
 .pg-swipe .keys kbd { font: 500 11px/1 var(--font-mono); padding: 3px 6px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); margin-right: 6px; }
 @media (hover: none) { .pg-swipe .keys { display: none; } }
-@media (max-width: 380px) { .pg-swipe .controls { width: min(360px, 100%); } .pg-swipe .controls .btn:not(.btn-undo) { flex: 1; min-width: 0; } }
+/* Phones: Skip and Save share the card's width; from 480px they keep their own width */
+.pg-swipe .controls { width: min(360px, 100%); }
+.pg-swipe .controls .btn:not(.btn-undo) { flex: 1; min-width: 0; }
+@media (min-width: 480px) { .pg-swipe .controls { width: auto; } .pg-swipe .controls .btn:not(.btn-undo) { flex: none; min-width: 128px; } }
 
 /* ───────────── Vignette parts (from raiffy.html) ───────────── */
 .pg-swipe .bloom { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * 1.6); height: calc(var(--size) * 1.6); translate: -50% -50%;
@@ -274,9 +292,12 @@
   box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 0 4px rgba(255,210,63,.3); }
 .pg-swipe .v-note .nt-foot { position: absolute; right: 14px; bottom: 11px; max-width: 128px; text-align: right; font-size: 11px; line-height: 1.35; color: var(--text-3); }
 
-@media (max-width: 480px) {
-  .pg-swipe .sc-body { padding: 16px 20px 18px; }
-  .pg-swipe .v-opts .v-opt.dim, .pg-swipe .v-stmt .line:nth-child(n+5) { display: none; }
+/* Phones: a tighter card body, and the vignettes drop their background extras */
+.pg-swipe .sc-body { padding: 16px 20px 18px; }
+.pg-swipe .v-opts .v-opt.dim, .pg-swipe .v-stmt .line:nth-child(n+5) { display: none; }
+@media (min-width: 480px) {
+  .pg-swipe .sc-body { padding: 20px 24px 22px; }
+  .pg-swipe .v-opts .v-opt.dim, .pg-swipe .v-stmt .line:nth-child(n+5) { display: grid; }
 }
 
 /* ───────────── Motion (decorative only, gated) ───────────── */
