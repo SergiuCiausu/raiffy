@@ -432,9 +432,10 @@
 .pg-landing .ctrl output { font: 600 15px/1 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .pg-landing .range { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; margin: 0; cursor: pointer; }
 .pg-landing .range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px;
-  background: linear-gradient(to right, var(--ink) 0 var(--p, 30%), #E9E6DE var(--p, 30%)); }
+  /* The fill is yellow light, with a 1px amber edge so it reads on the light track */
+  background: linear-gradient(to right, var(--accent-b) 0 var(--p, 30%), transparent var(--p, 30%)) bottom / 100% 1px no-repeat, linear-gradient(to right, var(--accent-a) 0 var(--p, 30%), #E9E6DE var(--p, 30%)); }
 .pg-landing .range::-moz-range-track { height: 4px; border-radius: 4px; background: #E9E6DE; }
-.pg-landing .range::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--ink); }
+.pg-landing .range::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--accent-a); box-shadow: inset 0 -1px 0 var(--accent-b); }
 .pg-landing .range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: #fff;
   border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); transition: box-shadow 150ms ease, transform 160ms var(--ease-out); }
 .pg-landing .range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid rgba(20,20,20,.18); box-shadow: 0 2px 6px rgba(0,0,0,.12); }

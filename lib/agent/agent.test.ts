@@ -4,6 +4,9 @@ import { AUDIENCES, buildJevRequest, COMPLEXITIES, INQUIRIES, jevResponseSchema,
 import { memoryProposalSchema, scoreMemoryCandidate, selectUserMemories } from "./memory";
 import { AGENT_TOOLS } from "./prompt";
 import { COLLECTIONS, planAgentRoute, TOOLS, type RouteContext } from "./route";
+import { scoreRouting } from "./routing-eval";
+import { bankingIntent } from "./confidence";
+import { routeResponse } from "./composer";
 
 function choice<T extends Record<string, string>>(criteria: T, selected: keyof T & string, confidence = 0.95) {
   const labels = Object.keys(criteria);
@@ -12,6 +15,14 @@ function choice<T extends Record<string, string>>(criteria: T, selected: keyof T
     type: "choice" as const, choice: selected, confidence,
     probabilities: Object.fromEntries(labels.map((label) => [label, label === selected ? top : (1 - top) / (labels.length - 1)])),
   };
+}
+/** An inquiry distribution with the given probabilities and the rest spread evenly. */
+function spread(p: Partial<Record<keyof typeof INQUIRIES, number>>) {
+  const labels = Object.keys(INQUIRIES) as (keyof typeof INQUIRIES)[];
+  const rest = (1 - Object.values(p).reduce((a, b) => a + b, 0)) / (labels.length - Object.keys(p).length);
+  const probabilities = Object.fromEntries(labels.map(l => [l, p[l] ?? rest]));
+  const selected = labels.reduce((a, b) => probabilities[b]! > probabilities[a]! ? b : a);
+  return { type: "choice" as const, choice: selected, confidence: (probabilities[selected]! - 1 / labels.length) / (1 - 1 / labels.length), probabilities };
 }
 function response() {
   return {
@@ -87,14 +98,65 @@ describe("backend route policy", () => {
   });
 
   it("clarifies low confidence without paying for a generation call", () => {
-    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "negotiation", 0.5);
+    const raw = response(); raw.answers.inquiry = spread({ negotiation: 0.3, product_comparison: 0.25, other: 0.2 });
     const plan = planAgentRoute(raw, full);
-    expect(plan.handler).toBe("clarify"); expect(plan.model).toBeNull(); expect(plan.collections).toEqual([]);
+    expect(plan).toMatchObject({ handler: "clarify", reason: "low_route_confidence", model: null, collections: [] });
   });
 
-  it("never switches the authorized track from a classifier label", () => {
-    const raw = response(); raw.answers.audience = choice(AUDIENCES, "business");
-    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "confirm_track_before_access", track: "personal", collections: [] });
+  it("routes a clear leader below the confidence floor, and offers close labels as choices", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "negotiation", 0.5);
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "orchestrator", inquiry: "negotiation", routingBasis: "margin" });
+    raw.answers.inquiry = spread({ negotiation: 0.45, product_comparison: 0.42 });
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "ambiguous_inquiry", candidates: ["negotiation", "product_comparison"], inquiry: null });
+  });
+
+  it("lets a pending question or a tapped choice set the pattern, but never skips the risk checks", () => {
+    const raw = response(); raw.answers.inquiry = spread({ other: 0.9 });
+    expect(planAgentRoute(raw, full, AGENT_POLICY, { inquiry: "affordability", basis: "pending" })).toMatchObject({ inquiry: "affordability", routingBasis: "pending", handler: "orchestrator" });
+    raw.answers.hardship.noul = 0.6;
+    expect(planAgentRoute(raw, full, AGENT_POLICY, { inquiry: "affordability", basis: "choice" }).handler).toBe("hardship");
+  });
+
+  it("reads clear banking requests in English and Romanian, and nothing from small talk", () => {
+    expect(bankingIntent("i want to take a credit of 50k euro")).toEqual(["purchase_goal", "affordability", "cash_shortfall"]);
+    expect(bankingIntent("Vreau un împrumut de 50.000 lei")[0]).toBe("purchase_goal");
+    expect(bankingIntent("I need a loan")[0]).toBe("purchase_goal");
+    expect(bankingIntent("vreau să economisesc")[0]).toBe("saving_goal");
+    expect(bankingIntent("Can I refinance my mortgage?")[0]).toBe("debt_refinancing");
+    expect(bankingIntent("De ce am plătit comision de 5 lei?")[0]).toBe("fees_statements");
+    expect(bankingIntent("Hello, how are you?")).toEqual([]);
+    expect(bankingIntent("Is my credit card accepted abroad?")[0]).toBe("purchase_goal"); // a hint only; Jev decides first
+  });
+
+  it("turns a confident 'other' into choices when the message clearly asks for a banking product", () => {
+    const raw = response(); raw.answers.inquiry = spread({ other: 0.92, purchase_goal: 0.05, cash_shortfall: 0.02 });
+    const hinted = planAgentRoute(raw, { ...full, intentHints: bankingIntent("i want to take a credit of 50k euro") });
+    expect(hinted).toMatchObject({ handler: "clarify", inquiry: null, reason: "ambiguous_inquiry", candidates: ["purchase_goal", "affordability", "cash_shortfall"] });
+    // Nothing recognisable: still choices (Jev's top labels), but no fallback call
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "clarify", reason: "unknown_inquiry", candidates: ["purchase_goal", "cash_shortfall", expect.any(String)] });
+  });
+
+  it("gives solution answers a larger passage budget than detail or compare answers", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "purchase_goal"); raw.answers.scope = choice(SCOPES, "solution");
+    expect(planAgentRoute(raw, full).limits.publicChunks).toBe(AGENT_POLICY.retrieval.maxPublicChunksSolution);
+    raw.answers.scope = choice(SCOPES, "compare");
+    expect(planAgentRoute(raw, full).limits.publicChunks).toBe(AGENT_POLICY.retrieval.maxPublicChunks);
+  });
+
+  it("does not clarify over an unsure scope or complexity", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "product_explanation");
+    raw.answers.scope = choice(SCOPES, "compare", 0.2); raw.answers.complexity = choice(COMPLEXITIES, "simple", 0.1);
+    expect(planAgentRoute(raw, full)).toMatchObject({ scope: "detail", handler: "orchestrator", model: AGENT_POLICY.complexModel });
+  });
+
+  it("never switches the authorized track from a classifier label, and never asks personal or business", () => {
+    for (const [audience, confidence] of [["business", 0.95], ["business", 0.4], ["personal", 0.3]] as const) {
+      const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "product_comparison"); raw.answers.audience = choice(AUDIENCES, audience, confidence);
+      const plan = planAgentRoute(raw, { ...full, requestedBanks: ["bcr"] });
+      expect(plan.track).toBe("personal");
+      expect(plan.handler).not.toBe("clarify");
+      expect(plan.reason).not.toBe("confirm_track_before_access");
+    }
   });
 
   it("routes an explicitly named competitor to its collection without broadening private access", () => {
@@ -135,6 +197,51 @@ describe("backend route policy", () => {
     const plan = planAgentRoute(response(), { ...full, availableTools: ["get_product_terms"] });
     expect(plan.collections).toEqual([]);
     expect(plan.unavailable).toContain("search_knowledge");
+  });
+});
+
+describe("asking for a person at the bank", () => {
+  const ASK = "How can I book a meeting with a Raiffeisen advisor?";
+
+  it("recognises a request for a person in English and Romanian, and not a question about advisers", () => {
+    for (const m of [ASK, "Can I talk to a person?", "I'd like to speak with a specialist", "Schedule a call with someone please",
+      "Vreau o programare la bancă", "Aș vrea să vorbesc cu un consilier"]) expect(bankingIntent(m), m).toContain("human_contact");
+    for (const m of ["What does a financial advisor do?", "Get the call log for my card", "What are the fees for calls abroad?", "I need a loan"])
+      expect(bankingIntent(m), m).not.toContain("human_contact");
+  });
+
+  it("routes Jev's own human_contact label to the fixed contact answer", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "human_contact"); raw.answers.scope = choice(SCOPES, "detail");
+    expect(planAgentRoute(raw, full)).toMatchObject({ handler: "human_contact", inquiry: "human_contact", reason: "human_contact_requested", model: null });
+  });
+
+  it("settles the split that showed the 'Which of these is closest?' menu, when the message plainly asks for a person", () => {
+    // The screenshot: Jev split the advisor question across patterns, so Raiffy asked which one was meant
+    const raw = response(); raw.answers.inquiry = spread({ professional_advice: 0.34, listing: 0.3, purchase_goal: 0.26 });
+    expect(planAgentRoute(raw, full).handler).toBe("clarify");
+    expect(planAgentRoute(raw, { ...full, intentHints: bankingIntent(ASK) })).toMatchObject({ handler: "human_contact", candidates: [] });
+    // A confident "other" with the same words too
+    const other = response(); other.answers.inquiry = spread({ other: 0.92, listing: 0.05 });
+    expect(planAgentRoute(other, { ...full, intentHints: bankingIntent(ASK) }).handler).toBe("human_contact");
+  });
+
+  it("never lets the keyword override a confident pattern, a risk or a tapped choice", () => {
+    const loan = response(); loan.answers.inquiry = choice(INQUIRIES, "purchase_goal"); loan.answers.scope = choice(SCOPES, "solution");
+    expect(planAgentRoute(loan, { ...full, intentHints: bankingIntent("Can I talk to someone about a 30,000 lei loan?") }).inquiry).toBe("purchase_goal");
+    const fraud = response(); fraud.answers.fraud = { type: "noul", noul: 0.9 };
+    expect(planAgentRoute(fraud, { ...full, intentHints: bankingIntent("Someone took money from my account, can I talk to a person?") }).handler).toBe("fraud");
+    const split = response(); split.answers.inquiry = spread({ professional_advice: 0.34, listing: 0.3, purchase_goal: 0.26 });
+    expect(planAgentRoute(split, { ...full, intentHints: bankingIntent(ASK) }, AGENT_POLICY, { inquiry: "listing", basis: "choice" }).inquiry).toBe("listing");
+  });
+
+  it("answers with fixed text that hands over to the booking card, books nothing itself and has no figures", () => {
+    const raw = response(); raw.answers.inquiry = choice(INQUIRIES, "human_contact");
+    const answer = routeResponse(planAgentRoute(raw, full));
+    expect(answer.model).toBe("deterministic");
+    expect(answer.text).toContain("nothing is booked until you press Book call");
+    expect(answer.text).toContain("isn't financial advice or a credit decision");
+    expect(answer.text).not.toMatch(/\d/);
+    expect(answer.text).not.toMatch(/\b(you're booked|is booked for|scheduled for|confirmed for)\b/i);
   });
 });
 
@@ -222,4 +329,14 @@ it("exposes only specific custom tool contracts without a user selector or gener
     expect(tool.input_schema.properties).not.toHaveProperty("ownerKey");
     expect(tool.input_schema.properties).not.toHaveProperty("userId");
   }
+});
+
+describe("routing eval scoring", () => {
+  it("counts a confident wrong pattern separately from a clarifying question", () => {
+    const right = response();
+    const wrong = response(); wrong.answers.inquiry = choice(INQUIRIES, "product_comparison");
+    const unsure = response(); unsure.answers.inquiry = spread({ negotiation: 0.3, product_comparison: 0.25, other: 0.2 });
+    const s = scoreRouting([right, wrong, unsure].map(r => ({ case: { message: "Can you match BT?", inquiry: "negotiation" as const }, response: r })));
+    expect(s).toMatchObject({ cases: 3, routed: 2, correct: 1, wrongRouted: 1, clarified: 1, top1: 2, family: 3 });
+  });
 });

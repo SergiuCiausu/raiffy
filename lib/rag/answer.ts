@@ -62,6 +62,8 @@ export const ragAnswerSchema = z.object({
   }),
   model: z.string(),
   promptVersion: z.string(),
+  /** Cards the model filled through an extra presentation tool, already checked by the caller's validator. */
+  cards: z.array(z.unknown()).optional(),
   /** The searches the agent ran, in order. */
   searches: z.array(z.object({
     query: z.string(),
@@ -97,6 +99,20 @@ export function citedSegments(content: readonly BetaContentBlock[]): CitedSegmen
 }
 
 /** Turn cited segments into answer text, per-segment source ids and one source per cited page. */
+/** Adds a source entry for each URL a card cites that the text did not, so every card figure has a source chip. */
+export function addCardSources(sources: readonly RagSource[], urls: readonly string[], hits: readonly Citable[]): RagSource[] {
+  const out = [...sources];
+  for (const url of urls) {
+    if (out.some(s => s.url === url)) continue;
+    const used = hits.filter(h => h.url === url);
+    const hit = used[0];
+    if (!hit) continue;
+    out.push({ id: `src-${out.length + 1}`, url, title: hit.label, collectedOn: hit.collectedAt.slice(0, 10), sectionType: hit.sectionType,
+      ...(hit.docType ? { docType: hit.docType } : {}), chunkIds: [...new Set(used.map(h => h.chunkId))] });
+  }
+  return out;
+}
+
 export function assembleCitations(segments: readonly CitedSegment[], hits: readonly Citable[]) {
   const sources: RagSource[] = [];
   const idByUrl = new Map<string, string>();
@@ -134,7 +150,11 @@ export function assembleCitations(segments: readonly CitedSegment[], hits: reado
  * This is not a verifier of financial meaning, units, product identity or semantic entailment.
  * Keep the question argument for compatibility with existing callers.
  */
-export function checkNumbers(segments: readonly CitedSegment[], hits: readonly Citable[], _question: string) {
+/**
+ * `customerFigures` are numbers the customer stated as inputs (an amount, a term, income), as the code parsed them, never
+ * rates. The answer may repeat them in any segment; the question text itself never establishes a number.
+ */
+export function checkNumbers(segments: readonly CitedSegment[], hits: readonly Citable[], _question: string, customerFigures: readonly string[] = []) {
   const ungroundedNumbers: string[] = [];
   let uncitedSegmentsWithNumbers = 0;
   let invalidCitationIndexes = 0;
@@ -145,9 +165,9 @@ export function checkNumbers(segments: readonly CitedSegment[], hits: readonly C
       if (hit) citedHits.push(hit);
       else invalidCitationIndexes++;
     }
-    const allowed = citedHits.flatMap((hit) => [hit.text, hit.collectedAt.slice(0, 10)]);
+    const allowed = [...citedHits.flatMap((hit) => [hit.text, hit.collectedAt.slice(0, 10)]), ...customerFigures];
     ungroundedNumbers.push(...findUngroundedNumbers(segment.text, allowed));
-    if (!citedHits.length && findUngroundedNumbers(segment.text, []).length > 0) uncitedSegmentsWithNumbers++;
+    if (!citedHits.length && findUngroundedNumbers(segment.text, customerFigures).length > 0) uncitedSegmentsWithNumbers++;
   }
   return {
     ungroundedNumbers,

@@ -119,11 +119,12 @@ Use the existing `Answer` envelope and block recipes rather than asking the mode
 
 ## Next implementation steps
 
-1. Wire real auth and PII screening before either provider sees customer data. The Jev transport and timeout fallback are implemented but disabled; evaluate the labeled routing set with an explicitly enabled provider configuration and calibrate thresholds.
-2. Connect the current public RAG action behind `search_knowledge`; retain source relevance and freshness checks. Repair the current number guard: numerical token membership does not bind a figure to its meaning or cited source.
-3. Normalize the product catalog and ingest dated competitor documents. Implement the deterministic calculators and comparison engine.
-4. Implement expense aggregates with synthetic profiles for the demo, clearly marked synthetic. Connect real read-only account data only through the authenticated adapter.
-5. Accept real auth/privacy integration and UI confirmation for the implemented memory lifecycle. Add relevance-ranked retrieval and coordinate future embeddings/caches with deletion before enabling private memory in the capability registry.
-6. Connect the composer and evaluator, run the classification and retrieval evals, and measure answer accuracy, safety overrides, latency and actual token cost. Only then evaluate whether Haiku or Opus improves a particular route.
+1. Pattern confidence and required inputs are implemented (policy `raiffy-agent@3`, see `pipeline.md` → Pattern confidence and Inputs gate): per-label floors, a margin rule, a Haiku fallback restricted to candidate labels, choice chips, structured `recentContext`, `answers_pending`, and an inputs request for missing required inputs. Record a live run with `pnpm agent:eval-routing --live` and set `perInquiry`, `routingMargin` and `candidatePair` from it.
+2. Wire real auth and PII screening before either provider sees customer data. The Jev transport and timeout fallback are implemented but disabled; evaluate the labeled routing set with an explicitly enabled provider configuration and calibrate thresholds.
+3. Connect the current public RAG action behind `search_knowledge`; retain source relevance and freshness checks. Repair the current number guard: numerical token membership does not bind a figure to its meaning or cited source.
+4. Normalize the product catalog and ingest dated competitor documents. Implement the deterministic calculators and comparison engine.
+5. Implement expense aggregates with synthetic profiles for the demo, clearly marked synthetic. Connect real read-only account data only through the authenticated adapter.
+6. Accept real auth/privacy integration and UI confirmation for the implemented memory lifecycle. Add relevance-ranked retrieval and coordinate future embeddings/caches with deletion before enabling private memory in the capability registry.
+7. Connect the composer and evaluator, run the classification and retrieval evals, and measure answer accuracy, safety overrides, latency and actual token cost. Only then evaluate whether Haiku or Opus improves a particular route.
 
 The runtime choice can be changed after the team's preference is confirmed. The current foundation assumes Convex plus Messages API, and memory proposals from explicit requests or Jev candidates, each confirmed by the customer; it does not select an EU hosting arrangement, configure Clerk, deploy a managed agent or enable private persistence.

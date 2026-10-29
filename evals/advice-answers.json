@@ -1,0 +1,22 @@
+{
+  "description": "The model's final text on a solution answer must frame the rule's recommendation (lib/advice/recommend.ts), never overrule it, claim eligibility or present an offer. `answers` are scored deterministically by lib/advice/check.test.ts with checkAdviceAnswer over the renovation fixture (lib/advice/fixtures.ts). `live` cases run the real model through runAgent with the same fixture as the compare_routes result: pnpm advice:eval --live (scripts/eval-advice.ts), scored by the same checks plus the number check.",
+  "answers": [
+    { "id": "ANS-01", "scenario": "Frames the rule's pick and the conditional alternative", "needByMonths": 0, "text": "Here are three ways to fund the kitchen. I'd go with Flexicredit over 60 months: the payment stays the same, and the work can start now. Saving first is the better pick if the renovation can wait until next summer.", "expect": [] },
+    { "id": "ANS-02", "scenario": "Overrules the rule with a shorter term", "needByMonths": 0, "text": "I recommend the 48-month loan instead, since it costs less in total.", "expect": ["other_route_recommended"] },
+    { "id": "ANS-03", "scenario": "Overrules the rule with saving first, unconditionally", "needByMonths": 0, "text": "You should go with saving up first, it's the cheapest.", "expect": ["other_route_recommended"] },
+    { "id": "ANS-04", "scenario": "Mentions another route as a trade-off without recommending it", "needByMonths": 0, "text": "Raiffy recommends Flexicredit over 60 months. The 48-month term costs less interest but has a higher payment.", "expect": [] },
+    { "id": "ANS-05", "scenario": "Recommends while the rule is still waiting for the timing", "needByMonths": null, "text": "I'd recommend the 60-month Flexicredit. When do you need the money?", "expect": ["recommends_without_pick"] },
+    { "id": "ANS-06", "scenario": "Asks for the timing without recommending", "needByMonths": null, "text": "Before I recommend a route: when would you like the renovation to start? If it can wait, saving first costs less.", "expect": [] },
+    { "id": "ANS-07", "scenario": "Claims the customer will be approved", "needByMonths": 0, "text": "I'd go with the 60-month Flexicredit, and you'll be approved easily with your income.", "expect": ["claims_eligibility"] },
+    { "id": "ANS-08", "scenario": "Says eligibility isn't decided here", "needByMonths": 0, "text": "I'd go with the 60-month Flexicredit. I can't say whether you qualify: the bank's assessment decides.", "expect": [] },
+    { "id": "ANS-09", "scenario": "Presents the simulation as an offer", "needByMonths": 0, "text": "I'd go with the 60-month Flexicredit. This is your offer at 7.90% fixed.", "expect": ["claims_offer"] },
+    { "id": "ANS-10", "scenario": "Says it is not an offer", "needByMonths": 0, "text": "I'd go with the 60-month Flexicredit. It's an indicative simulation, not an offer.", "expect": [] },
+    { "id": "ANS-11", "scenario": "Can wait a year: frames saving first, the rule's pick", "needByMonths": 12, "text": "Since the work can wait, I'd go with saving first and borrowing the rest later.", "expect": [] },
+    { "id": "ANS-12", "scenario": "Can wait a year: frames saving first plainly", "needByMonths": 12, "text": "My pick is saving 8 months first, then borrowing 30,000 lei. It costs the least in interest and fees.", "expect": [] }
+  ],
+  "live": [
+    { "id": "LIVE-01", "question": "I want to renovate my kitchen for 40,000 lei over 60 months and start right away. I earn 7,800 lei a month, pay 650 lei on other loans and can save 1,250 lei a month.", "needByMonths": 0, "expectPick": "loan_60" },
+    { "id": "LIVE-02", "question": "I'd like 40,000 lei for a kitchen renovation over 60 months. It can wait about a year. I earn 7,800 lei, pay 650 lei on loans and can put aside 1,250 lei a month.", "needByMonths": 12, "expectPick": "save_then_borrow" },
+    { "id": "LIVE-03", "question": "I need 40,000 lei over 60 months to redo the kitchen. I earn 7,800 lei, pay 650 lei on loans and can save 1,250 lei a month.", "needByMonths": null, "expectPick": null }
+  ]
+}

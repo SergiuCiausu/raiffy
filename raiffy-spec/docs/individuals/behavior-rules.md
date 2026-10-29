@@ -29,7 +29,8 @@ Source codes: `EC` = edge-cases reference doc, `Auth` = regulations-by-authority
 
 | Solution | Source |
 | --- | --- |
-| Ask for missing loan details (amount, term, purpose) in one short question | EC · Ambiguity |
+| Ask for missing required inputs in one turn: one short line plus an inputs card with at most 3 fields and a "Skip, show typical examples" option, for at most 2 rounds. Never ask for optional inputs or for anything account data already supplies (`answer-patterns.md` → Inputs per pattern) | EC · Ambiguity |
+| When two patterns are equally likely, ask which one with a chip for each, never a generic "what do you mean?" | EC · Ambiguity |
 | Ask "cheaper than which offer?" when there's no reference | EC · Ambiguity |
 | Say when a product isn't offered and suggest the closest active one | EC · Ambiguity |
 | Without memory, say so and ask for the key details | EC · Ambiguity |

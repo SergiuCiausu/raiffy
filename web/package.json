@@ -9,8 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "echo Playwright e2e is disabled, see playwright.config.ts",
     "sync:prototypes": "node scripts/sync-prototypes.mjs",
+    "audit:mobile": "node scripts/audit-mobile.mjs",
     "remotion:studio": "remotion studio remotion/index.ts",
     "remotion:render": "remotion render remotion/index.ts"
   },

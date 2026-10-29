@@ -30,7 +30,8 @@ Every block shares a base: `{ type, id, status: "ok" | "partial" | "unavailable"
 | Block | Key fields | Used for |
 | --- | --- | --- |
 | `routes` | `routes[]`: route, monthly, total, dae, timeToGoal, mainRisk, commissions[], hasNoCommissions, eligible, ineligibleReason, isBestFit, whyBestFit | Financing route cards, the hero component |
-| `inputs` | sliders[]: key, min, max, step, value, unit; questions[] for missing details | Live sliders and clarifying questions |
+| `inputs` | sliders[]: key, min, max, step, value, unit | Live sliders on inputs already known |
+| `inputs_request` | pattern, round, fields[]: key, label, question, hint?, kind (amount, months, percent, choice, options), unit?, min?, max?, options[]? | Asking for missing **required** inputs before an answer: at most 3 fields, at most 2 rounds, never optional inputs. Comes with a `skip_inputs` action. Shape: `inputFieldSchema` in `lib/agent/inputs.ts` |
 | `affordability` | dti, cap, stressedDti, monthlyBuffer, incomeBasis | Affordability gauge |
 | `costBreakdown` | items[]: label, monthly or amount, kind (loan, interest, commission, insurance, tax, running), isEstimate; total | True cost of ownership, fees explained |
 | `timeline` | start, goalDate, milestones[], routes[]: route, reachDate | Saving goals, life-event steps |
@@ -68,6 +69,10 @@ Each block renders as one signature component. The visual reference is `DESIGN.m
 
 Supporting components: `debtMap` (debt list with rate and payoff bars), `keyFacts` (label and value rows), `checklist`, `callout` (colored by severity), `ticket` and `handoff` (status cards).
 
+**Answer cards from the model (implemented now).** Until the catalog and calculators feed the composer, the answer model fills five card blocks as JSON through a `show_cards` tool: `comparison` (named options, fact rows, optional recommendation), `routes` (2 to 4 routes, one recommended with reasons and when another fits better), `keyFacts`, `checklist` and `handoff`. Schema and checks: `lib/agent/blocks.ts`. Every number on a card must be copied from one search result, named by its URL in `source`, or be the customer's own figure; anything else is dropped from the card before it is shown, and a card left empty is dropped. The model never calculates. Cards travel only with an answer that passed the text checks; their sources join the answer's source chips. The live chat renders them in `web/components/agent/AnswerCards.tsx` with the demo card classes (`.gcard`, `.cmp`, `.opts`/`.opt`, `.rec-badge`, `.rec-why`, `.kv`, `.ck`, `.handoff`). A sixth card, `simulation`, takes one cited loan interest rate (never the APR), the product and its source. The chat computes the monthly payment, total repaid and interest with the annuity formula as the customer moves the amount and term; it starts from the customer's own amount and term, or from a labelled example. When the source gives a rate range, the card shows payments at both ends, never one end alone, and `rateFor` says when the rates belong to a different product than the one asked about. With the customer's own income (and other monthly payments), it shows the payment as a share of income; a maximum debt ratio appears only when a cited result states it, framed as the published limit, never as an eligibility verdict. Income and obligations stay in the card and never in traces or memory. **Server fallback:** when the model answers without calling `show_cards`, `lib/agent/cardFallback.ts` guesses one card from the checked answer: a `checklist` when the customer asks for documents or steps and the answer has a cited list; a `simulation` for loan patterns with a cited interest rate; or `keyFacts` (titled "Savings options" for pattern 5) for patterns 5, 6, 7 and 12 from two or more bold-labelled list items with cited figures. The fallback never invents a recommendation, so it never makes a `routes` card. A list item that a card shows (matched by its name or bold label) is left out of the answer text, so nothing appears twice. The guess passes the same `checkCards` grounding, so an unsupported guess shows no card.
+
+**Reply actions.** Besides follow-ups, two actions carry a structured reply back to the server with their text: `choose` (`inquiry`) picks one of the patterns Raiffy offered when it couldn't tell them apart, and `skip_inputs` answers without the missing inputs, using typical examples labelled as examples and no recommendation. A submitted `inputs_request` sends its values the same way. The server accepts a choice only if it was offered on the previous turn, and values only for the fields it asked, within their ranges.
+
 ## Block recipes per answer pattern (individuals)
 
 The composer uses these default orders; blocks with no data are left out.
@@ -85,7 +90,9 @@ The composer uses these default orders; blocks with no data are left out.
 | 9. Cash shortfall | routes, affordability, callout |
 | 10. Problem or complaint | callout, ticket, handoff |
 | 11. Negotiation and counter-offer | evidenceUpload (until confirmed), comparison, counterOffer, affordability, callout (escalation status) |
+| 12. List and overview | text with a bullet list (up to 8 items); checklist for documents or steps |
 | Hardship or crisis mode | callout, checklist, handoff (no product blocks) |
+| Missing required inputs (any pattern) | inputs_request only; the pattern's blocks follow once the inputs are known |
 | Freeform | keyFacts or text only |
 
 ## Premium details

@@ -30,6 +30,8 @@
   --ok: #2E7D4F;         /* checks only */
   --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0;
   --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12);
+  --border-hover: rgba(20,20,20,.24); --surface-quiet: #FBFAF8; /* past and finished items, row hover */
+  --flag-bg: #FFF8DC; --flag-border: rgba(200,150,20,.3);       /* waiting on someone: flagged replies, unconfirmed meetings */
   --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
   --shadow-card: 0 1px 2px rgba(0,0,0,.04); --shadow-float: 0 8px 30px rgba(20,20,40,.08);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -83,7 +85,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .ava-raiffy svg { width: 11px; height: 11px; stroke-width: 2.2; }
 .ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
   background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
-.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
 .pill svg { width: 11px; height: 11px; }
 .pill.amber { --c: #8A6A00; background: #FFF3C4; }
@@ -106,7 +108,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .nav a svg { width: 15px; height: 15px; color: var(--text-3); flex: none; }
 .nav a span { flex: 1; }
 .nav a small { font: 500 11px var(--font-mono); color: var(--text-3); }
-.nav a small.due { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 10.5px; }
+.nav a small.due { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--ink); color: #fff; font-size: 11px; }
 .nav a[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
 .nav a[aria-current="page"] svg { color: var(--text-1); }
 .nav .later { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px; font-size: 12.5px; color: var(--text-3); }
@@ -114,13 +116,14 @@ button, input, textarea, select { font: inherit; color: inherit; }
 @media (hover: hover) and (pointer: fine) { .nav a:not([aria-current="page"]):hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
 .me { display: grid; gap: 10px; padding: 12px 6px 0; border-top: 1px solid var(--border); }
 .me-row { display: flex; align-items: center; gap: 10px; }
+.back-chat { width: 100%; }
 .me-row div { flex: 1; min-width: 0; line-height: 1.3; }
 .me-row b { display: block; font-size: 13px; font-weight: 500; }
 .me-row small { font-size: 11.5px; color: var(--text-3); }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(20,20,20,.05); }
 .seg button { height: 28px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
-.demo-note { font-size: 10.5px; color: var(--text-3); line-height: 1.4; }
+.demo-note { font-size: 11px; color: var(--text-3); line-height: 1.4; }
 
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .top { flex: none; display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
@@ -140,9 +143,18 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 /* Chips (filters) */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Phone first (§12): one row that scrolls sideways, bleeding to the screen edge, with room above and below for
+   44px hit areas and a fade on the edge that has more (chipEdges()); from 640px the chips wrap */
+.toolbar .chips { display: flex; flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; gap: 8px; margin: 0 -16px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding-inline: 16px; }
+.toolbar .chips::-webkit-scrollbar { display: none; }
+.toolbar .chips > * { flex: none; scroll-snap-align: start; }
+.toolbar .chips.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+.toolbar .chips.more-l { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px); mask-image: linear-gradient(to right, transparent, #000 24px); }
+.toolbar .chips.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+@media (min-width: 640px) { .toolbar .chips { flex: initial; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; } }
 .qbtn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
   cursor: pointer; font-size: 12px; color: var(--text-2); transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
-.qbtn small { font: 500 10.5px var(--font-mono); color: var(--text-3); }
+.qbtn small { font: 500 11px var(--font-mono); color: var(--text-3); }
 .qbtn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .qbtn[aria-pressed="true"] small { color: rgba(255,255,255,.6); }
 @media (hover: hover) and (pointer: fine) { .qbtn:not([aria-pressed="true"]):hover { border-color: rgba(20,20,20,.24); color: var(--text-1); } }
@@ -172,6 +184,35 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .tbl .t-sub { display: block; font-size: 11.5px; color: var(--text-3); }
 .tbl a.t-main { text-decoration: none; }
 .tbl a.t-main:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Phone first (§12): each row is a stacked card, the first cell as its title and the others label over value
+   (labelCells() copies the column headers into data-label); from 640px it's the table. The schedule stays a table. */
+.tbl:not(.sched) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tbl:not(.sched) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.tbl:not(.sched) tr:last-child { border-bottom: 0; }
+.tbl:not(.sched) td { min-width: 0; padding: 0; border: 0; }
+.tbl:not(.sched) td:first-child, .tbl:not(.sched) td[colspan] { grid-column: 1 / -1; }
+.tbl:not(.sched) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11.5px; color: var(--text-3); }
+.tbl:not(.sched) .r { text-align: left; }
+.tbl:not(.sched) td.mono { white-space: nowrap; }
+.tbl:not(.sched) tr.is-new { box-shadow: inset 3px 0 0 var(--accent-a); }
+.tbl:not(.sched) tr.is-new td:first-child { box-shadow: none; }
+.tbl:not(.sched) .empty-row { padding: 16px 0; }
+.tbl:not(.sched) tr.rowlink { position: relative; }
+.tbl:not(.sched) tr.rowlink a.t-main { position: static; }
+.tbl:not(.sched) tr.rowlink a.t-main::before { content: ""; position: absolute; inset: 0; }
+.tbl:not(.sched) tr.rowlink :is(button, a:not(.t-main)) { position: relative; z-index: 1; }
+@media (min-width: 640px) {
+  .tbl:not(.sched) thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .tbl:not(.sched) tr { display: table-row; padding: 0; border-bottom: 0; }
+  .tbl:not(.sched) tr.is-new { box-shadow: none; }
+  .tbl:not(.sched) tr.is-new td:first-child { box-shadow: inset 3px 0 0 var(--accent-a); }
+  .tbl:not(.sched) td { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  .tbl:not(.sched) tr:last-child td { border-bottom: 0; }
+  .tbl:not(.sched) td[data-label]:not(:first-child)::before { content: none; }
+  .tbl:not(.sched) .r { text-align: right; }
+  .tbl:not(.sched) .empty-row { padding: 28px 16px; }
+  .tbl:not(.sched) tr.rowlink a.t-main::before { content: none; }
+}
 .empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
 .wait { font: 500 12px var(--font-mono); }
 .wait.late { color: var(--danger); }
@@ -182,6 +223,22 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .kpi:first-child { border-left: 0; }
 .kpi b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: 12px; color: var(--text-3); }
+.kpis-3 { grid-template-columns: repeat(3, 1fr); }
+.tbl-title { font-size: 16px; letter-spacing: -.01em; }
+
+/* Counter-offer win rate, below the queue: one headline row, one breakdown with a group-by switch, one empty state */
+.wr { display: grid; gap: 12px; margin-top: 32px; }
+.wr .kpis { margin-bottom: 0; }
+.wr-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 16px; align-items: start; }
+.wr-grid .card-h { flex-wrap: wrap; }
+.wr-note { padding: 10px 16px; border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--text-2); }
+.wr-none { padding: 16px; font-size: var(--text-xs); color: var(--text-2); }
+.wr-empty { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; padding: 18px 20px; }
+.wr-empty svg { width: 18px; height: 18px; margin-top: 2px; color: var(--text-2); }
+.wr-empty b { font-size: 14px; font-weight: 500; }
+.wr-empty p { margin-top: 4px; font-size: var(--text-xs); color: var(--text-2); max-width: 70ch; }
+@media (max-width: 959px) { .wr-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .kpis-3 { grid-template-columns: 1fr; } .kpis-3 .kpi { border-left: 0; } .kpis-3 .kpi + .kpi { border-top: 1px solid var(--border); } }
 @media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--border); } }
 
 /* Review workspace: context · answer · facts */
@@ -232,7 +289,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .cmp .rc.on { background: #FFF3C4; }
 .cmp .na { color: var(--text-3); }
 .rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; margin-top: 6px; padding: 0 8px; border-radius: 999px; background: #FFF3C4; color: var(--ink);
-  font-size: 10.5px; font-weight: 600; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
+  font-size: 11px; font-weight: 600; box-shadow: 0 0 0 3px rgba(255,210,63,.35); }
 .rec-badge svg { width: 11px; height: 11px; stroke-width: 2.4; }
 .srcs { display: flex; flex-wrap: wrap; gap: 6px; }
 .src { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 11.5px; color: var(--text-2); text-decoration: none; }
@@ -413,6 +470,59 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
 .from-review { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; background: #FFF8DC; font-size: 12.5px; color: #6B5200; }
 .from-review svg { width: 14px; height: 14px; }
 
+/* Operator calendar: week grid, agenda on narrow screens, rules column */
+.cal-ws { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 20px; align-items: start; }
+@media (max-width: 1099px) { .cal-ws { grid-template-columns: minmax(0, 1fr); } }
+.weeknav { display: flex; align-items: center; gap: 4px; }
+.weeknav .mono { min-width: 128px; text-align: center; font-size: 12.5px; color: var(--text-1); }
+@media (max-width: 479px) { .weeknav .mono { min-width: 0; } .av-lbl { display: none; } }
+.cal { display: grid; grid-template-columns: 52px repeat(5, minmax(0, 1fr)); grid-auto-rows: 34px; }
+.cal .hd { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: 6px; padding: 8px 10px 0; background: var(--surface); border-left: 1px solid var(--border); font-size: 12.5px; font-weight: 600; }
+.cal .hd small { font: 500 11px var(--font-mono); color: var(--text-2); }
+.cal .hd.today::before { content: ""; width: 6px; height: 6px; border-radius: 50%; align-self: center; background: var(--accent-a); box-shadow: var(--halo); }
+.cal .tm { padding: 0 8px; font: 500 11px var(--font-mono); color: var(--text-2); text-align: right; translate: 0 -7px; }
+.cal .cell { border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+.cal .cell.half { border-top-color: var(--border); }
+.cal .cell.off { background: var(--surface-2); }
+.cal .cell.past { background: var(--surface-quiet); }
+.cal .open { display: flex; align-items: center; margin: 3px 4px; padding: 0 8px; border: 1px dashed var(--border-strong); border-radius: 6px; font-size: 11px; color: var(--text-2); }
+.cal .brk { display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text-2); }
+.bk { position: relative; z-index: 0; display: grid; align-content: start; gap: 1px; min-width: 0; margin: 2px 4px; padding: 5px 8px 5px 11px; border: 0; border-radius: 8px; text-align: left; cursor: pointer;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong), inset 3px 0 0 var(--ink); font-size: 12px; line-height: 1.3; transition: box-shadow 150ms ease, background-color 150ms ease; }
+.bk .l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bk .l1 svg { flex: none; width: 12px; height: 12px; margin-left: auto; color: var(--text-2); }
+.bk.done .l1 svg { color: var(--ok); }
+.bk b { min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk .tp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 11.5px; }
+.bk .mono { flex: none; font-size: 11px; color: var(--text-1); }
+.bk.new { box-shadow: inset 0 0 0 1px var(--border-strong), inset 3px 0 0 var(--accent-a); }
+.bk.pending { background: var(--flag-bg); box-shadow: inset 0 0 0 1px var(--flag-border), inset 3px 0 0 var(--ink); }
+.bk.done, .bk.no_show { background: var(--surface-quiet); box-shadow: inset 0 0 0 1px var(--border); }
+.bk.done b, .bk.no_show b { color: var(--text-2); }
+.bk .st { font-size: 11px; color: var(--text-2); }
+.cal .bk .st { display: none; }
+@media (hover: hover) and (pointer: fine) { .bk:hover { box-shadow: inset 0 0 0 1px var(--border-hover), inset 3px 0 0 var(--ink); } .bk.done:hover, .bk.no_show:hover { box-shadow: inset 0 0 0 1px var(--border-strong); } }
+.agenda { display: none; }
+@media (max-width: 759px) { .cal { display: none; } .agenda { display: grid; } }
+.ag-day { padding: 10px 16px 6px; border-top: 1px solid var(--border); font-size: 12.5px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+.ag-day:first-child { border-top: 0; }
+.ag-day small { font: 500 11px var(--font-mono); color: var(--text-2); }
+.ag-list { display: grid; gap: 6px; padding: 0 16px 12px; }
+.ag-list .bk { margin: 0; padding-top: 8px; padding-bottom: 8px; }
+.ag-list .bk .tp { white-space: normal; }
+.ag-open { font-size: 12px; color: var(--text-2); }
+.ag-open .mono { color: var(--text-1); font-size: 11.5px; }
+.nextup { display: grid; gap: 10px; padding: 14px 16px; }
+.nextup .when { font: 500 13px var(--font-mono); }
+.nextup b { display: block; font-size: 13.5px; font-weight: 500; }
+.nextup p { font-size: 13px; color: var(--text-2); }
+.day-row { display: grid; grid-template-columns: 22px 44px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: center; }
+.day-row .lbl { font-size: 13px; font-weight: 500; }
+.day-row .input:disabled { background: var(--surface-2); color: var(--text-3); }
+.off-list { display: grid; gap: 6px; }
+.off-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; }
+.off-row .mono { font-size: 12px; }
+
 /* Toast */
 .toast { position: fixed; left: 50%; bottom: 24px; z-index: 60; translate: -50% 0; display: flex; gap: 10px; align-items: center; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px;
   background: var(--ink); color: #fff; font-size: 13px; box-shadow: var(--shadow-float); }
@@ -443,6 +553,30 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
   @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
 }
 @media (prefers-reduced-motion: reduce) { .side { transition-duration: 0s !important; } }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .icon-btn { width: 36px; height: 36px; }
+  /* The crumbs clip their overflow, so they fill the header's height to leave room for the links' hit areas */
+  .crumbs { align-self: stretch; }
+  .crumbs a { position: relative; }
+  .crumbs a::before { content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  .seg button { height: 40px; }
+  /* Up to 4 chips may wrap (§12): rows 16px apart so their hit areas don't overlap */
+  .chips { row-gap: 16px; }
+}
+/* §12-touch:end */
 </style>
 </head>
 <body>
@@ -452,6 +586,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     <a class="logo" href="#reviews"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy <small>Console</small></a>
     <nav class="nav" id="nav" aria-label="Console pages"></nav>
     <div class="me">
+      <a class="btn btn-ghost btn-sm back-chat" href="chat.html"><i data-lucide="arrow-left"></i>Back to chat</a>
       <div class="me-row"><span class="ava" id="me-ava" aria-hidden="true">AM</span><div><b id="me-name">Ana M.</b><small id="me-role">Credit specialist · operator</small></div></div>
       <div class="seg" role="group" aria-label="Viewing as (demo only)">
         <button type="button" data-role="operator" aria-pressed="true">Operator</button>
@@ -556,6 +691,39 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
   var LEVEL_RANK = { specialist: 1, branchManager: 2, pricingCommittee: 3 };
   var role = 'operator';
   function me() { return USERS[role]; }
+
+  /* Operator calendar. Shapes for the Convex tables operatorAvailability, bookings and bookingEvents.
+       Availability: { operatorId, weekly: { 1..5: [from, to] }, breaks: [[from, to]], slotMinutes, bufferMinutes, dailyCap, minLeadHours, daysOff: [{ date, reason }] }
+       Booking: { id, operatorId, customerRef, customerName, start: 'YYYY-MM-DDTHH:MM', minutes, channel: 'video' | 'phone', topic, planId?,
+                  status: 'booked' | 'done' | 'no_show' | 'cancelled', bookedAt, confirmedAt?, share: { summary, at? }, note?, cancelReason?, source: 'chat' }
+     Only operators are bookable for now. Customers show as first name and initial with a pseudonymous reference;
+     notes use the same {{KIND:value}} masking as chats. The rules are limits a later version reads from Parameters. */
+  var AVAIL = {
+    operatorId: 'u_ana', slotMinutes: 30, bufferMinutes: 0, dailyCap: 5, minLeadHours: 2,
+    weekly: { 1: ['09:00', '17:00'], 2: ['09:00', '17:00'], 3: ['09:00', '17:00'], 4: ['09:00', '17:00'], 5: ['09:00', '13:00'] },
+    breaks: [['12:30', '13:30']],
+    daysOff: [{ date: '2026-11-03', reason: 'Team training' }]
+  };
+  var BOOK_RULES = { openPerCustomer: 1, confirmBeforeHours: 24, noShowPauseAfter: 2, pauseDays: 30, shareBeforeMin: 15, shareAfterHours: 24, joinBeforeMin: 10 };
+  var BOOKINGS = [
+    { id: 'BK-1038', operatorId: 'u_ana', customerRef: 'C-3307', customerName: 'Elena D.', start: '2026-10-26T10:00', minutes: 30, channel: 'video', topic: 'Check my plan: two loans into one', planId: 'PS-2187', status: 'done', bookedAt: '2026-10-23T17:12', confirmedAt: '2026-10-25T09:02', share: { summary: true, at: '2026-10-23T17:12' }, source: 'chat' },
+    { id: 'BK-1039', operatorId: 'u_ana', customerRef: 'C-5112', customerName: 'Andrei S.', start: '2026-10-27T14:30', minutes: 30, channel: 'phone', topic: 'Documents for a personal loan', status: 'no_show', bookedAt: '2026-10-26T08:40', confirmedAt: '2026-10-26T20:15', share: { summary: false }, source: 'chat' },
+    { id: 'BK-1040', operatorId: 'u_ana', customerRef: 'C-2290', customerName: 'Maria T.', start: '2026-10-28T11:00', minutes: 30, channel: 'video', topic: 'Overdraft or personal loan for 8,000 lei', status: 'done', bookedAt: '2026-10-27T19:05', confirmedAt: '2026-10-27T19:05', share: { summary: true, at: '2026-10-27T19:05' }, note: 'Can I repay the loan early without a fee?', source: 'chat' },
+    { id: 'BK-1041', operatorId: 'u_ana', customerRef: 'C-6075', customerName: 'Radu C.', start: '2026-10-28T15:30', minutes: 30, channel: 'video', topic: 'Savings options for 20,000 lei', status: 'cancelled', cancelReason: 'The customer cancelled in the chat', bookedAt: '2026-10-26T12:00', confirmedAt: '2026-10-27T10:00', share: { summary: false }, source: 'chat' },
+    { id: 'BK-1042', operatorId: 'u_ana', customerRef: 'C-4821', customerName: 'Ioana P.', start: '2026-10-29T09:30', minutes: 30, channel: 'video', topic: 'Check my plan: personal loan, 40,000 lei over 60 months', planId: 'PS-2210', status: 'booked', bookedAt: '2026-10-27T18:42', confirmedAt: '2026-10-28T08:10', share: { summary: true, at: '2026-10-27T18:42' }, note: 'I’d like to understand what the insurance adds to the DAE.', source: 'chat' },
+    { id: 'BK-1043', operatorId: 'u_ana', customerRef: 'C-7730', customerName: 'Vlad M.', start: '2026-10-29T15:00', minutes: 30, channel: 'phone', topic: 'Mortgage: fixed for 3 or 5 years', status: 'booked', bookedAt: '2026-10-24T10:20', confirmedAt: '2026-10-28T09:45', share: { summary: true, at: '2026-10-24T10:20' }, note: 'My card {{CARD:5374 0912 4410 4417}} was declined on the bank’s site, in case that matters.', source: 'chat' },
+    { id: 'BK-1044', operatorId: 'u_ana', customerRef: 'C-8114', customerName: 'Cristina B.', start: '2026-10-30T10:30', minutes: 30, channel: 'video', topic: 'Term deposit or savings account', status: 'booked', bookedAt: '2026-10-28T20:02', share: { summary: false }, source: 'chat' },
+    { id: 'BK-1045', operatorId: 'u_ana', customerRef: 'C-1960', customerName: 'Mihai L.', start: '2026-11-02T09:30', minutes: 30, channel: 'video', topic: 'Check my plan: car purchase, 60,000 lei', planId: 'PS-2231', status: 'booked', bookedAt: '2026-10-28T16:30', confirmedAt: '2026-10-28T16:30', share: { summary: true, at: '2026-10-28T16:30' }, source: 'chat' }
+  ];
+  /* What the customer agreed to share: Raiffy's summary of the chat, written when they booked */
+  var BK_SUMMARIES = {
+    'BK-1038': 'Elena has two personal loans, 9,400 lei and 6,100 lei left. Raiffy compared refinancing both into one Raiffeisen loan over 48 months with keeping them as they are, and recommended refinancing for the lower monthly payment while saying the total cost is 310 lei higher. Plan PS-2187 is attached.',
+    'BK-1040': 'Maria asked whether an overdraft or a personal loan is cheaper for 8,000 lei over 12 months. Raiffy recommended the personal loan (fixed rate, lower total cost) and said the overdraft fits better if she repays within 3 months. Her salary arrives in {{IBAN:RO49 RZBR 0000 0600 1234 5678}}.',
+    'BK-1042': 'Ioana wants 40,000 lei over 60 months for home repairs. Raiffy showed a personal loan, a longer term and saving for 8 months first, and recommended the personal loan. She asked a specialist to check plan PS-2210 and wants to understand the DAE, which includes life insurance.',
+    'BK-1043': 'Vlad is comparing a fixed rate for 3 years and for 5 years on the Casa Ta mortgage, 320,000 lei over 30 years. Raiffy showed both from-rates and explained that the rate after the fixed period is IRCC plus a margin. No offer was made.',
+    'BK-1045': 'Mihai plans to buy a used car for 60,000 lei. Raiffy compared a personal loan, a loan for part of it with 20,000 lei saved, and waiting 10 months, and recommended the partial loan. Plan PS-2231 is attached.'
+  };
+  var PAUSED = {};
 
   var RZB = 'https://www.raiffeisen.ro/';
   function dv(label, value, f, src, validFrom, owner, reviewBy, extra) {
@@ -784,6 +952,13 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     { at: '2026-10-01T09:00', user: 'Mihai D.', action: 'Approved change', entity: 'Flexicredit · interest rate', diff: '9.65% → 9.40%' }
   ];
   var EVALS = [];
+  // type WinRate (convex/pricing.ts winRate): offered = inside the band + escalated; amounts in bani. Sample figures.
+  var CO_WINRATE = { total: 31, notNeeded: 5, evidenceNeeded: 3,
+    byResolution: [{ key: 'band', offered: 15, accepted: 10, declined: 3, expired: 1, pending: 1, winRate: 10 / 14, averageGap: 28000 }, { key: 'escalate', offered: 9, accepted: 4, declined: 4, expired: 1, pending: 0, winRate: 4 / 9, averageGap: 71000 }],
+    byProduct: [{ key: 'Personal loan', offered: 17, accepted: 11, declined: 4, expired: 1, pending: 1, winRate: 11 / 16, averageGap: 26000 }, { key: 'Mortgage', offered: 7, accepted: 3, declined: 3, expired: 1, pending: 0, winRate: 3 / 7, averageGap: 82000 }],
+    byCompetitor: [{ key: 'Bank A', offered: 10, accepted: 7, declined: 2, expired: 1, pending: 0, winRate: 7 / 10, averageGap: 24000 }, { key: 'Bank B', offered: 9, accepted: 5, declined: 3, expired: 0, pending: 1, winRate: 5 / 8, averageGap: 31000 }, { key: 'Bank C', offered: 5, accepted: 2, declined: 2, expired: 1, pending: 0, winRate: 2 / 5, averageGap: 90000 }],
+    bySegment: [{ key: 'Risk band A', offered: 16, accepted: 11, declined: 3, expired: 1, pending: 1, winRate: 11 / 15, averageGap: 33000 }, { key: 'Risk band B', offered: 8, accepted: 3, declined: 4, expired: 1, pending: 0, winRate: 3 / 8, averageGap: 59000 }],
+    reasonsLost: [['price', 4], ['conditions', 2], ['speed', 1]] };
   var CO_STATS = { decided: 23, inBand: 9, specialist: 6, declined: 4, won: 14, avgGap: 410 };
   var openedChats = {};
 
@@ -905,7 +1080,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
   }
 
   /* ═══════════════════════ Shell ═══════════════════════ */
-  var ui = { revType: 'all', revStatus: 'open', editing: {}, prodFilter: 'all', auditQ: '', auditKind: 'all', showSched: {}, pendingEdit: null };
+  var ui = { wrBy: 'byResolution', revType: 'all', revStatus: 'open', editing: {}, prodFilter: 'all', auditQ: '', auditKind: 'all', showSched: {}, pendingEdit: null };
   function review(id) { for (var i = 0; i < REVIEWS.length; i++) if (REVIEWS[i].id === id) return REVIEWS[i]; }
   function dueValues(p) { var n = 0; for (var k in p.values) if (staleness(p.values[k].reviewBy) !== 'ok') n++; p.bands.forEach(function (b) { if (staleness(b.reviewBy) !== 'ok') n++; }); return n; }
   function staleParams() { var n = 0; for (var k in PARAMS) if (staleness(PARAMS[k].reviewBy) === 'stale') n++; return n; }
@@ -921,13 +1096,14 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     $('nav').innerHTML = '<span class="grp eyebrow">Work</span>' +
       item('reviews', 'inbox', 'Reviews', open, true) +
       item('approvals', 'git-pull-request-arrow', 'Approvals', pend, role === 'admin') +
+      item('calendar', 'calendar-days', 'Calendar', meetingsToday(), false) +
       '<span class="grp eyebrow">Catalog</span>' +
       item('products', 'package', 'Products', due) +
       item('parameters', 'sliders-horizontal', 'Parameters', stale, stale > 0) +
       '<span class="grp eyebrow">Records</span>' +
       item('audit', 'scroll-text', 'Audit log', 0) +
       '<span class="grp eyebrow">Later in the console</span>' +
-      ['Knowledge', 'Prompts', 'Evals', 'Win rate'].map(function (t) { return '<span class="later">' + ic('circle-dashed') + t + '</span>'; }).join('');
+      ['Knowledge', 'Prompts', 'Evals'].map(function (t) { return '<span class="later">' + ic('circle-dashed') + t + '</span>'; }).join('');
   }
   function crumbs(list) {
     $('crumbs').innerHTML = list.map(function (c, i) {
@@ -976,7 +1152,27 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
           '<td class="hide-sm">' + (r.approvalLevel ? '<span class="t-main">' + LEVELS[r.approvalLevel] + '</span><span class="t-sub">' + (can ? 'You can decide' : 'Above your level') + '</span>' : '<span class="muted">—</span>') + '</td>' +
           '<td>' + (STATUS[r.status] || '') + '</td></tr>';
       }).join('') : '<tr><td colspan="6" class="empty-row">Nothing here. New requests from customers appear at the top.</td></tr>') +
-      '</tbody></table></div></div>';
+      '</tbody></table></div></div>' + winRateHTML();
+  }
+
+  /* Counter-offer win rate below the queue (pricing.md): one headline row, one breakdown with a group-by switch.
+     Before the first counter-offer it is a single empty state. The counting rule is one footnote. */
+  var WR_GROUPS = [['byResolution', 'Resolution'], ['byProduct', 'Product'], ['byCompetitor', 'Competitor'], ['bySegment', 'Segment']];
+  var WR_RES = { band: 'Inside the band', escalate: 'Escalated to a person' };
+  function winRateHTML() {
+    var k = CO_WINRATE, t = k.byResolution.reduce(function (a, r) { return { offered: a.offered + r.offered, accepted: a.accepted + r.accepted, decided: a.decided + r.accepted + r.declined + r.expired, gap: a.gap + r.averageGap * r.offered }; }, { offered: 0, accepted: 0, decided: 0, gap: 0 });
+    var extra = [k.notNeeded ? k.notNeeded + ' needed no counter-offer because Raiffeisen already cost less in total' : '', k.evidenceNeeded ? k.evidenceNeeded + (k.evidenceNeeded === 1 ? ' was a typed claim' : ' were typed claims') + ' without a document' : ''].filter(Boolean);
+    var head = '<section class="wr" id="win-rate" aria-labelledby="wr-h"><h2 class="tbl-title" id="wr-h">Counter-offer win rate</h2>';
+    if (!t.offered) return head + '<div class="card wr-empty">' + ic('trending-up') + '<div><b>No counter-offers yet</b><p>The win rate starts with Raiffy\u2019s first counter-offer: accepted \u00f7 decided, for offers inside the band and escalated ones.' + (extra.length ? ' So far ' + extra.join(', and ') + '.' : '') + '</p></div></div></section>';
+    var label = WR_GROUPS.filter(function (g) { return g[0] === ui.wrBy; })[0][1];
+    return head + '<div class="kpis"><div class="kpi"><b>' + Math.round(t.accepted / t.decided * 100) + '%</b><span>Win rate</span></div><div class="kpi"><b>' + t.offered + '</b><span>Counter-offers made</span></div>' +
+      '<div class="kpi"><b>' + t.accepted + ' of ' + t.decided + '</b><span>Accepted of decided</span></div><div class="kpi"><b class="mono">' + lei(Math.round(t.gap / t.offered / 100)) + '</b><span>Average gap to the competitor</span></div></div>' +
+      '<div class="wr-grid"><div class="card"><div class="card-h"><h3>Breakdown</h3><div class="chips" role="group" aria-label="Group by">' + WR_GROUPS.map(function (g) {
+        return '<button type="button" class="qbtn" data-wrby="' + g[0] + '" aria-pressed="' + (ui.wrBy === g[0]) + '">' + g[1] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>' + label + '</th><th>Offered</th><th>Accepted</th><th>Declined</th><th>Expired</th><th>Win rate</th><th>Average gap</th></tr></thead><tbody>' +
+      k[ui.wrBy].map(function (r) { return '<tr><td><span class="t-main">' + esc(ui.wrBy === 'byResolution' ? WR_RES[r.key] || r.key : r.key) + '</span></td><td class="mono">' + r.offered + '</td><td class="mono">' + r.accepted + '</td><td class="mono">' + r.declined + '</td><td class="mono">' + r.expired + '</td><td class="mono">' + (r.winRate == null ? '\u2013' : Math.round(r.winRate * 100) + '%') + '</td><td class="mono">' + lei(Math.round(r.averageGap / 100)) + '</td></tr>'; }).join('') +
+      '</tbody></table></div><p class="wr-note">Accepted \u00f7 decided.' + (extra.length ? ' ' + extra.join('; ') + '.' : '') + ' Sample figures. No customer identity here.</p></div>' +
+      '<div class="card"><div class="card-h"><h3>Why customers said no</h3></div>' + (k.reasonsLost.length ? '<div class="facts">' + k.reasonsLost.map(function (r) { return '<div class="fact"><span>' + r[0].charAt(0).toUpperCase() + r[0].slice(1) + '</span><b class="mono">' + r[1] + '</b></div>'; }).join('') + '</div>' : '<p class="wr-none">No declines yet.</p>') + '</div></div></section>';
   }
 
   /* ═══════════════════════ Review detail: shared columns ═══════════════════════ */
@@ -1481,6 +1677,328 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
         : '<tr><td colspan="5" class="empty-row">No entries match.</td></tr>') + '</tbody></table></div></div>';
   }
 
+  /* ═══════════════════════ Calendar ═══════════════════════
+     The slot logic (calMin … openSlots) is pure and moves to lib/booking at conversion, with a test per rule. */
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var BK_STATE = { booked: 'Booked', pending: 'Awaiting confirmation', done: 'Done', no_show: 'No-show', cancelled: 'Cancelled' };
+  function calMin(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+  function calHM(m) { return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+  function addDays(iso, n) { var x = d(iso.slice(0, 10)); x.setDate(x.getDate() + n); return liso(x).slice(0, 10); }
+  function weekOf(iso) { return addDays(iso, -((d(iso.slice(0, 10)).getDay() + 6) % 7)); }
+  function dayName(iso) { var x = d(iso.slice(0, 10)); return DAYS[x.getDay()] + ' ' + x.getDate(); }
+  function longDay(iso) { return DAYS[d(iso.slice(0, 10)).getDay()] + ' ' + day(iso.slice(0, 10)); }
+  /* Today, Tomorrow or the weekday and date, for times on either side of now */
+  function calWhen(iso) { var x = iso.slice(0, 10), t = liso(NOW).slice(0, 10); return (x === t ? 'Today' : x === addDays(t, 1) ? 'Tomorrow' : x === addDays(t, -1) ? 'Yesterday' : longDay(x)) + ' ' + iso.slice(11, 16); }
+  function bk(id) { return BOOKINGS.filter(function (b) { return b.id === id; })[0]; }
+  function bkEnd(b) { return calMin(b.start.slice(11)) + b.minutes; }
+  function onDay(bookings, operatorId, date) {
+    return bookings.filter(function (b) { return b.status !== 'cancelled' && b.operatorId === operatorId && b.start.slice(0, 10) === date; })
+      .sort(function (a, b) { return a.start < b.start ? -1 : 1; });
+  }
+  function dayOff(av, date) { return av.daysOff.filter(function (o) { return o.date === date; })[0]; }
+  /* Open slots on one day: weekly hours, breaks, days off, a buffer around meetings, the daily cap and the lead time */
+  function openSlots(av, bookings, date, now) {
+    var hours = av.weekly[d(date).getDay()], taken = onDay(bookings, av.operatorId, date), out = [];
+    if (!hours || dayOff(av, date) || taken.length >= av.dailyCap) return out;
+    for (var m = calMin(hours[0]); m + av.slotMinutes <= calMin(hours[1]); m += av.slotMinutes) {
+      var end = m + av.slotMinutes, start = date + 'T' + calHM(m);
+      if (av.breaks.some(function (br) { return m < calMin(br[1]) && end > calMin(br[0]); })) continue;
+      if (taken.some(function (b) { var s = calMin(b.start.slice(11)); return m < s + b.minutes + av.bufferMinutes && end > s - av.bufferMinutes; })) continue;
+      if (d(start) - now < av.minLeadHours * 36e5) continue;
+      out.push(start);
+    }
+    return out;
+  }
+  /* A meeting not confirmed 24 h before it starts is released. Booking inside that window counts as confirming. */
+  function releaseAt(b) { return liso(new Date(+d(b.start) - BOOK_RULES.confirmBeforeHours * 36e5)).slice(0, 16); }
+  function bkState(b) { return b.status === 'booked' && !b.confirmedAt ? 'pending' : b.status; }
+  /* The shared summary opens shortly before the meeting and closes a day after it */
+  function shareWindow(b) {
+    var from = new Date(+d(b.start) - BOOK_RULES.shareBeforeMin * 6e4), to = new Date(+d(b.start) + (b.minutes * 6e4) + BOOK_RULES.shareAfterHours * 36e5);
+    return { from: liso(from).slice(0, 16), to: liso(to).slice(0, 16), open: b.share.summary && NOW >= from && NOW <= to };
+  }
+  function noShows(ref) { return BOOKINGS.filter(function (b) { return b.customerRef === ref && b.status === 'no_show'; }).length; }
+  function meetingsToday() { var t = liso(NOW).slice(0, 10); return onDay(BOOKINGS, AVAIL.operatorId, t).filter(function (b) { return b.status === 'booked' && d(b.start) > NOW; }).length; }
+
+  function bkHTML(b, style) {
+    var st = bkState(b), icon = { pending: 'hourglass', done: 'check', no_show: 'user-x' }[st];
+    return '<button type="button" class="bk ' + st + (b.isNew ? ' new' : '') + '" data-bk="' + b.id + '"' + (style ? ' style="' + style + '"' : '') +
+      ' aria-label="' + esc(longDay(b.start) + ', ' + b.start.slice(11) + ', ' + b.customerName + ', ' + b.topic + ', ' + BK_STATE[st]) + '">' +
+      '<span class="l1"><span class="mono">' + b.start.slice(11) + '</span><b>' + esc(b.customerName) + '</b>' + (icon ? ic(icon) : '') + '</span>' +
+      '<span class="tp" title="' + esc(b.topic) + '">' + esc(b.topic) + '</span>' +
+      (st !== 'booked' ? '<span class="st">' + BK_STATE[st] + (st === 'pending' ? ' · released ' + calWhen(releaseAt(b)) : '') + '</span>' : '') + '</button>';
+  }
+  function gridHTML(days, today) {
+    var step = 30, first = 24 * 60, last = 0;
+    days.forEach(function (x) { var h = AVAIL.weekly[d(x).getDay()]; if (h) { first = Math.min(first, calMin(h[0])); last = Math.max(last, calMin(h[1])); } });
+    days.forEach(function (x) { onDay(BOOKINGS, AVAIL.operatorId, x).forEach(function (b) { first = Math.min(first, calMin(b.start.slice(11))); last = Math.max(last, bkEnd(b)); }); });
+    if (first >= last) { first = 9 * 60; last = 17 * 60; }
+    first = Math.floor(first / 60) * 60; last = Math.ceil(last / 60) * 60;
+    var rows = (last - first) / step, out = '<div class="cal"><span></span>';
+    out += days.map(function (x, i) {
+      var n = onDay(BOOKINGS, AVAIL.operatorId, x).filter(function (b) { return b.status === 'booked'; }).length, off = dayOff(AVAIL, x), open = openSlots(AVAIL, BOOKINGS, x, NOW).length;
+      return '<div class="hd' + (x === today ? ' today' : '') + '" style="grid-column:' + (i + 2) + '">' + dayName(x) + (x === today ? '<span class="sr-only">, today</span>' : '') +
+        '<small>' + (off ? 'Off' : n ? n + ' booked' : '') + '</small><span class="sr-only">' + (off ? '' : ', ' + open + ' open slots') + '</span></div>';
+    }).join('');
+    for (var r = 0; r < rows; r++) {
+      var m = first + r * step, row = r + 2;
+      out += '<span class="tm" style="grid-row:' + row + ';grid-column:1">' + (m % 60 ? '' : calHM(m)) + '</span>';
+      days.forEach(function (x, i) {
+        var h = AVAIL.weekly[d(x).getDay()], outside = !h || dayOff(AVAIL, x) || m < calMin(h[0]) || m >= calMin(h[1]);
+        var past = d(x + 'T' + calHM(m + step)) <= NOW;
+        out += '<div class="cell' + (m % 60 ? ' half' : '') + (outside ? ' off' : past ? ' past' : '') + '" style="grid-row:' + row + ';grid-column:' + (i + 2) + '"></div>';
+      });
+    }
+    function at(m, span, col) { return 'grid-row:' + (2 + (m - first) / step) + ' / span ' + span + ';grid-column:' + col; }
+    days.forEach(function (x, i) {
+      var col = i + 2, h = AVAIL.weekly[d(x).getDay()], off = dayOff(AVAIL, x);
+      if (off) { out += '<span class="brk" style="' + at(first, rows, col) + ';align-items:start;padding-top:10px">Day off · ' + esc(off.reason) + '</span>'; return; }
+      if (h) AVAIL.breaks.forEach(function (br) { out += '<span class="brk" aria-hidden="true" style="' + at(calMin(br[0]), (calMin(br[1]) - calMin(br[0])) / step, col) + '">Break</span>'; });
+      openSlots(AVAIL, BOOKINGS, x, NOW).forEach(function (s) { out += '<span class="open" aria-hidden="true" style="' + at(calMin(s.slice(11)), AVAIL.slotMinutes / step, col) + '">Open</span>'; });
+      onDay(BOOKINGS, AVAIL.operatorId, x).forEach(function (b) {
+        var s = calMin(b.start.slice(11));
+        out += bkHTML(b, 'grid-row:' + (2 + Math.floor((s - first) / step)) + ' / span ' + Math.max(1, Math.round(b.minutes / step)) + ';grid-column:' + col);
+      });
+    });
+    return out + '</div>';
+  }
+  function agendaHTML(days) {
+    return '<div class="agenda">' + days.map(function (x) {
+      var list = onDay(BOOKINGS, AVAIL.operatorId, x), open = openSlots(AVAIL, BOOKINGS, x, NOW), off = dayOff(AVAIL, x);
+      return '<div class="ag-day">' + longDay(x) + '<small>' + (off ? 'Off' : list.length + ' meeting' + (list.length === 1 ? '' : 's')) + '</small></div><div class="ag-list">' +
+        list.map(function (b) { return bkHTML(b); }).join('') +
+        '<p class="ag-open">' + (off ? 'Day off · ' + esc(off.reason) : open.length ? open.length + ' open: <span class="mono">' + open.slice(0, 4).map(function (s) { return s.slice(11); }).join(', ') + (open.length > 4 ? ' …' : '') + '</span>' : 'No open slots') + '</p></div>';
+    }).join('') + '</div>';
+  }
+  function nextUpHTML() {
+    var next = BOOKINGS.filter(function (b) { return b.status === 'booked' && b.operatorId === AVAIL.operatorId && d(b.start) > NOW; })
+      .sort(function (a, b) { return a.start < b.start ? -1 : 1; })[0];
+    if (!next) return '<section class="card"><div class="card-h"><h2>' + ic('calendar-clock') + 'Next up</h2></div><div class="nextup"><p>No meetings booked.</p></div></section>';
+    var w = shareWindow(next), hrs = Math.round((d(next.start) - NOW) / 36e5);
+    return '<section class="card" aria-labelledby="nx-h"><div class="card-h"><h2 id="nx-h">' + ic('calendar-clock') + 'Next up</h2><span class="micro mono">in ' + (hrs < 1 ? 'under an hour' : hrs + ' h') + '</span></div><div class="nextup">' +
+      '<span class="when">' + longDay(next.start) + ' · ' + next.start.slice(11) + '–' + calHM(bkEnd(next)) + '</span>' +
+      '<div><b>' + esc(next.customerName) + ' · ' + (next.channel === 'video' ? 'video call' : 'phone call') + '</b><p>' + esc(next.topic) + '</p></div>' +
+      '<div class="access">' + ic(next.share.summary ? 'file-check-2' : 'file-x-2') + (next.share.summary ? 'Summary shared. You can open it from ' + hm(w.from) + '.' : 'No summary shared.') + '</div>' +
+      '<div><button type="button" class="btn btn-ghost btn-sm" data-bk="' + next.id + '">Open meeting</button></div></div></section>';
+  }
+  function rulesHTML(days) {
+    var pending = BOOKINGS.filter(function (b) { return bkState(b) === 'pending'; }).length;
+    var missed = BOOKINGS.filter(function (b, i, all) { return b.status === 'no_show' && all.map(function (x) { return x.customerRef; }).indexOf(b.customerRef) === i; });
+    var list = [
+      { s: 'pass', t: 'One open meeting per customer', x: 'A customer who already has a meeting can change it, not book a second one.' },
+      { s: pending ? 'warn' : 'pass', t: 'Confirmed the day before', x: 'Meetings not confirmed ' + BOOK_RULES.confirmBeforeHours + ' h before they start are released.' + (pending ? ' ' + pending + ' awaiting confirmation.' : '') },
+      { s: 'pass', t: 'Up to ' + AVAIL.dailyCap + ' meetings a day, booked ' + AVAIL.minLeadHours + ' h ahead', x: 'A full day shows no open slots to customers.' },
+      { s: 'pass', t: 'Summary only around the meeting', x: 'Opens ' + BOOK_RULES.shareBeforeMin + ' min before and closes ' + BOOK_RULES.shareAfterHours + ' h after. Every opening is logged.' },
+      { s: 'pass', t: 'No investment topics', x: 'Raiffy points those customers to a licensed adviser instead of booking you.' },
+      { s: 'pass', t: 'Confirmations only in the app', x: 'Customers are told you will never ask for codes, card details or a transfer.' }
+    ];
+    missed.forEach(function (b) {
+      var n = noShows(b.customerRef);
+      list.push(n >= BOOK_RULES.noShowPauseAfter
+        ? { s: 'fail', t: b.customerName + ' missed ' + n + ' meetings', x: 'Booking is paused for ' + BOOK_RULES.pauseDays + ' days.' }
+        : { s: 'warn', t: b.customerName + ' missed a meeting', x: 'One more no-show pauses booking for ' + BOOK_RULES.pauseDays + ' days.' });
+    });
+    return '<section class="card" aria-labelledby="br-h"><div class="card-h"><h2 id="br-h">' + ic('shield-check') + 'Booking rules</h2></div>' + checksHTML(list) + '</section>';
+  }
+  function pageCalendar() {
+    crumbs([['Calendar']]);
+    var today = liso(NOW).slice(0, 10), wk = ui.calWeek || weekOf(today), days = [0, 1, 2, 3, 4].map(function (i) { return addDays(wk, i); });
+    $('top-actions').innerHTML = '<div class="weeknav" role="group" aria-label="Week">' +
+      '<button type="button" class="icon-btn" data-week="-1" aria-label="Previous week">' + ic('chevron-left') + '</button><span class="mono">' + day(days[0]) + ' – ' + day(days[4]) + '</span>' +
+      '<button type="button" class="icon-btn" data-week="1" aria-label="Next week">' + ic('chevron-right') + '</button>' +
+      (wk !== weekOf(today) ? '<button type="button" class="btn btn-ghost btn-xs" data-week="0">This week</button>' : '') + '</div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-avail aria-label="Availability">' + ic('clock') + '<span class="av-lbl">Availability</span></button>';
+    var week = BOOKINGS.filter(function (b) { return b.operatorId === AVAIL.operatorId && days.indexOf(b.start.slice(0, 10)) > -1; });
+    function count(s) { return week.filter(function (b) { return b.status === s; }).length; }
+    var open = days.reduce(function (a, x) { return a + openSlots(AVAIL, BOOKINGS, x, NOW).length; }, 0);
+    return '<div class="page-head"><div><h1>' + (role === 'admin' ? 'Ana M.’s calendar' : 'Your calendar') + '</h1>' +
+      '<p>Customers book ' + AVAIL.slotMinutes + '-minute calls with you from the chat. You go through the information with them; it isn’t advice or a credit decision.</p></div></div>' +
+      '<div class="kpis">' + [[count('booked'), 'Booked'], [open, 'Open slots left'], [count('done'), 'Done'], [count('no_show'), 'No-shows']].map(function (k) { return '<div class="kpi"><b>' + k[0] + '</b><span>' + k[1] + '</span></div>'; }).join('') + '</div>' +
+      '<div class="cal-ws"><section class="card" aria-label="Week of ' + day(wk) + '">' + gridHTML(days, today) + agendaHTML(days) + '</section>' +
+      '<div class="col">' + nextUpHTML() + rulesHTML(days) + '</div></div>';
+  }
+
+  /* Meeting sheet */
+  var openedSummary = {};
+  function openMeeting(id) {
+    var b = bk(id); if (!b) return;
+    var st = bkState(b), started = d(b.start) <= NOW, w = shareWindow(b), sh = $('sheet'), live = st === 'booked' || st === 'pending';
+    var facts = [
+      ['When', longDay(b.start) + ' · ' + b.start.slice(11) + '–' + calHM(bkEnd(b))],
+      ['Channel', b.channel === 'video' ? 'Video call in Smart Mobile' : 'Phone call from the bank’s number'],
+      ['Customer', b.customerName + ' · ' + b.customerRef],
+      ['Booked', 'In the chat, ' + when(b.bookedAt)],
+      ['Status', BK_STATE[st] + (st === 'pending' ? ' · released ' + calWhen(releaseAt(b)) : st === 'cancelled' && b.cancelReason ? ' · ' + b.cancelReason : '')]
+    ];
+    var share;
+    if (!b.share.summary) share = '<p class="note-q">The customer chose not to share the conversation. Ask them what they’d like to go through.</p>';
+    else if (openedSummary[id]) share = '<div class="note-q"><b>Raiffy’s summary · shared ' + when(b.share.at) + '</b>' + piiHTML(BK_SUMMARIES[id] || 'Summary of the chat.', id) + '</div>' +
+      '<div class="access">' + ic('scroll-text') + 'You opened this at ' + hm(liso(NOW)) + '. It’s in the audit log.</div>';
+    else share = '<div class="access">' + ic('lock') + (w.open ? 'Shared ' + when(b.share.at) + '. Opening it is logged with your name.' : d(w.to) < NOW ? 'Closed ' + calWhen(w.to) + ', ' + BOOK_RULES.shareAfterHours + ' h after the meeting.' : 'You can open it from ' + calWhen(w.from) + '.') + '</div>' +
+      '<div><button type="button" class="btn btn-ghost btn-sm" data-bk-act="summary" data-id="' + id + '"' + (w.open ? '' : ' disabled') + '>' + ic('file-text') + 'Open the shared summary</button></div>';
+    var acts = !live ? '<button type="button" class="btn btn-dark btn-sm" data-close-sheet>Close</button>'
+      : started ? '<button type="button" class="btn btn-ghost btn-sm" data-bk-act="noshow" data-id="' + id + '">No-show</button><button type="button" class="btn btn-dark btn-sm" data-bk-act="done" data-id="' + id + '">' + ic('check') + 'Mark as done</button>'
+      : '<button type="button" class="btn btn-ghost btn-sm" data-bk-act="cancel" data-id="' + id + '">Cancel meeting</button>' +
+        '<button type="button" class="btn btn-dark btn-sm" data-bk-act="join" data-id="' + id + '"' + (d(b.start) - NOW > BOOK_RULES.joinBeforeMin * 6e4 ? ' disabled' : '') + '>' + ic(b.channel === 'video' ? 'video' : 'phone') + (b.channel === 'video' ? 'Join call' : 'Call') + '</button>';
+    sh.innerHTML = '<div class="sheet-h"><h2 id="sheet-title">Meeting · ' + esc(b.id) + '</h2><button type="button" class="icon-btn" data-close-sheet aria-label="Close">' + ic('x') + '</button></div>' +
+      '<div class="sheet-b"><div><h3 style="font-size:16px;letter-spacing:-.01em">' + esc(b.topic) + '</h3>' + (b.planId ? '<p class="micro" style="margin-top:4px;font-size:12px;color:var(--text-2)">Plan ' + esc(b.planId) + ' is attached to the summary.</p>' : '') + '</div>' +
+      '<div class="card"><div class="facts">' + facts.map(function (f) { return '<div class="fact"><span>' + f[0] + '</span><b>' + esc(f[1]) + '</b></div>'; }).join('') + '</div></div>' +
+      (b.note ? '<div class="note-q"><b>Customer’s note</b>' + piiHTML(b.note, id) + '</div>' : '') +
+      '<div class="field"><span class="lbl">What the customer shared</span>' + share + '</div>' +
+      '<p class="lock">' + ic('shield') + 'You go through information with the customer. It isn’t advice or a credit decision, and investment questions go to a licensed adviser.</p>' +
+      (live && !started && !PAUSED[b.customerRef] ? '<div><button type="button" class="link" data-bk-act="pause" data-id="' + id + '">Pause this customer’s bookings</button></div>' : '') +
+      (PAUSED[b.customerRef] ? '<p class="access">' + ic('pause') + 'Bookings paused until ' + day(PAUSED[b.customerRef].until) + ': ' + esc(PAUSED[b.customerRef].reason) + '</p>' : '') +
+      '</div><div class="sheet-f">' + acts + '</div>';
+    icons(); if (!sh.open) sh.showModal();
+  }
+  function meetingAction(act, id) {
+    var b = bk(id);
+    if (act === 'summary') {
+      openedSummary[id] = 1; audit('Opened shared summary', id + ' · ' + b.customerRef, { reason: 'Booked meeting, ' + longDay(b.start) + ' ' + b.start.slice(11) });
+      return openMeeting(id);
+    }
+    if (act === 'join') return toast('Demo only: the call opens in the bank’s video tool.', 'video');
+    if (act === 'done' || act === 'noshow') {
+      b.status = act === 'done' ? 'done' : 'no_show';
+      audit(act === 'done' ? 'Marked meeting done' : 'Marked no-show', id + ' · ' + b.customerRef);
+      var n = noShows(b.customerRef);
+      if (act === 'noshow' && n >= BOOK_RULES.noShowPauseAfter) {
+        PAUSED[b.customerRef] = { until: addDays(liso(NOW), BOOK_RULES.pauseDays), reason: n + ' missed meetings' };
+        audit('Paused bookings', b.customerRef, { reason: n + ' no-shows, ' + BOOK_RULES.pauseDays + ' days' });
+      }
+      writeBookingStatus(b); publishSlots(); $('sheet').close(); render(false);
+      return toast(act === 'done' ? 'Marked as done.' : n >= BOOK_RULES.noShowPauseAfter ? 'Second no-show: bookings are paused for ' + BOOK_RULES.pauseDays + ' days.' : 'Marked as a no-show. One more pauses this customer’s bookings.', act === 'done' ? 'check' : 'user-x');
+    }
+    if (act === 'cancel') {
+      return ask('Cancel ' + b.id, 'Note to the customer, shown in the app', 'Cancel meeting', 'For example: I’m out of the office that morning. Please pick another time.', function (note, why) {
+        b.status = 'cancelled'; b.cancelReason = why + (note ? ': ' + note : '');
+        audit('Cancelled meeting', id + ' · ' + b.customerRef, { reason: b.cancelReason });
+        writeBookingStatus(b); publishSlots(); render(false);
+        toast('Cancelled. The customer sees it in the app and can pick another time.', 'calendar-x');
+      }, ['I’m unavailable at this time', 'The topic needs a licensed adviser', 'The customer asked to cancel']);
+    }
+    if (act === 'pause') {
+      return ask('Pause ' + b.customerName + '’s bookings', 'What happened (logged with your name)', role === 'admin' ? 'Pause for ' + BOOK_RULES.pauseDays + ' days' : 'Send to an admin', 'For example: abusive messages in the note', function (txt, why) {
+        if (!txt) return false;
+        if (role === 'admin') {
+          PAUSED[b.customerRef] = { until: addDays(liso(NOW), BOOK_RULES.pauseDays), reason: why };
+          audit('Paused bookings', b.customerRef, { reason: why + ': ' + txt });
+          toast('Paused for ' + BOOK_RULES.pauseDays + ' days. Their booked meetings stay unless you cancel them.', 'pause');
+        } else {
+          audit('Asked to pause bookings', b.customerRef, { reason: why + ': ' + txt });
+          toast('Sent to an admin. Nothing changes for the customer until it’s approved.', 'send');
+        }
+        render(false);
+      }, ['Abusive or threatening messages', 'Suspected fraud or impersonation', 'Repeated last-minute cancellations']);
+    }
+  }
+
+  /* Availability sheet: edits a draft, shows which booked meetings fall outside the new hours, saves to the calendar */
+  var avDraft = null;
+  function futureBooked() { return BOOKINGS.filter(function (b) { return b.status === 'booked' && b.operatorId === AVAIL.operatorId && d(b.start) > NOW; }); }
+  function outsideHours(av, b) {
+    var x = b.start.slice(0, 10), h = av.weekly[d(x).getDay()], s = calMin(b.start.slice(11));
+    return !h || !!dayOff(av, x) || s < calMin(h[0]) || s + b.minutes > calMin(h[1]) || av.breaks.some(function (br) { return s < calMin(br[1]) && s + b.minutes > calMin(br[0]); });
+  }
+  function avError(av) {
+    for (var i = 1; i <= 5; i++) if (av.weekly[i] && calMin(av.weekly[i][0]) >= calMin(av.weekly[i][1])) return DAYS[i] + ': the end has to be after the start.';
+    var br = av.breaks[0];
+    if (br && calMin(br[0]) >= calMin(br[1])) return 'The break has to end after it starts.';
+    if (!(av.dailyCap >= 1 && av.dailyCap <= 8)) return 'Meetings a day has to be between 1 and 8.';
+    return '';
+  }
+  function avImpact() {
+    var hit = futureBooked().filter(function (b) { return outsideHours(avDraft, b); });
+    return checksHTML([hit.length
+      ? { s: 'warn', t: hit.length + ' booked meeting' + (hit.length === 1 ? ' falls' : 's fall') + ' outside these hours', x: hit.map(function (b) { return longDay(b.start) + ' ' + b.start.slice(11) + ', ' + b.customerName; }).join(' · ') + '. They stay booked; cancel them from the calendar if you need to.' }
+      : { s: 'pass', t: 'No booked meeting is affected', x: 'New hours apply to new bookings.' }]);
+  }
+  function timeInput(id, value, label, disabled) {
+    return '<input class="input mono" type="time" step="1800" id="' + id + '" value="' + (value || '') + '" aria-label="' + esc(label) + '"' + (disabled ? ' disabled' : '') + '>';
+  }
+  function openAvail() {
+    if (!avDraft) avDraft = JSON.parse(JSON.stringify(AVAIL));
+    var a = avDraft, sh = $('sheet'), names = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    sh.innerHTML = '<div class="sheet-h"><h2 id="sheet-title">Availability</h2><button type="button" class="icon-btn" data-close-sheet aria-label="Close">' + ic('x') + '</button></div>' +
+      '<form class="sheet-b" id="av-form" novalidate><p style="font-size:13px;color:var(--text-2)">Customers see open slots inside these hours. Changes apply to new bookings; meetings already booked stay.</p>' +
+      '<div class="field"><span class="lbl">Weekly hours</span>' + [1, 2, 3, 4, 5].map(function (i) {
+        var h = a.weekly[i];
+        return '<div class="day-row"><label class="check"><input type="checkbox" data-av-day="' + i + '"' + (h ? ' checked' : '') + '><span class="sr-only">Available on ' + names[i] + '</span></label><span class="lbl">' + DAYS[i] + '</span>' +
+          timeInput('av-from-' + i, h ? h[0] : '09:00', names[i] + ' from', !h) + timeInput('av-to-' + i, h ? h[1] : '17:00', names[i] + ' to', !h) + '</div>';
+      }).join('') + '<small>Weekends stay closed in this version.</small></div>' +
+      '<div class="field"><span class="lbl">Daily break</span><div class="row2">' + timeInput('av-brk-from', a.breaks[0] && a.breaks[0][0], 'Break from') + timeInput('av-brk-to', a.breaks[0] && a.breaks[0][1], 'Break to') + '</div></div>' +
+      '<div class="row2"><div class="field"><label for="av-cap">Meetings a day</label><input class="input mono" id="av-cap" type="number" min="1" max="8" value="' + a.dailyCap + '"><small>A full day shows no open slots.</small></div>' +
+      '<div class="field"><label for="av-lead">Earliest booking</label><select class="select" id="av-lead">' + [1, 2, 4, 24].map(function (n) { return '<option value="' + n + '"' + (n === a.minLeadHours ? ' selected' : '') + '>' + n + ' h ahead</option>'; }).join('') + '</select></div></div>' +
+      '<div class="row2"><div class="field"><label for="av-len">Meeting length</label><select class="select" id="av-len">' + [30, 60].map(function (n) { return '<option value="' + n + '"' + (n === a.slotMinutes ? ' selected' : '') + '>' + n + ' minutes</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label for="av-buf">Gap between meetings</label><select class="select" id="av-buf">' + [[0, 'None'], [10, '10 minutes']].map(function (n) { return '<option value="' + n[0] + '"' + (n[0] === a.bufferMinutes ? ' selected' : '') + '>' + n[1] + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="field"><span class="lbl">Days off</span><div class="off-list">' + (a.daysOff.length ? a.daysOff.map(function (o, i) {
+        return '<div class="off-row"><span><span class="mono">' + longDay(o.date) + '</span> · ' + esc(o.reason) + '</span><button type="button" class="icon-btn" data-av-rmoff="' + i + '" aria-label="Remove ' + esc(longDay(o.date)) + '">' + ic('x') + '</button></div>';
+      }).join('') : '<p class="micro" style="font-size:12px;color:var(--text-2)">None planned.</p>') + '</div>' +
+      '<div class="row2"><input class="input mono" type="date" id="av-off-date" min="' + liso(NOW).slice(0, 10) + '" aria-label="Day off"><div style="display:flex;gap:8px"><input class="input" id="av-off-why" placeholder="Reason" aria-label="Reason for the day off"><button type="button" class="btn btn-ghost btn-sm" data-av-addoff>Add</button></div></div></div>' +
+      '<div class="field"><span class="lbl">Booked meetings</span><div class="card" id="av-impact">' + avImpact() + '</div></div>' +
+      '<p class="err" id="av-err" role="alert" hidden></p></form>' +
+      '<div class="sheet-f"><button type="button" class="btn btn-ghost btn-sm" data-close-sheet>Cancel</button><button type="submit" form="av-form" class="btn btn-dark btn-sm">Save</button></div>';
+    icons(); if (!sh.open) sh.showModal();
+  }
+  function readAvail() {
+    var a = avDraft;
+    for (var i = 1; i <= 5; i++) {
+      var on = document.querySelector('[data-av-day="' + i + '"]').checked;
+      $('av-from-' + i).disabled = !on; $('av-to-' + i).disabled = !on;
+      if (on) a.weekly[i] = [$('av-from-' + i).value || '09:00', $('av-to-' + i).value || '17:00']; else delete a.weekly[i];
+    }
+    var bf = $('av-brk-from').value, bt = $('av-brk-to').value;
+    a.breaks = bf && bt ? [[bf, bt]] : [];
+    a.dailyCap = parseInt($('av-cap').value, 10); a.minLeadHours = +$('av-lead').value; a.slotMinutes = +$('av-len').value; a.bufferMinutes = +$('av-buf').value;
+    $('av-impact').innerHTML = avImpact(); icons();
+  }
+  function saveAvail() {
+    readAvail();
+    var err = avError(avDraft);
+    if (err) { $('av-err').textContent = err; $('av-err').hidden = false; return; }
+    var before = JSON.stringify(AVAIL);
+    AVAIL = avDraft; avDraft = null;
+    if (JSON.stringify(AVAIL) !== before) audit('Changed availability', me().name === 'Ana M.' ? 'Ana M.' : 'Ana M. (by ' + me().name + ')', { diff: [1, 2, 3, 4, 5].map(function (i) { return DAYS[i] + ' ' + (AVAIL.weekly[i] ? AVAIL.weekly[i].join('–') : 'off'); }).join(', ') + ' · ' + AVAIL.dailyCap + ' a day' });
+    publishSlots(); $('sheet').close(); render(false);
+    toast('Saved. New bookings use these hours.', 'calendar-check');
+  }
+
+  /* Demo bridge for bookings: chat.html writes bookings, the console publishes open slots and status changes back */
+  var BOOK_KEY = 'raiffy.demo.bookings', SLOT_KEY = 'raiffy.demo.slots', BSTAT_KEY = 'raiffy.demo.bookingStatus';
+  function publishSlots() {
+    var out = [], first = liso(NOW).slice(0, 10);
+    for (var i = 0; i < 21 && out.length < 4; i++) out = out.concat(openSlots(AVAIL, BOOKINGS, addDays(first, i), NOW).slice(0, 2));
+    try { localStorage.setItem(SLOT_KEY, JSON.stringify({ operator: { name: 'Ana M.', title: 'Credit specialist', initials: 'AM' }, minutes: AVAIL.slotMinutes, slots: out.slice(0, 4) })); } catch (e) {}
+  }
+  function writeBookingStatus(b) {
+    try { var all = readJSON(BSTAT_KEY, {}); all[b.id] = { status: b.status, reason: b.cancelReason || '' }; localStorage.setItem(BSTAT_KEY, JSON.stringify(all)); } catch (e) {}
+  }
+  function importBookings() {
+    var added = 0;
+    readJSON(BOOK_KEY, []).forEach(function (x) {
+      // Another page wrote these, so only well-formed IDs and times get in
+      if (!x || !/^BK-\d{3,6}$/.test(x.id) || !/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(x.start) || !/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(x.bookedAt)) return;
+      var known = bk(x.id);
+      if (known) {
+        if (x.status === 'cancelled' && known.status === 'booked') { known.status = 'cancelled'; known.cancelReason = 'The customer cancelled in the chat'; audit('Customer cancelled', x.id); added++; }
+        return;
+      }
+      if (x.status === 'cancelled') return;
+      var inside = d(x.start) - d(x.bookedAt) < BOOK_RULES.confirmBeforeHours * 36e5;
+      BOOKINGS.push({ id: x.id, operatorId: AVAIL.operatorId, customerRef: 'C-' + x.id.slice(-4), customerName: 'Alex R.', start: x.start, minutes: AVAIL.slotMinutes,
+        channel: x.channel === 'phone' ? 'phone' : 'video', topic: String(x.topic || 'Meeting from the chat').slice(0, 120), status: 'booked', bookedAt: x.bookedAt,
+        confirmedAt: inside ? x.bookedAt : undefined, share: { summary: !!x.share, at: x.share ? x.bookedAt : undefined }, source: 'chat', isNew: true });
+      if (x.share) BK_SUMMARIES[x.id] = String(x.summary || 'Summary of the chat.').slice(0, 600);
+      AUDIT.unshift({ at: x.bookedAt, user: 'Customer C-' + x.id.slice(-4), action: 'Booked meeting', entity: x.id, reason: 'From the chat' });
+      added++;
+    });
+    return added;
+  }
+  window.addEventListener('storage', function (e) {
+    if (e.key !== BOOK_KEY) return;
+    if (importBookings()) { publishSlots(); render(false); toast('A customer booked a meeting from the chat.', 'calendar-plus'); }
+  });
+
   /* ═══════════════════════ Demo bridge with chat.html (localStorage) ═══════════════════════
      chat.html writes requests to raiffy.demo.requests; the console writes decisions to raiffy.demo.verdicts. */
   var REQ_KEY = 'raiffy.demo.requests', VER_KEY = 'raiffy.demo.verdicts';
@@ -1489,6 +2007,20 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     if (!r.fromChat) return;
     try { var all = readJSON(VER_KEY, {}); all[r.chatId] = v; localStorage.setItem(VER_KEY, JSON.stringify(all)); } catch (e) {}
   }
+  /* The plan the customer saw (chat.html / plan.html, in bani and bps), in the console's plan shape (lei and percent).
+     Another page wrote it, so text goes through esc() when it renders and numbers are coerced here. */
+  var PLAN_KEY = 'raiffy.demo.plans';
+  function fromSavedPlan(p) {
+    var g = p.goals[0], f = p.figures, num = function (x) { return Number(x) || 0; };
+    return { id: String(p.id), track: 'personal', label: 'indicative', createdAt: String(p.createdAt), version: num(p.version),
+      goals: [{ summary: String(g.summary), chosenRoute: String(g.chosenRoute), amount: num(g.amount) / 100, termMonths: num(g.termMonths) }],
+      rate: num(p.terms.annualRateBps) / 100,
+      figures: { monthly: num(f.monthly) / 100, total: num(f.total) / 100, dae: num(f.dae) * 100,
+        commissions: f.commissions.map(function (c) { return { name: String(c.name), amount: c.amount == null ? null : num(c.amount) / 100, note: String(c.note) }; }) },
+      repaymentSchedule: p.repaymentSchedule.map(function (x) { return { date: String(x.date), principal: num(x.principal) / 100, interest: num(x.interest) / 100, fees: num(x.fees) / 100, balance: num(x.balance) / 100 }; }),
+      versions: { 'personal-loan': product('personal-loan').version },
+      sources: p.sources.map(function (s) { return String(s.label); }) };
+  }
   function importRequests() {
     var reqs = readJSON(REQ_KEY, []), added = 0;
     reqs.forEach(function (q) {
@@ -1496,7 +2028,12 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       if (review(id)) return;
       var r = { id: id, chatId: q.id, fromChat: true, status: 'open', createdAt: isoMinus(Math.max(0, Math.round((Date.now() - q.at) / 6e4))), client: { ref: 'Client ••4821', segment: 'Andrei P. · salary transfer' },
         conversationId: q.conv, note: q.note || '', convo: [{ role: 'user', text: q.question }, { role: 'raiffy', flagged: true, text: (q.paras[0] || '').slice(0, 120) + '…' }] };
-      if (q.kind === 'plan') {
+      var saved = q.kind === 'plan' && q.card && /^PS-\d{3,6}$/.test(q.card.planId) ? readJSON(PLAN_KEY, {})[q.card.planId] : null;
+      if (saved && saved.version === q.card.version) {
+        r.trigger = 'plan'; r.topic = 'Plan check · ' + lei(saved.goals[0].amount / 100) + ' over ' + saved.goals[0].termMonths + ' months';
+        r.plan = fromSavedPlan(saved);
+        if (saved.affordability) { r.client.income = saved.affordability.income / 100; r.client.obligations = saved.affordability.obligations / 100; }
+      } else if (q.kind === 'plan') {
         var P = q.card.amount, n = q.card.term, rate = q.card.rate * 100;
         r.trigger = 'plan'; r.topic = 'Plan check · ' + lei(P) + ' over ' + n + ' months';
         r.plan = planSummary('PS-' + (2300 + (q.n || 0)), P, n, rate, 0, product('personal-loan').values.origination.value, liso(NOW).slice(0, 16), 'Kitchen renovation', 'Personal loan, pre-approved offer ' + pct(rate, 1), { 'personal-loan': product('personal-loan').version });
@@ -1540,8 +2077,8 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       var c = CHANGES.filter(function (x) { return x.id === parts[1]; })[0]; if (!c) { location.hash = 'approvals'; return; }
       html = pageChange(c);
     } else {
-      top = { reviews: 1, products: 1, parameters: 1, approvals: 1, audit: 1 }[top] ? top : 'reviews';
-      html = { reviews: pageReviews, products: pageProducts, parameters: pageParameters, approvals: pageApprovals, audit: pageAudit }[top]();
+      top = { reviews: 1, products: 1, parameters: 1, approvals: 1, calendar: 1, audit: 1 }[top] ? top : 'reviews';
+      html = { reviews: pageReviews, products: pageProducts, parameters: pageParameters, approvals: pageApprovals, calendar: pageCalendar, audit: pageAudit }[top]();
     }
     renderNav(top);
     var pg = $('page'), keep = moveFocus === false ? $('content').scrollTop : 0;
@@ -1623,6 +2160,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
     if ((el = t.closest('tr.rowlink')) && !t.closest('a, button')) { if (el.dataset.href) location.hash = el.dataset.href; return; }
     if ((el = t.closest('[data-revtype]'))) { ui.revType = el.dataset.revtype; return render(false); }
     if ((el = t.closest('[data-revstatus]'))) { ui.revStatus = el.dataset.revstatus; return render(false); }
+    if ((el = t.closest('[data-wrby]'))) { ui.wrBy = el.dataset.wrby; return render(false); }
     if ((el = t.closest('[data-prodf]'))) { ui.prodFilter = el.dataset.prodf; return render(false); }
     if ((el = t.closest('[data-auditk]'))) { ui.auditKind = el.dataset.auditk; return render(false); }
     if ((el = t.closest('[data-jump]'))) { e.preventDefault(); var s = $(el.dataset.jump); if (s) s.scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth', block: 'start' });
@@ -1732,11 +2270,65 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('app').classList.contains('side-open')) { closeSide(); $('open-side').focus(); } });
   narrow.addEventListener('change', closeSide);
 
+  /* Calendar events */
+  document.addEventListener('click', function (e) {
+    var t = e.target, el;
+    if ((el = t.closest('[data-week]'))) {
+      var step = +el.dataset.week, cur = ui.calWeek || weekOf(liso(NOW));
+      ui.calWeek = step ? addDays(cur, 7 * step) : weekOf(liso(NOW));
+      render(false); announce('Week of ' + day(ui.calWeek) + '.'); return;
+    }
+    if ((el = t.closest('[data-avail]'))) { avDraft = null; return openAvail(); }
+    if ((el = t.closest('[data-bk-act]'))) return meetingAction(el.dataset.bkAct, el.dataset.id);
+    if ((el = t.closest('[data-bk]'))) return openMeeting(el.dataset.bk);
+    if ((el = t.closest('[data-av-rmoff]'))) { readAvail(); avDraft.daysOff.splice(+el.dataset.avRmoff, 1); return openAvail(); }
+    if ((el = t.closest('[data-av-addoff]'))) {
+      var date = $('av-off-date').value, why = $('av-off-why').value.trim();
+      if (!date || !why) { $('av-err').textContent = 'Pick a date and add a reason for the day off.'; $('av-err').hidden = false; return; }
+      readAvail();
+      if (!dayOff(avDraft, date)) avDraft.daysOff.push({ date: date, reason: why.slice(0, 60) });
+      avDraft.daysOff.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      return openAvail();
+    }
+  });
+  document.addEventListener('change', function (e) { if (e.target.closest('#av-form') && avDraft) readAvail(); });
+  document.addEventListener('submit', function (e) { if (e.target.id === 'av-form') { e.preventDefault(); saveAvail(); } });
+  $('sheet').addEventListener('close', function () { avDraft = null; });
+
   /* ═══════════════════════ Start ═══════════════════════ */
   seedReviews();
   importRequests();
+  importBookings();
+  publishSlots();
   icons();
   render(false);
+})();
+/* Phones show table rows as cards (§12), so each cell carries its column header as data-label */
+(function () {
+  var queued = false;
+  function labelCells() {
+    queued = false;
+    document.querySelectorAll('table.tbl').forEach(function (t) {
+      var heads = [].map.call(t.querySelectorAll('thead th'), function (th) { return th.querySelector('.sr-only') ? '' : th.textContent.trim(); });
+      t.querySelectorAll('tbody tr').forEach(function (tr) {
+        [].forEach.call(tr.children, function (td, i) { if (heads[i] && !td.hasAttribute('data-label')) td.setAttribute('data-label', heads[i]); });
+      });
+    });
+  }
+  labelCells();
+  new MutationObserver(function () { if (!queued) { queued = true; requestAnimationFrame(labelCells); } }).observe(document.body, { childList: true, subtree: true });
+})();
+/* Chip rows scroll sideways on phones (§12): fade the edge that has more chips */
+(function () {
+  function edges(row) {
+    row.classList.toggle('more-l', row.scrollLeft > 2);
+    row.classList.toggle('more-r', row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+  }
+  function chipEdges() { document.querySelectorAll('.chips').forEach(edges); }
+  document.addEventListener('scroll', function (e) { if (e.target.classList && e.target.classList.contains('chips')) edges(e.target); }, true);
+  addEventListener('resize', chipEdges);
+  new MutationObserver(function () { requestAnimationFrame(chipEdges); }).observe(document.body, { childList: true, subtree: true });
+  chipEdges();
 })();
 </script>
 </body>

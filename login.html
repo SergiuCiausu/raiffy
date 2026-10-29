@@ -147,7 +147,7 @@ button { font: inherit; }
 .ava-raiffy { width: 26px; height: 26px; border-radius: 50%; flex: none; display: grid; place-items: center; background: #1A1A1A;
   color: var(--accent-a); box-shadow: 0 0 0 1px rgba(255,232,190,.18); }
 .ava-raiffy svg { width: 13px; height: 13px; stroke-width: 2.2; }
-.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
   color: #FFE08A; background: rgba(255,210,63,.13); }
 .wb p { font-size: 12.5px; line-height: 1.5; color: rgba(255,244,225,.72); }
 .wb-sim { border: 1px solid rgba(255,232,190,.1); border-radius: 10px; padding: 12px; display: grid; gap: 10px; background: rgba(255,232,190,.025); }
@@ -160,7 +160,7 @@ button { font: inherit; }
 .wb-row.on { color: #FFE9A8; }
 .wb-row.on i::after { background: linear-gradient(90deg, #FFD23F, #FF9A3D); box-shadow: 0 0 12px rgba(255,190,50,.6); }
 .wb-row.on b { color: #FFF7E6; }
-.wb-foot { font-size: 10.5px; color: rgba(255,244,225,.38); }
+.wb-foot { font-size: 11px; color: rgba(255,244,225,.38); }
 .wb-actions { display: flex; gap: 8px; }
 .wb-btn { padding: 7px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500; border: 1px solid rgba(255,232,190,.16); color: rgba(255,244,225,.72); }
 .wb-btn.on { background: #F4EFE2; color: #2E2205; border-color: transparent; box-shadow: 0 0 18px rgba(255,190,50,.35); }
@@ -344,6 +344,26 @@ button { font: inherit; }
   .art, .tagline p, .seg-ind { transition-duration: 0s !important; }
   .btn.is-loading .spin { animation-duration: 1.6s; }
 }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .panel-foot a { display: inline-block; padding: 13px 0; }
+  /* Consent rows: taller labels, so the stacked hit areas don't overlap */
+  .consents { gap: 14px; }
+  .check { padding-block: 6px; }
+}
+/* §12-touch:end */
 </style>
 </head>
 <body data-mode="daylight" data-flow="login">

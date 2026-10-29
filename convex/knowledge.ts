@@ -1,6 +1,7 @@
 import type { ActionCtx } from "./_generated/server";
 import { requireAgentScope } from "./agentAuth";
 import { hybridSearch } from "./rag";
+import { NO_TRACE, type Trace } from "./trace";
 import { searchKnowledgeInputSchema } from "../lib/agent/prompt";
 import {
   buildKnowledgeResult,
@@ -21,10 +22,11 @@ export async function searchKnowledge(
   track: Track,
   rawInput: unknown,
   now: number = Date.now(),
+  t: Trace = NO_TRACE,
 ): Promise<SearchKnowledgeResult> {
   // Authenticate before answering anything, even "unavailable".
   await requireAgentScope(ctx, track);
-  return searchKnowledgeForTrack(ctx, track, rawInput, now);
+  return searchKnowledgeForTrack(ctx, track, rawInput, now, t);
 }
 
 /** The same handler without the identity check. Internal callers only (the retrieval eval). */
@@ -33,6 +35,7 @@ export async function searchKnowledgeForTrack(
   track: Track,
   rawInput: unknown,
   now: number = Date.now(),
+  t: Trace = NO_TRACE,
 ): Promise<SearchKnowledgeResult> {
   const requested = typeof rawInput === "object" && rawInput !== null ? (rawInput as Record<string, unknown>) : {};
   if (typeof requested.collection === "string" && !isPublicCollection(requested.collection)) {
@@ -47,6 +50,9 @@ export async function searchKnowledgeForTrack(
     track,
     collection: input.collection,
     k: candidateCount(input.limit),
-  });
-  return buildKnowledgeResult({ collection: input.collection, query: input.query, limit: input.limit, hits, now });
+  }, t);
+  const result = buildKnowledgeResult({ collection: input.collection, query: input.query, limit: input.limit, hits, now });
+  t.step("knowledge.result", { collection: input.collection, status: result.status, requested: result.coverage.requested,
+    returned: result.coverage.returned, gaps: result.coverage.gaps });
+  return result;
 }

@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your plan · Raiffy</title>
+<meta name="description" content="Concept page for a Raiffy financial plan: an indicative simulation laid out like the bank's standard information form, with the repayment schedule, every fee and the hand-off to Smart Mobile.">
+<!--
+  Raiffy: the full financial plan (route /plan/[id] at conversion). Front end only: the plan comes from chat.html through
+  localStorage (raiffy.demo.plans) or, without a saved plan, from the example in the MOCK DATA block. Nothing leaves the page.
+  Layout follows the SECCI order: label, goal, routes, main features, all commissions, affordability, schedule,
+  assumptions and gaps, sources, next steps. The PDF is the browser's print, with its own stylesheet.
+  Mode: Daylight. Accent as light only; ink for the primary action. Tokens and class names match chat.html.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-sans: "Geist", "Instrument Sans", "Inter Tight", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --text-body: 15px; --lh-body: 1.6; --text-sm: 14px; --text-xs: 13px; --text-eyebrow: 11px; --text-micro: 12px;
+  --radius-btn: 10px; --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px; --radius-panel: 14px; --radius-pill: 999px;
+  --accent-a: #FFD23F; --accent-b: #FF9A3D; --ink: #1A1A1A;
+  --halo: 0 0 0 4px rgba(255,210,63,.35);
+  --bg: #FAF9F7; --surface: #FFFFFF; --surface-2: #F4F3F0; --surface-3: #FBFAF8; --surface-warm: #FBFAF6;
+  --border: rgba(20,20,20,.07); --border-strong: rgba(20,20,20,.12); --border-hover: rgba(20,20,20,.24);
+  --text-1: #1A1A1A; --text-2: #5C5C5F; --text-3: #8E8E93;
+  --on-ink: #fff; --ink-hover: #2A2A2A; --track: #E9E6DE; --off: #D9D5CB;
+  --tint-rec: #FFF3C4; --tint-rec-card: #FFFDF5; --tint-hl: #FFF8DC;
+  --amber-ink: #7A5A00; --amber-ink-2: #6B5200;
+  --ok-bg: #F1F8F3; --ok-ink: #1E5B37; --ok: #2E7D4F;
+  --rec-line: rgba(200,150,20,.3); --rec-line-mid: rgba(200,150,20,.35);
+  --mark-ring: 0 0 0 1px rgba(0,0,0,.08) inset;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; font-family: var(--font-sans); font-size: var(--text-body); line-height: var(--lh-body); color: var(--text-1); background: var(--bg);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1, h2, h3 { margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; text-wrap: pretty; }
+a { color: inherit; }
+button, textarea { font: inherit; color: inherit; }
+ul { margin: 0; }
+.mono { font-family: var(--font-mono); }
+.micro { font-size: var(--text-micro); color: var(--text-2); }
+.eyebrow { font-size: var(--text-eyebrow); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.skip { position: absolute; left: 16px; top: -48px; z-index: 10; padding: 8px 12px; border-radius: var(--radius-btn); background: var(--ink); color: var(--on-ink); text-decoration: none; font-size: var(--text-xs); }
+.skip:focus { top: 12px; }
+.print-only { display: none; }
+
+/* Buttons: same as chat.html */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--radius-btn);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; white-space: nowrap; font: 500 var(--text-xs)/1 var(--font-sans);
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn-dark { background: var(--ink); color: var(--on-ink); }
+.btn-ghost { background: var(--surface); color: var(--text-1); border-color: var(--border-strong); }
+.btn-dark:active { background: var(--ink-hover); }
+.btn-ghost:active { background: var(--surface-2); }
+.btn-sm { height: 32px; padding: 0 12px; }
+.link { padding: 0; border: 0; background: none; cursor: pointer; font-size: var(--text-xs); color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .btn-dark:hover { background: var(--ink-hover); }
+  .btn-ghost:hover { border-color: var(--border-hover); }
+  .link:hover { text-decoration-color: var(--text-1); }
+}
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--text-eyebrow); font-weight: 500;
+  color: var(--c, var(--text-2)); background: color-mix(in srgb, var(--c, var(--text-2)) 12%, transparent); white-space: nowrap; }
+.rec-badge { display: inline-flex; align-items: center; gap: 4px; width: fit-content; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--tint-rec); color: var(--ink);
+  font-size: var(--text-eyebrow); font-weight: 600; }
+.rec-badge svg { width: 12px; height: 12px; stroke-width: 2.4; }
+
+/* Top bar */
+.bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; letter-spacing: -.01em; border-radius: var(--radius-sm); }
+.logo-mark { width: 24px; height: 24px; border-radius: var(--radius-md); background: var(--accent-a); display: grid; place-items: center; box-shadow: var(--mark-ring); }
+.logo-mark svg { width: 14px; height: 14px; color: var(--ink); stroke-width: 2.2; }
+.bar-t { font-size: var(--text-xs); color: var(--text-2); }
+.bar-acts { margin-left: auto; display: flex; gap: 8px; }
+@media (max-width: 560px) { .bar-acts .lbl { display: none; } .bar-acts .btn { width: 32px; padding: 0; } }
+
+/* Document */
+.page { max-width: 760px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 28px; }
+.page:focus { outline: none; }
+@media (max-width: 640px) { .page { padding: 24px 16px 48px; gap: 24px; } }
+.doc-head { display: grid; gap: 12px; }
+.doc-head h1 { font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
+@media (max-width: 640px) { .doc-head h1 { font-size: 24px; } }
+.route-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--text-sm); }
+section { display: grid; gap: 12px; align-content: start; }
+section > h2 { font-size: 18px; letter-spacing: -.01em; }
+.sec-lead { font-size: var(--text-xs); color: var(--text-2); }
+.plan-label { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; padding: 10px 14px; border-radius: var(--radius-btn); background: var(--tint-hl);
+  box-shadow: inset 0 0 0 1px var(--rec-line); font-size: var(--text-xs); line-height: 1.5; color: var(--amber-ink-2); }
+.plan-label svg { width: 16px; height: 16px; margin-top: 1px; }
+.plan-label b { font-weight: 600; }
+
+/* Check status, same as chat.html */
+.vstat { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-radius: var(--radius-btn); font-size: var(--text-xs); line-height: 1.45; background: var(--surface-2); color: var(--text-2); }
+.vstat svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.vstat b { color: var(--text-1); font-weight: 500; }
+.vstat.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.vstat.ok b { color: var(--ok-ink); }
+.vstat.ok svg { color: var(--ok); }
+.vstat.changed { background: var(--tint-hl); color: var(--amber-ink-2); }
+
+/* Routes: options side by side, the recommended one lit */
+.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 680px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.opt { display: grid; gap: 8px; align-content: start; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+.opt.rec { border-color: var(--rec-line-mid); background: var(--tint-rec-card); }
+.opt.na { opacity: .6; }
+.opt-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 20px; }
+.opt-h { display: grid; gap: 2px; font-size: var(--text-xs); font-weight: 600; }
+.opt-h .micro { font-weight: 400; color: var(--text-1); }
+.big { font: 600 20px/1.1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.big small { font-size: var(--text-micro); font-weight: 400; color: var(--text-2); letter-spacing: 0; margin-left: 4px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-xs); color: var(--text-2); }
+.kv b { flex: none; white-space: nowrap; color: var(--text-1); font: 500 var(--text-xs) var(--font-mono); font-variant-numeric: tabular-nums; }
+.opt-note { font-size: var(--text-xs); color: var(--text-2); line-height: 1.45; }
+.rec-why { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-warm); }
+.rec-why-h { display: flex; align-items: center; gap: 10px; font-size: var(--text-xs); font-weight: 600; }
+.ava-raiffy { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--accent-a); }
+.ava-raiffy svg { width: 12px; height: 12px; stroke-width: 2.2; }
+.rec-why ul { list-style: none; padding: 0 0 0 32px; display: grid; gap: 6px; font-size: var(--text-xs); line-height: 1.5; }
+.rec-why li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; }
+.rec-why li svg { width: 14px; height: 14px; margin-top: 4px; color: var(--text-2); stroke-width: 2.4; }
+.rec-alt { padding-left: 32px; font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
+
+/* Main features (SECCI order), every figure with its source */
+.doc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
+.doc-grid > div { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 12px 14px; border-left: 1px solid var(--border); border-top: 1px solid var(--border); }
+.doc-grid > div:nth-child(3n+1) { border-left: 0; }
+.doc-grid > div:nth-child(-n+3) { border-top: 0; }
+.doc-grid span, .doc-grid small { font-size: var(--text-micro); color: var(--text-2); }
+.doc-grid b { font-size: 17px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .doc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .doc-grid > div { border-left: 0; border-top: 1px solid var(--border); }
+  .doc-grid > div:nth-child(2n) { border-left: 1px solid var(--border); }
+  .doc-grid > div:nth-child(-n+2) { border-top: 0; }
+}
+
+/* Lists of lines: commissions, sources */
+.lines { display: grid; border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
+.ln { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: var(--text-xs); }
+.ln:first-child { border-top: 0; }
+.ln small { display: block; font-size: var(--text-xs); color: var(--text-2); line-height: 1.45; }
+.ln .amt { font: 500 var(--text-xs) var(--font-mono); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ln .amt small { font-family: var(--font-sans); }
+.ln.src-ln { grid-template-columns: 16px minmax(0, 1fr); gap: 10px; }
+.ln.src-ln svg { width: 14px; height: 14px; margin-top: 3px; color: var(--text-2); }
+
+/* Affordability */
+.afford { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
+.afford-bar { display: flex; height: 10px; border-radius: var(--radius-xs); overflow: hidden; background: var(--surface-2); }
+.afford-bar i { display: block; height: 100%; }
+.afford-bar .ob { background: var(--off); }
+.afford-bar .pm { background: var(--ink); }
+.afford-key { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--text-xs); color: var(--text-2); }
+.afford-key span { display: inline-flex; align-items: center; gap: 6px; }
+.afford-key i { width: 10px; height: 10px; border-radius: 2px; }
+.afford-key b { color: var(--text-1); font: 500 var(--text-xs) var(--font-mono); }
+
+/* Balance over time and the schedule */
+.bal { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); }
+.bal-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; }
+.bal-bars i { flex: 1; min-width: 1px; border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: var(--track); }
+.bal-bars i:first-child { background: var(--ink); }
+.bal-cap { display: flex; justify-content: space-between; gap: 8px; font: 400 var(--text-micro) var(--font-mono); color: var(--text-1); }
+.tbl-wrap { border: 1px solid var(--border); border-radius: var(--radius-btn); background: var(--surface); overflow: hidden; }
+.sched { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sched th, .sched td { padding: 8px 12px; text-align: right; white-space: nowrap; border-top: 1px solid var(--border); }
+.sched th { border-top: 0; font: 500 var(--text-micro) var(--font-sans); color: var(--text-2); }
+.sched td { font: 400 var(--text-micro) var(--font-mono); }
+.sched th:first-child, .sched td:first-child { text-align: left; }
+.sched tfoot td { font-weight: 500; background: var(--surface-3); }
+.sched .more { display: none; }
+.sched.all .more { display: table-row; }
+@media (max-width: 560px) { .sched .hide-sm { display: none; } .sched th, .sched td { padding: 8px 10px; } }
+
+.bul { padding-left: 18px; display: grid; gap: 6px; font-size: var(--text-sm); color: var(--text-1); }
+.bul li::marker { color: var(--text-3); }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+@media (max-width: 640px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Next steps */
+.next-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.note { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: var(--text-xs); line-height: 1.5; color: var(--text-2); }
+.note svg { width: 14px; height: 14px; margin-top: 2px; color: var(--text-1); }
+.demo-out { padding: 12px 14px; border: 1px dashed var(--border-strong); border-radius: var(--radius-btn); font-size: var(--text-xs); line-height: 1.5; color: var(--text-2); }
+.demo-out b { color: var(--text-1); font-weight: 500; }
+.vreq { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-panel); background: var(--surface); }
+.vreq h3 { font-size: var(--text-sm); }
+.vreq p, .vreq details { font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
+.vreq summary { cursor: pointer; width: fit-content; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.vreq ul { margin-top: 8px; padding-left: 18px; display: grid; gap: 4px; }
+.vreq textarea { width: 100%; min-height: 64px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-btn); resize: vertical; outline: none; font-size: var(--text-sm); line-height: 1.5; background: var(--surface); }
+.vreq textarea:focus { border-color: var(--ink); box-shadow: var(--halo); }
+.vreq .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.foot { padding-top: 16px; border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
+.empty { display: grid; gap: 12px; justify-items: start; padding: 48px 0; }
+.empty h1 { font-size: 24px; letter-spacing: -.02em; }
+.empty p { color: var(--text-2); font-size: var(--text-sm); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* The PDF: the browser's print. Everything that acts is dropped, the whole schedule is shown. */
+@media print {
+  @page { margin: 16mm 14mm; }
+  body { background: var(--surface); font-size: 11pt; }
+  .bar, .skip, .no-print, .vreq, .demo-out { display: none !important; }
+  .print-only { display: block; }
+  .page { max-width: none; padding: 0; gap: 18px; }
+  .sched .more { display: table-row; }
+  .sched .hide-sm { display: table-cell; }
+  .opts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .doc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  section, .opt, .ln, .doc-grid, .rec-why, .afford { break-inside: avoid; }
+  .sched-sec, .sched-sec .tbl-wrap { break-inside: auto; }
+  .sched tr { break-inside: avoid; }
+  .plan-label, .opt.rec, .rec-badge, .vstat, .bal-bars i, .afford-bar i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .bar-acts .btn { width: 36px; height: 36px; }
+}
+/* §12-touch:end */
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the plan</a>
+<header class="bar">
+  <a class="logo" href="raiffy.html"><span class="logo-mark"><i data-lucide="compass"></i></span>Raiffy</a>
+  <span class="bar-t">Plan</span>
+  <div class="bar-acts">
+    <a class="btn btn-ghost btn-sm" href="chat.html" aria-label="Back to the chat"><i data-lucide="arrow-left"></i><span class="lbl">Back to the chat</span></a>
+    <button type="button" class="btn btn-ghost btn-sm" data-act="print" aria-label="Download PDF"><i data-lucide="download"></i><span class="lbl">Download PDF</span></button>
+  </div>
+</header>
+<main id="main" class="page" tabindex="-1"></main>
+<div id="announce" class="sr-only" aria-live="polite"></div>
+
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var main = $('main');
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function icons() { if (window.lucide) lucide.createIcons(); }
+  function ic(n) { return '<i data-lucide="' + n + '"></i>'; }
+  // Plans come from storage another page wrote, so every text goes through esc() before it reaches markup
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function num(x) { return typeof x === 'number' && isFinite(x) ? x : 0; }
+  function group(s) { return s.replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function lei2(bani) { var s = (Math.abs(num(bani)) / 100).toFixed(2).split('.'); return (bani < 0 ? '−' : '') + group(s[0]) + '.' + s[1] + ' lei'; }
+  function lei0(bani) { return group(String(Math.round(num(bani) / 100))) + ' lei'; }
+  function money(bani) { return group((num(bani) / 100).toFixed(2).split('.')[0]) + '.' + (num(bani) / 100).toFixed(2).split('.')[1]; }
+  function pctBps(bps) { return (bps / 100).toFixed(bps % 10 ? 2 : 1) + '%'; }
+  function dateLong(iso) { var x = new Date(String(iso).slice(0, 10) + 'T12:00'); return x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear(); }
+  function dateShort(iso) { var x = new Date(String(iso).slice(0, 10) + 'T12:00'); return x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + String(x.getFullYear()).slice(2); }
+  function monthYear(iso) { var x = new Date(String(iso).slice(0, 10) + 'T12:00'); return MONTHS[x.getMonth()] + ' ' + x.getFullYear(); }
+  function announce(msg) { var a = $('announce'); a.textContent = ''; setTimeout(function () { a.textContent = msg; }, 60); }
+  function readJSON(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
+  function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  /* Repayment schedule: mirrors lib/calc/schedule.ts repaymentSchedule (and chat.html) exactly. */
+  function addMonthsISO(iso, k) {
+    var p = iso.split('-').map(Number), t = new Date(Date.UTC(p[0], p[1] - 1 + k, 1));
+    t.setUTCDate(Math.min(p[2], new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate()));
+    return t.toISOString().slice(0, 10);
+  }
+  function annualPercentageRate(net, pays) {
+    function pv(x) { var s = 0; for (var i = 0; i < pays.length; i++) s += pays[i] / Math.pow(1 + x, (i + 1) / 12); return s; }
+    var lo = 0, hi = 10;
+    if (pv(lo) <= net) return 0;
+    for (var i = 0; i < 200 && hi - lo > 1e-12; i++) { var mid = (lo + hi) / 2; if (pv(mid) > net) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  function repaymentSchedule(x) {
+    var r = x.annualRateBps / 10000 / 12, inst = Math.round(r ? x.principal * r / (1 - Math.pow(1 + r, -x.months)) : x.principal / x.months), rows = [], bal = x.principal;
+    for (var n = 1; n <= x.months; n++) {
+      var it = Math.round(bal * r), pr = n === x.months ? bal : Math.min(bal, inst - it);
+      bal -= pr;
+      rows.push({ n: n, date: addMonthsISO(x.firstPaymentDate, n - 1), principal: pr, interest: it, fees: x.monthlyFee, payment: pr + it + x.monthlyFee, balance: bal });
+    }
+    var interest = rows.reduce(function (s, w) { return s + w.interest; }, 0), fees = x.upfrontFee + x.monthlyFee * x.months;
+    return { instalment: inst, monthly: inst + x.monthlyFee, rows: rows, totals: { principal: x.principal, interest: interest, fees: fees, payable: x.principal + interest + fees },
+      dae: annualPercentageRate(x.principal - x.upfrontFee, rows.map(function (w) { return w.payment; })) };
+  }
+
+  /* ═══════════════════════ MOCK DATA ═══════════════════════
+     Shown when no plan from the chat is saved on this device. Same plan as the console's open plan check R-1041 (PS-2210).
+     type PlanSummary: see chat.html (buildPlan). Money in bani, rates in basis points. Every figure is illustrative. */
+  function examplePlan() {
+    var P = 4000000, n = 60, bps = 790, fee = 24900, pkg = 900, first = '2026-11-25';
+    var s = repaymentSchedule({ principal: P, months: n, annualRateBps: bps, upfrontFee: fee, monthlyFee: pkg, firstPaymentDate: first });
+    var s48 = repaymentSchedule({ principal: P, months: 48, annualRateBps: bps, upfrontFee: fee, monthlyFee: pkg, firstPaymentDate: first });
+    var later = repaymentSchedule({ principal: 3000000, months: 48, annualRateBps: bps, upfrontFee: fee, monthlyFee: pkg, firstPaymentDate: '2027-07-25' });
+    var income = 780000, obligations = 65000, dti = Math.round((s.monthly + obligations) / income * 100);
+    return {
+      id: 'PS-2210', version: 1, conversationId: 'conv_77c0', track: 'personal', label: 'indicative', createdAt: '2026-10-25T18:05',
+      goals: [{ summary: 'Renovate the flat in Titan', chosenRoute: 'Flexicredit with salary transfer, 7.9% fixed', product: 'personal-loan', amount: P, termMonths: n }],
+      terms: { annualRateBps: bps, rateType: 'fixed', upfrontFee: fee, monthlyFee: pkg, firstPaymentDate: first, source: 'Lending rates, Oct 2026' },
+      figures: { monthly: s.monthly, instalment: s.instalment, total: s.totals.payable, interest: s.totals.interest, fees: s.totals.fees, dae: s.dae, commissions: [
+        { name: 'Origination fee', amount: fee, basis: 'charged', frequency: 'once', note: 'One-off, taken when the loan is paid out', source: 'Fee schedule, 1 Jul 2026' },
+        { name: 'Monthly administration fee', amount: 0, basis: 'none', frequency: 'monthly', note: 'None for Flexicredit', source: 'Fee schedule, 1 Jul 2026' },
+        { name: 'Mandatory insurance', amount: 0, basis: 'none', note: 'Not required. Optional life insurance isn’t included and would raise the DAE', source: 'Flexicredit T&C' },
+        { name: 'Account package', amount: pkg, basis: 'charged', frequency: 'monthly', note: 'Needed for the salary-transfer rate, counted in the monthly payment', source: 'Fee schedule, 1 Jul 2026' },
+        { name: 'Early repayment fee', amount: null, basis: 'if_used', note: '0.5% of the amount you repay early, none in the last 12 months', source: 'Flexicredit T&C' }] },
+      routes: [
+        { key: 'loan', name: 'Flexicredit, 60 months', detail: '7.9% fixed · your choice', monthly: s.monthly, cost: s.totals.interest + s.totals.fees, fits: true, recommended: true, note: 'The lowest payment, and the work can start now.' },
+        { key: 'loan-48', name: 'Flexicredit, 48 months', detail: '7.9% fixed', monthly: s48.monthly, cost: s48.totals.interest + s48.totals.fees, fits: true, recommended: false, note: 'A higher payment, but ' + lei0(s.totals.interest - s48.totals.interest) + ' less interest.' },
+        { key: 'save', name: 'Save 8 months, then borrow 30,000 lei', detail: '1,250 lei a month first', monthly: later.monthly, cost: later.totals.interest + later.totals.fees, fits: true, recommended: false, note: 'The cheapest route, but the renovation starts in July 2027.' }],
+      recommendation: { reasons: ['With your other payments, about ' + dti + '% of your income goes to loans each month, which leaves room for everyday costs.', 'The rate is fixed, so the payment stays the same for all 60 months.'],
+        alt: 'Saving first is the better pick if the renovation can wait until next summer: it costs about ' + lei0(s.totals.interest + s.totals.fees - later.totals.interest - later.totals.fees) + ' less.' },
+      affordability: { income: income, obligations: obligations },
+      repaymentSchedule: s.rows,
+      assumptions: ['Paid out on 25 Oct 2026, with the first instalment on 25 Nov 2026 and then on the same day each month.', 'Your salary keeps going into your Raiffeisen account, so the 7.9% rate applies.',
+        'You repay on schedule, with no early repayments.', 'Interest is worked out monthly, so the bank’s official schedule can differ by a few bani.'],
+      missing: ['The bank’s credit assessment, which happens when you apply.'],
+      sources: [{ label: 'Lending rates, Oct 2026', detail: 'Flexicredit · 7.9% fixed with salary transfer' }, { label: 'Fee schedule, 1 Jul 2026', detail: 'Published list of fees and commissions' }, { label: 'Flexicredit T&C', detail: 'Early repayment and insurance terms' }],
+      verification: { level: 'pending_review', requestId: 'R-1041', forInputs: '40,000 lei over 60 months' },
+      handoff: { target: 'smart-mobile', product: 'personal-loan', amount: P, termMonths: n },
+      example: true
+    };
+  }
+
+  /* ───────────── State: the saved plan, its check, and the demo bridge ───────────── */
+  var PLAN_KEY = 'raiffy.demo.plans', REQ_KEY = 'raiffy.demo.requests', VER_KEY = 'raiffy.demo.verdicts';
+  var ui = { allRows: false, asking: false, applied: false, inboxed: false };
+  var plan = null;
+  function planId() { var h = decodeURIComponent(location.hash.replace(/^#/, '')); return /^PS-\d{3,6}$/.test(h) ? h : ''; }
+  function valid(p) {
+    return p && /^PS-\d{3,6}$/.test(p.id) && p.goals && p.goals[0] && p.figures && Array.isArray(p.figures.commissions) &&
+      Array.isArray(p.repaymentSchedule) && p.repaymentSchedule.length && Array.isArray(p.routes) && p.terms;
+  }
+  function load() {
+    var id = planId(), saved = readJSON(PLAN_KEY, {});
+    if (id && valid(saved[id])) return saved[id];
+    if (!id || id === 'PS-2210') return examplePlan();
+    return null;
+  }
+  function save() { if (plan.example) return; var all = readJSON(PLAN_KEY, {}); all[plan.id] = plan; writeJSON(PLAN_KEY, all); }
+  /* A decision from the console, keyed by the request ID */
+  function applyVerdict() {
+    var v = plan.verification, d = v && v.requestId ? readJSON(VER_KEY, {})[v.requestId] : null;
+    if (!d || d.level === v.level) return false;
+    plan.verification = { level: d.level, changed: false, forInputs: v.forInputs, reviewer: d.reviewer || null, reviewedAt: d.reviewedAt || '', note: d.note || '', requestId: v.requestId };
+    save(); return true;
+  }
+  function sendCheck(note) {
+    var g = plan.goals[0], n = Date.now() % 100000, id = 'vr-plan-' + n;
+    var req = { id: id, n: n, kind: 'plan', at: Date.now(), conv: plan.conversationId, title: 'Plan ' + plan.id, question: g.summary, flow: 'plan', note: note,
+      paras: ['Plan ' + plan.id + ', version ' + plan.version + ': ' + lei0(g.amount) + ' over ' + g.termMonths + ' months, about ' + lei2(plan.figures.monthly) + ' a month.'],
+      sources: plan.sources.map(function (s) { return s.label; }),
+      card: { amount: g.amount / 100, term: g.termMonths, rate: plan.terms.annualRateBps / 10000, planId: plan.id, version: plan.version, goal: g.summary } };
+    var all = readJSON(REQ_KEY, []); all.push(req); writeJSON(REQ_KEY, all);
+    plan.verification = { level: 'pending_review', changed: false, forInputs: lei0(g.amount) + ' over ' + g.termMonths + ' months', reviewer: null, reviewedAt: '', note: '', requestId: id };
+    if (plan.example) { plan.example = false; save(); plan.example = true; } else save();
+    ui.asking = false; render();
+    announce('Request sent. A specialist will check your plan.');
+  }
+
+  /* ───────────── Rendering ───────────── */
+  function statusHTML(v) {
+    v = v || { level: 'none' };
+    if (v.level === 'pending_review') return '<p class="vstat">' + ic('clock') + '<span><b>Being checked by a specialist.</b> Usually within 30 minutes, 09:00–20:00. You’ll see their answer here and in the chat.</span></p>';
+    if (v.changed) return '<p class="vstat changed">' + ic('triangle-alert') + '<span><b>Changed after the specialist’s check.</b> Their confirmation was for ' + esc(v.forInputs) + '. Ask again to check this version.</span></p>';
+    if (v.level === 'confirmed') return '<p class="vstat ok">' + ic('badge-check') + '<span><b>Confirmed by ' + esc(v.reviewer && v.reviewer.name) + ', ' + esc(v.reviewer && v.reviewer.role ? v.reviewer.role.toLowerCase() : 'specialist') + (v.reviewedAt ? ' · ' + esc(v.reviewedAt) : '') + '.</b> They confirmed the information, not a credit decision.</span></p>';
+    if (v.level === 'edited') return '<p class="vstat ok">' + ic('pencil-line') + '<span><b>Confirmed with a correction by ' + esc(v.reviewer && v.reviewer.name) + (v.reviewedAt ? ' · ' + esc(v.reviewedAt) : '') + ':</b> “' + esc(v.note) + '”</span></p>';
+    if (v.level === 'returned') return '<p class="vstat changed">' + ic('undo-2') + '<span><b>The specialist sent this back:</b> ' + esc(v.note) + '</span></p>';
+    return '<p class="vstat">' + ic('circle-dashed') + '<span><b>Not checked yet.</b> A Raiffeisen specialist can check it before you apply.</span></p>';
+  }
+  function routesHTML(p) {
+    var rec = p.routes.filter(function (r) { return r.recommended; })[0];
+    return '<section aria-labelledby="h-routes"><h2 id="h-routes">Routes we looked at</h2>' +
+      '<div class="opts">' + p.routes.map(function (r, i) {
+        return '<div class="opt' + (r.recommended ? ' rec' : '') + (r.fits ? '' : ' na') + '">' +
+          '<div class="opt-tags">' + (r.recommended ? '<span class="rec-badge">' + ic('sparkles') + 'Recommended</span>' : '') + (i === 0 ? '<span class="pill">Your choice</span>' : '') + '</div>' +
+          '<div class="opt-h">' + esc(r.name) + '<span class="micro">' + esc(r.detail) + '</span></div>' +
+          '<div class="big">' + (r.fits && r.monthly != null ? lei0(r.monthly) + '<small>/ month</small>' : 'Doesn’t fit') + '</div>' +
+          (r.fits && r.cost != null ? '<div class="kv"><span>Interest and fees</span><b>' + lei0(r.cost) + '</b></div>' : '') +
+          '<p class="opt-note">' + esc(r.note) + '</p></div>';
+      }).join('') + '</div>' +
+      (rec ? '<div class="rec-why"><div class="rec-why-h"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span>Raiffy recommends: ' + esc(rec.name) + '</div>' +
+        '<ul>' + p.recommendation.reasons.map(function (t) { return '<li>' + ic('check') + '<span>' + esc(t) + '</span></li>'; }).join('') + '</ul>' +
+        '<p class="rec-alt">' + esc(p.recommendation.alt) + ' Every route stays open, and the choice is yours.</p></div>' : '') + '</section>';
+  }
+  function featuresHTML(p) {
+    var g = p.goals[0], f = p.figures, t = p.terms;
+    var cells = [['Amount', lei0(g.amount), 'You chose'], ['Term', g.termMonths + ' months', 'Monthly instalments'], ['Rate', pctBps(t.annualRateBps) + ' ' + esc(t.rateType), esc(t.source)],
+      ['Monthly payment', lei2(f.monthly), 'Estimate' + (t.monthlyFee ? ' · with ' + lei0(t.monthlyFee) + ' monthly fees' : '')], ['Total payable', lei2(f.total), 'Estimate · with all fees'], ['DAE', (num(f.dae) * 100).toFixed(2) + '%', 'Estimate · without optional insurance']];
+    return '<section aria-labelledby="h-main"><h2 id="h-main">Main features</h2><div class="doc-grid">' +
+      cells.map(function (c) { return '<div><span>' + c[0] + '</span><b>' + c[1] + '</b><small>' + c[2] + '</small></div>'; }).join('') + '</div>' +
+      '<p class="sec-lead">Interest over the whole term: ' + lei2(f.interest) + '. Fees: ' + lei2(f.fees) + '.</p></section>';
+  }
+  function commissionsHTML(p) {
+    var AMT = { none: 'None', if_used: 'Only if used', missing: 'Not confirmed' }, FREQ = { once: ' once', monthly: ' / month' };
+    return '<section aria-labelledby="h-fees"><h2 id="h-fees">All commissions</h2><p class="sec-lead">Including the ones that are none. A fee we couldn’t confirm says so; it’s never shown as zero.</p><div class="lines">' +
+      p.figures.commissions.map(function (c) {
+        return '<div class="ln"><span>' + esc(c.name) + '<small>' + esc(c.note) + ' · ' + esc(c.source) + '</small></span><span class="amt">' +
+          (c.basis === 'charged' ? lei2(c.amount) + '<small>' + (FREQ[c.frequency] || '') + '</small>' : AMT[c.basis] || 'Not confirmed') + '</span></div>';
+      }).join('') + '</div></section>';
+  }
+  function affordHTML(p) {
+    var a = p.affordability;
+    if (!a || !a.income) return '';
+    var pm = p.figures.monthly, ob = a.obligations, left = a.income - ob - pm, share = Math.round((pm + ob) / a.income * 100);
+    var w = function (x) { return Math.max(0, Math.min(100, x / a.income * 100)).toFixed(1) + '%'; };
+    return '<section aria-labelledby="h-afford"><h2 id="h-afford">How it fits your budget</h2><div class="afford">' +
+      '<p style="font-size:var(--text-sm)">With this loan, about <b style="font-weight:600">' + share + '%</b> of your ' + lei0(a.income) + ' monthly income goes to loans and cards, leaving about <b style="font-weight:600">' + lei0(Math.max(left, 0)) + '</b> a month.</p>' +
+      '<div class="afford-bar" aria-hidden="true"><i class="ob" style="width:' + w(ob) + '"></i><i class="pm" style="width:' + w(pm) + '"></i></div>' +
+      '<div class="afford-key"><span><i style="background:var(--off)"></i>Existing payments <b>' + lei0(ob) + '</b></span><span><i style="background:var(--ink)"></i>This loan <b>' + lei0(pm) + '</b></span><span>Left <b>' + lei0(Math.max(left, 0)) + '</b></span></div>' +
+      '<p class="sec-lead">From the figures you gave Raiffy. This is an estimate; the bank’s own assessment decides.</p></div></section>';
+  }
+  function scheduleHTML(p) {
+    var rows = p.repaymentSchedule, g = p.goals[0], step = Math.max(1, Math.ceil(rows.length / 60)), last = rows[rows.length - 1];
+    var bars = [g.amount].concat(rows.map(function (w) { return w.balance; })).filter(function (_, i) { return i % step === 0; });
+    var tot = rows.reduce(function (s, w) { s.principal += w.principal; s.interest += w.interest; s.fees += w.fees; s.payment += w.payment; return s; }, { principal: 0, interest: 0, fees: 0, payment: 0 });
+    return '<section class="sched-sec" aria-labelledby="h-sched"><h2 id="h-sched">Indicative repayment schedule</h2>' +
+      '<div class="bal"><div class="bal-bars" aria-hidden="true">' + bars.map(function (b) { return '<i style="height:' + Math.max(2, Math.round(b / g.amount * 100)) + '%"></i>'; }).join('') + '</div>' +
+      '<div class="bal-cap"><span>' + lei0(g.amount) + ' to repay</span><span>Paid off · ' + monthYear(last.date) + '</span></div></div>' +
+      '<div class="tbl-wrap"><table class="sched' + (ui.allRows ? ' all' : '') + '"><caption class="sr-only">Repayment schedule, ' + rows.length + ' monthly payments in lei</caption>' +
+      '<thead><tr><th scope="col" class="hide-sm">No.</th><th scope="col">Date</th><th scope="col" class="hide-sm">Principal</th><th scope="col">Interest</th><th scope="col" class="hide-sm">Fees</th><th scope="col">Payment</th><th scope="col">Balance</th></tr></thead><tbody>' +
+      rows.map(function (w, i) {
+        return '<tr' + (i >= 6 ? ' class="more"' : '') + '><td class="hide-sm">' + w.n + '</td><td>' + dateShort(w.date) + '</td><td class="hide-sm">' + money(w.principal) + '</td><td>' + money(w.interest) + '</td><td class="hide-sm">' + money(w.fees) + '</td><td>' + money(w.payment) + '</td><td>' + money(w.balance) + '</td></tr>';
+      }).join('') + '</tbody>' +
+      '<tfoot><tr><td class="hide-sm"></td><td>Total</td><td class="hide-sm">' + money(tot.principal) + '</td><td>' + money(tot.interest) + '</td><td class="hide-sm">' + money(tot.fees) + '</td><td>' + money(tot.payment) + '</td><td></td></tr></tfoot></table></div>' +
+      '<div class="no-print" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><button type="button" class="link" data-act="rows" aria-expanded="' + ui.allRows + '">' + (ui.allRows ? 'Show the first 6 payments' : 'Show all ' + rows.length + ' payments') + '</button>' +
+      '<span class="micro">Amounts in lei. ' + (p.terms.upfrontFee ? 'The ' + lei0(p.terms.upfrontFee) + ' origination fee is paid once, at payout.' : '') + '</span></div>' +
+      '<p class="sec-lead">The bank’s official schedule comes with your contract and is the one that counts. You’ll find it in Smart Mobile, on the loan’s dashboard.</p></section>';
+  }
+  function listsHTML(p) {
+    return '<div class="cols"><section aria-labelledby="h-assume"><h2 id="h-assume">What we assumed</h2><ul class="bul">' + p.assumptions.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></section>' +
+      '<section aria-labelledby="h-missing"><h2 id="h-missing">What’s still missing</h2><ul class="bul">' + p.missing.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></section></div>' +
+      '<section aria-labelledby="h-src"><h2 id="h-src">Sources</h2><div class="lines">' + p.sources.map(function (s) {
+        return '<div class="ln src-ln">' + ic('file-text') + '<span>' + esc(s.label) + '<small>' + esc(s.detail) + '</small></span></div>'; }).join('') + '</div></section>';
+  }
+  function nextHTML(p) {
+    var g = p.goals[0], v = p.verification || { level: 'none' }, canAsk = v.level === 'none' || v.level === 'returned' || v.changed;
+    var ask = ui.asking
+      ? '<div class="vreq" role="group" aria-labelledby="vq"><h3 id="vq">Check my plan with a specialist</h3>' +
+        '<p>A Raiffeisen specialist will see this plan and the conversation it came from. They confirm the information, not a credit decision.</p>' +
+        '<details><summary>See what’s sent</summary><ul><li>This plan: the amount, term and rate, every fee and the schedule</li><li>The conversation, with card numbers, CNP and IBAN masked</li><li>Your note, if you add one</li></ul></details>' +
+        '<label class="sr-only" for="vnote">Note for the specialist</label><textarea id="vnote" placeholder="What should they look at? (optional)"></textarea>' +
+        '<p>Usually within 30 minutes, 09:00–20:00. Outside those hours, a callback the next morning.</p>' +
+        '<div class="row"><button type="button" class="btn btn-dark btn-sm" data-act="send">' + ic('send') + 'Send request</button><button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Cancel</button></div></div>'
+      : '';
+    return '<section class="no-print" aria-labelledby="h-next"><h2 id="h-next">Next steps</h2>' +
+      '<div class="next-acts"><button type="button" class="btn btn-dark" data-act="apply" aria-expanded="' + ui.applied + '" aria-controls="apply-out">' + ic('smartphone') + 'Apply in Smart Mobile</button>' +
+      (canAsk && !ui.asking ? '<button type="button" class="btn btn-ghost" data-act="ask">' + ic('user-check') + (v.level === 'none' ? 'Ask a specialist to check it' : 'Ask again') + '</button>' : '') +
+      '<button type="button" class="btn btn-ghost" data-act="inbox">' + ic('inbox') + 'Send to my Smart Mobile Inbox</button>' +
+      '<button type="button" class="btn btn-ghost" data-act="print">' + ic('download') + 'Download PDF</button></div>' + ask +
+      '<div class="demo-out" id="apply-out" role="status"' + (ui.applied ? '' : ' hidden') + '><b>Demo: Smart Mobile isn’t connected.</b> In the app this opens the personal loan application with ' + lei0(g.amount) + ', ' + g.termMonths + ' months and ' + esc(g.chosenRoute.split(',')[0]) + ' filled in. The bank then makes its credit assessment, sends the official offer (the SECCI) and the contract, and gives you a 15-day reflection period. You sign there with an SMS code, never in Raiffy.</div>' +
+      '<div class="demo-out" role="status"' + (ui.inboxed ? '' : ' hidden') + '><b>Sent to your Smart Mobile Inbox.</b> Demo: nothing is sent.</div>' +
+      '<p class="note">' + ic('calendar') + '<span>Prefer to talk it through? <a href="chat.html">Book a 30-minute call with a specialist</a> from the chat.</span></p>' +
+      '<p class="note">' + ic('shield-check') + '<span>The bank confirms things only in the app. Nobody from Raiffeisen will ask you for codes, card details or a transfer.</span></p></section>';
+  }
+  function render() {
+    plan = plan || load();
+    if (!plan) {
+      document.title = 'Plan not found · Raiffy';
+      main.innerHTML = '<div class="empty"><span class="eyebrow">Plan ' + esc(planId()) + '</span><h1>This plan isn’t saved on this device</h1>' +
+        '<p>Plans made in the chat stay on the device you made them on in this demo. Build one again from a simulation, or open the example.</p>' +
+        '<div class="next-acts"><a class="btn btn-dark" href="chat.html">' + ic('message-square') + 'Back to the chat</a><a class="btn btn-ghost" href="#PS-2210">See the example plan</a></div></div>';
+      return icons();
+    }
+    var p = plan, g = p.goals[0], recd = p.routes[0] && p.routes[0].recommended;
+    document.title = g.summary + ' · Plan ' + p.id + ' · Raiffy';
+    main.innerHTML =
+      '<div class="doc-head"><span class="eyebrow">Plan ' + esc(p.id) + ' · version ' + num(p.version) + ' · ' + dateLong(p.createdAt) + ', ' + esc(String(p.createdAt).slice(11, 16)) + (p.example ? ' · example' : '') + '</span>' +
+      '<h1>' + esc(g.summary) + '</h1>' +
+      '<p class="route-line">' + esc(g.chosenRoute) + ' · ' + lei0(g.amount) + ' over ' + g.termMonths + ' months' + (recd ? '<span class="rec-badge">' + ic('sparkles') + 'Recommended</span>' : '<span class="pill">Your choice</span>') + '</p>' +
+      '<p class="plan-label">' + ic('info') + '<span><b>Indicative simulation: not a firm credit offer.</b> Raiffy made it from your conversation. The bank issues the official offer (SECCI), the contract and the schedule that counts when you apply in Smart Mobile.</span></p>' +
+      statusHTML(p.verification) + '</div>' +
+      routesHTML(p) + featuresHTML(p) + commissionsHTML(p) + affordHTML(p) + scheduleHTML(p) + listsHTML(p) + nextHTML(p) +
+      '<p class="foot">Made with AI by Raiffy from your conversation. A specialist’s check confirms the information, not a credit decision. Concept demo: figures are illustrative.' +
+      '<span class="print-only">Printed ' + dateLong(new Date().toISOString()) + ' · Plan ' + esc(p.id) + ', version ' + num(p.version) + '</span></p>';
+    icons();
+  }
+
+  /* ───────────── Events ───────────── */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var a = b.dataset.act;
+    if (a === 'print') { ui.allRows = true; render(); window.print(); return; }
+    if (a === 'rows') { ui.allRows = !ui.allRows; render(); var r = main.querySelector('[data-act="rows"]'); if (r) r.focus(); return; }
+    if (a === 'apply') { ui.applied = !ui.applied; render(); main.querySelector('[data-act="apply"]').focus(); return; }
+    if (a === 'inbox') { ui.inboxed = true; render(); announce('Sent to your Smart Mobile Inbox. Demo: nothing is sent.'); return; }
+    if (a === 'ask') { ui.asking = true; render(); $('vnote').focus(); return; }
+    if (a === 'cancel') { ui.asking = false; render(); var k = main.querySelector('[data-act="ask"]'); if (k) k.focus(); return; }
+    if (a === 'send') { sendCheck($('vnote').value.trim()); return; }
+  });
+  window.addEventListener('hashchange', function () { plan = null; ui = { allRows: false, asking: false, applied: false, inboxed: false }; render(); main.focus(); });
+  window.addEventListener('afterprint', function () { ui.allRows = false; render(); });
+  // The chat and the console change the saved plan and its check in other tabs
+  window.addEventListener('storage', function (e) {
+    if (!plan) return;
+    if (e.key === VER_KEY) { if (applyVerdict()) { render(); announce('A specialist replied about your plan.'); } return; }
+    if (e.key === PLAN_KEY && !plan.example) {
+      var fresh = readJSON(PLAN_KEY, {})[plan.id];
+      if (valid(fresh) && JSON.stringify(fresh) !== JSON.stringify(plan)) { plan = fresh; render(); }
+    }
+  });
+
+  plan = load();
+  if (plan) applyVerdict();
+  render();
+})();
+</script>
+</body>
+</html>

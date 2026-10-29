@@ -18,6 +18,10 @@ RAIFFY_LIVE_AGENT_TEST=1 node scripts/test-agent-cloud.mjs
 
 The cloud test uses a synthetic Clerk account, checks a sourced answer, follow-up, two-bank comparison, fraud override, history reload, anonymous denial, and mobile layout. Private artifacts are written under root `.convex/acceptance/`; no tokens or keys are printed. It requires installed Chrome and the configured cloud corpus.
 
+**Playwright e2e is disabled** (2026-10-28). `pnpm test:e2e` only prints a notice, and `playwright.config.ts` sets `testIgnore: "**/*"`, so the specs in `e2e/` never run and no dev server is started. To turn them back on, remove `testIgnore` and set `test:e2e` back to `playwright test`. The cloud test above still uses Playwright's Chrome driver but only runs with `RAIFFY_LIVE_AGENT_TEST=1`.
+
+Operator booking exists only as HTML prototypes (`console.html#calendar` and the booking card in `chat.html`, linked through `raiffy.demo.*` localStorage keys). `/chat` has no booking yet.
+
 The current capability registry exposes public document search. Account summaries, reviewed catalog tools, calculators, approved pricing and persistent memory are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
 
 | Route | Prototype |
@@ -26,6 +30,12 @@ The current capability registry exposes public document search. Account summarie
 | `/sign-in`, `/sign-up` | `login.html` |
 | `/chat` | `chat.html` |
 | `/did-you-know` | `swipe.html` (cards read from `../swipe-cards/*.md`) |
+
+`plan.html` (the full financial plan) is a prototype only; it becomes `/plan/[id]` in phase 5 of the plan build. `/chat` has no plan card yet.
+
+Plans are stored by `convex/plans.ts` and built only from reviewed catalog values. To make the catalog usable on the dev deployment: deploy (`pnpm exec convex dev --once`), build and import it (`pnpm catalog:build-import`, then `pnpm exec convex import --table productTerms --replace -y productTerms.import.jsonl`), have an admin sign values off with `catalog:markReviewed`, and set each product's template with `plans:setTemplate`. Replacing the import clears earlier reviews.
+
+Solution answers ("I want to renovate the kitchen, 40,000 lei") call `compare_routes` once the customer has given an amount and term. The routes card and its recommendation come from `lib/advice`, never from the model. It shows only when the product has a template and reviewed terms. Set `debtShareCeilingTermId` on the template to a reviewed eligibility term for the "under the bank's limit" reason.
 
 `vanilla.html` is the generic swipe demo that `swipe.html` replaced, so it isn't ported.
 
@@ -38,6 +48,18 @@ pnpm sync:prototypes    # after the UI team changes an HTML prototype
 
 This is a self-contained package with its own `pnpm-workspace.yaml`, so it never touches the backend's root `package.json`, lockfile or `lib/`.
 
+## Booking a call with a specialist (demo)
+
+"Talk to a specialist" in the chat header opens the booking card (`components/booking/BookingCard.tsx`), and so does any answer Jev routes to `human_contact`. Slots are computed in `convex/bookings.ts` from an operator's weekly hours (`lib/booking/rules.ts`). Only the customer's click books. The video link is a public Jitsi room and nobody phones the customer; both are labelled as a demo.
+
+Nothing is bookable until an operator has hours. Set them as the admin, for the operator's Clerk user ID:
+
+```sh
+pnpm dlx convex run bookings:setAvailability --identity '{"subject":"<admin clerk id>","role":"admin"}'   '{"operatorId":"<operator clerk id>","name":"Ana M.","title":"Credit specialist","active":true,"availability":{"timeZone":"Europe/Bucharest","weekly":{"1":["09:00","17:00"],"2":["09:00","17:00"],"3":["09:00","17:00"],"4":["09:00","17:00"],"5":["09:00","13:00"]},"breaks":[["12:30","13:30"]],"slotMinutes":30,"bufferMinutes":0,"dailyCap":5,"minLeadHours":2,"horizonDays":14,"daysOff":[]}}'
+```
+
+Rules: one open call per customer. A call is released if it isn't confirmed 24 hours ahead (a cron runs every 15 minutes). Booking within those 24 hours counts as confirming. Booking pauses for 30 days after two missed calls. The video link works from 10 minutes before the call until it ends. A shared plan is readable by the operator from 15 minutes before until a day after. The operator functions are `bookings:agenda`, `bookings:operatorCancel` and `bookings:recordOutcome`. There's no operator page in `web/` yet.
+
 ## How the port works
 
 The prototypes stay the design source of truth. `scripts/sync-prototypes.mjs` copies what is static:
@@ -48,7 +70,7 @@ The prototypes stay the design source of truth. `scripts/sync-prototypes.mjs` co
 Generated files are overwritten on every sync, so don't edit them. Interactive parts are hand-written React and plugged in as slots:
 
 - `components/landing/`: `Simulator` (live loan vs overdraft), `LandingShell` (nav glass, reveal on scroll, bloom drift, `iso-tilt` hero orbit)
-- `components/auth/AuthScreen`: tabs, validation, simulated SSO, Google, Apple and magic link, resend cooldown. Clerk replaces the simulated round trips later.
+- `components/auth/AuthScreen`: the `login.html` sign-in / create-account screen on Clerk's custom flows (Google, Apple, email link; Raiffeisen SSO is a placeholder), used by `/sign-in` and `/sign-up`. Callbacks: `/sso-callback`, `/verify-email`. Sign-up consents go to `publicMetadata.consents` via `app/sign-up/actions.ts`.
 - `components/chat/`: the scripted demo engine (think → stream → card), cards, pins, sources, permissions, drawers, Tab-to-suggest
 - `components/swipe/`: the swipe deck and per-topic vignettes
 

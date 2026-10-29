@@ -1,6 +1,6 @@
 # Individuals: Answer patterns
 
-Eleven reusable answer structures that cover most customer questions in any domain: cars, homes, education, weddings, travel, health costs. The router (see `docs/shared/pipeline.md`) picks one pattern per goal; the tools listed in each pattern supply the numbers. Domain specifics (a car's age limit for leasing, a flat's notary fees) come from small per-domain packs of cost tables, eligibility rules and safety tips.
+Twelve reusable answer structures that cover most customer questions in any domain: cars, homes, education, weddings, travel, health costs. The router (see `docs/shared/pipeline.md`) picks one pattern per goal; the tools listed in each pattern supply the numbers. Domain specifics (a car's age limit for leasing, a flat's notary fees) come from small per-domain packs of cost tables, eligibility rules and safety tips.
 
 ## Core rule: the answer scope follows the question
 
@@ -11,6 +11,7 @@ The router classifies every money question into one of three **answer scopes**, 
 | `compare` | The customer names the options ("Overdraft or personal loan?") | Exactly the options they named, side by side, with one recommended and why |
 | `solution` | The customer describes a goal or a problem ("I need 8,000 lei for a car repair") | **At least three routes** side by side, including not borrowing (using savings, or saving longer), with one recommended and why |
 | `detail` | The customer asks about one specific product ("How does early repayment work on my loan?") | Details of that product only. The answer **ends with one question** that invites the customer to go deeper into this product or to explore a related Raiffeisen solution, whichever fits what was just said |
+| `list` | The customer asks what exists in a category ("What savings products do you have?", "Which documents do I need?") | Every matching item the sources contain, up to 8, one line each, most relevant first. Never padded. The answer **ends with one question** inviting the customer to pick an item to go deeper (pattern 12) |
 
 For each route shown, the answer gives the monthly cost, total cost, time to reach the goal, eligibility and the main risk, then says which route fits best given their stated priorities and why, and where a competitor's route would be cheaper. Outside the `detail` scope, no answer ends with a single product.
 
@@ -31,6 +32,41 @@ Each route in the comparison also lists **every commission and hidden cost** (or
 | Overdraft | Short cash gaps only |
 | Refinancing or consolidation | Existing debt |
 | Term deposits, savings accounts, state bonds, investment funds | Saving toward a goal (funds informational only) |
+
+### How the recommendation is chosen
+
+Routes and the recommendation are worked out in code (`lib/advice/routes.ts` and `lib/advice/recommend.ts`), never by the model. Built so far: the loan over the customer's term and up to two other terms, the overdraft, saving first and then borrowing less, and saving the whole amount. The rule, in order:
+
+1. **Hard limits.** The route is available from reviewed catalog values, the debt share stays under the bank's stated ceiling (when no ceiling is stated, the share is shown without saying it leaves room), and something is left each month. A variable rate is judged by its stressed payment.
+2. **The customer's timing.** The money must be there by when they need it.
+3. **The lowest interest and fees.** A near tie goes to a fixed rate, then the lower payment, then the earlier start.
+
+The customer's own loan term stands for that loan; other terms of it are shown as trade-offs and picked only when the chosen term breaks a limit. A missing input that would change the pick (income and other payments, or when they need the money) returns a question, not a guess. Every reason is checked against the routes shown: a "lowest payment" is never claimed when another route is lower. When a cheaper route only failed on timing, the answer says so ("Saving first is the better pick if it can wait until July 2027"). Cases: `evals/advice-recommend.json`.
+
+In the live chat this is the `compare_routes` tool (`convex/advice.ts`): the host builds the routes card from its result and replaces any routes card the model makes, so the model frames the recommendation but never chooses it.
+
+## Inputs per pattern
+
+A recommendation needs certain inputs. **Required** inputs gate the answer: if one is missing, Raiffy asks for it first. **Optional** inputs refine the answer: they are sent to the model as known or unknown and are never asked; a missing one that would change the answer becomes a suggested reply ("Add my down payment"). The source of truth is `INPUT_SPECS` in `lib/agent/inputs.ts`.
+
+Inputs come from, in order: the inputs card, the current message, earlier turns, account data, confirmed memory, then a default. "Account" marks inputs that account data fills when the customer has allowed access; it is never asked for when it is available. Amounts are lei unless the customer writes euro.
+
+| Pattern | Required | Optional |
+| --- | --- | --- |
+| 1. Purchase goal | what it's for; price or amount needed | down payment, repayment term, highest monthly payment, priority, income (account), loan and card payments (account) |
+| 2. Product comparison | the product; the options (two banks or products, or "yours" plus one competitor); amount and term for loans and deposits | priority |
+| 3. Affordability | amount to borrow **or** monthly payment; net monthly income (account); monthly loan and card payments (account) | repayment term, down payment |
+| 4. Debt and refinancing | total left to repay (account); monthly payments on these debts (account) | current rate, remaining term, goal |
+| 5. Saving and goals | goal amount; when it's needed | savings already set aside (account), monthly amount the customer can save |
+| 6. Explain a term | none | none |
+| 7. Fees and statements | which charge | amount charged |
+| 8. Life event | the event | when, expected cost |
+| 9. Cash shortfall | amount needed; for how long | what it's for, savings (account) |
+| 11. Negotiation | the product; the other bank; amount and term (from the current quote when one was shown) | their rate or APR |
+| 12. List and overview | none | none |
+| Spending insights | none (period defaults to last month) | period |
+
+How Raiffy asks: one short line, then an inputs card with at most 3 of the missing required inputs, and a "Skip, show typical examples" reply. The customer can fill the card or answer in their own words. After 2 rounds Raiffy answers with what it has and says what it assumed. Hardship, crisis and fraud stop the inputs request before any borrowing question.
 
 ## 1. Purchase goal
 
@@ -183,6 +219,21 @@ Rules:
 - Never promise a price, never say a specialist will match an offer, never reveal or hint at band limits, and never denigrate the competitor.
 
 Tools: comparison, SECCI extraction, calculator, pricing (relationship pricing, bands), affordability check, counter-offer log, specialist escalation.
+
+## 12. List and overview
+
+Triggers: "What savings products do you have?", "Which documents do I need for a mortgage?", "What fees does the Visa Classic card have?", "What are the steps to open an account online?", "Ce tipuri de carduri de credit aveți?"
+
+The main ask is to see what exists in a category. Explaining how one product works is pattern 6; weighing named options against each other is pattern 2. An explanation can still contain a short list (the conditions to check), using the same list format.
+
+1. One sentence on what the list covers and where it comes from ("Raiffeisen's savings products for individuals").
+2. A bullet list, one item per line: a short **bold** name, then one sentence on what it is or its key condition, with its citation. Items most relevant to what the customer said come first.
+3. **The number of items follows the sources:** every matching item found, up to 8. Beyond that, group them or say how many more there are. Never pad the list, and say when the sources may not cover the whole category.
+4. End with one question inviting the customer to pick an item to look at more closely. The follow-up replies offer two of the listed items.
+
+Answer scope: `list`. Inquiry label in code: `listing`. Instructions sent to the answer model: `lib/agent/guides.ts`. Formatting (bold, bullets, numbered steps): `web/lib/markup.ts`.
+
+Tools: RAG (bank product pages, banking help), catalog when connected.
 
 ## Testing the patterns
 

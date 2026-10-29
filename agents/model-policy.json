@@ -1,5 +1,5 @@
 {
-  "version": "raiffy-agent@2",
+  "version": "raiffy-agent@14",
   "classifierModel": "jev-1.14.0",
   "standardModel": {
     "id": "claude-sonnet-5-5",
@@ -19,10 +19,32 @@
     "riskReviewProbability": 0.3,
     "multiGoalProbability": 0.7,
     "memoryCandidate": 0.6,
-    "specialCategoryProbability": 0.2
+    "specialCategoryProbability": 0.2,
+    "perInquiry": {},
+    "routingMargin": 0.35,
+    "candidatePair": 0.75,
+    "answersPending": 0.5,
+    "slotConfidence": 0.6
   },
+  "inputs": {
+    "maxFieldsPerRound": 3,
+    "maxRounds": 2
+  },
+  "fallbackModel": "claude-haiku-5-5",
   "retrieval": {
     "maxPublicChunks": 5,
+    "maxPublicChunksSolution": 9,
     "maxMemories": 3
+  },
+  "calculator": {
+    "nearTieMarginBani": 5000,
+    "variableStressBps": 200
+  },
+  "advice": {
+    "saveFirstMonths": 8,
+    "maxSaveOnlyMonths": 24,
+    "alternativeTermOffsetsMonths": [
+      -12
+    ]
   }
 }

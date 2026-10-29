@@ -1,0 +1,19 @@
+{
+  "description": "Plan summary rules (raiffy-spec/docs/shared/plan-summary-handoff.md), run deterministically by lib/plan/build.test.ts against a reviewed personal-loan fixture. Each case overrides catalog records by role or the build input, then checks the result. No provider calls.",
+  "cases": [
+    { "id": "PLAN-01", "scenario": "Every value fresh, quoted and reviewed", "expect": { "status": "ok", "invariants": [] } },
+    { "id": "PLAN-02", "scenario": "The rate is a starting value (\"de la 5,05%\")", "records": { "rate": { "value": { "type": "from", "min": 505 } } }, "expect": { "status": "unavailable", "reasons": ["floor_value"] } },
+    { "id": "PLAN-03", "scenario": "The rate is a range (\"5,55% – 17,95%\")", "records": { "rate": { "value": { "type": "range", "min": 555, "max": 1795 } } }, "expect": { "status": "unavailable", "reasons": ["range_value"] } },
+    { "id": "PLAN-04", "scenario": "The rate was imported but nobody reviewed it", "records": { "rate": { "verification": { "quoteFound": true } } }, "expect": { "status": "unavailable", "reasons": ["unreviewed"] } },
+    { "id": "PLAN-05", "scenario": "The rate is past its review date", "records": { "rate": { "provenance": { "reviewBy": "2026-10-01" } } }, "expect": { "status": "unavailable", "reasons": ["stale"] } },
+    { "id": "PLAN-06", "scenario": "The rate is variable, so a fixed schedule would mislead", "records": { "rate": { "comparability": { "category": "personal_loan", "currency": "RON", "rateType": "variable" } } }, "expect": { "status": "unavailable", "reasons": ["not_fixed_rate"] } },
+    { "id": "PLAN-07", "scenario": "The origination fee isn't in the catalog: the total can't be stated", "template": { "dropTermId": "origination_fee" }, "expect": { "status": "unavailable", "reasons": ["missing_charge"] } },
+    { "id": "PLAN-08", "scenario": "The early repayment fee isn't confirmed: shown as not confirmed, never zero", "template": { "dropTermId": "early_repayment_fee" }, "expect": { "status": "ok", "commission": { "key": "early_repayment_fee", "basis": "missing", "amount": null }, "missing": ["conditional_fee_unconfirmed"] } },
+    { "id": "PLAN-09", "scenario": "The source says the administration fee is missing (\"nu apare pe pagină\")", "records": { "administration_fee": { "value": { "type": "unavailable", "reason": "nu apare pe pagină" } } }, "expect": { "status": "unavailable", "reasons": ["stated_missing"] } },
+    { "id": "PLAN-10", "scenario": "A reviewed fee of zero", "records": { "administration_fee": { "value": { "type": "exact", "amount": 0 } } }, "expect": { "status": "ok", "commission": { "key": "administration_fee", "basis": "none", "amount": 0 } } },
+    { "id": "PLAN-11", "scenario": "Amount above the product's maximum", "input": { "amount": 25000000 }, "expect": { "status": "unavailable", "reasons": ["amount_above_limit"] } },
+    { "id": "PLAN-12", "scenario": "A record from the business track", "records": { "rate": { "track": "business" } }, "expect": { "status": "unavailable", "reasons": ["wrong_product"] } },
+    { "id": "PLAN-13", "scenario": "The recommended route isn't one of the routes shown", "input": { "recommendedRoute": "term_99" }, "expect": { "status": "unavailable", "reasons": ["unknown_route"] } },
+    { "id": "PLAN-14", "scenario": "A new version after a specialist confirmed the previous one", "input": { "version": 2, "previousVerification": { "level": "confirmed", "reviewer": { "id": "u_ana", "name": "Ana M.", "role": "Credit specialist" }, "reviewedAt": "2026-10-28T19:30:00+02:00", "requestId": "R-2318" } }, "expect": { "status": "ok", "verification": { "level": "confirmed", "changed": true, "forVersion": 1 } } }
+  ]
+}

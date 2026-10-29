@@ -1,0 +1,164 @@
+[
+  {
+    "id": "EXP-01",
+    "title": "every switch off: nothing is read",
+    "persona": "long-time-client",
+    "switches": {
+      "account": false,
+      "transactions": false,
+      "savings": false,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "unavailable",
+      "reason": "all_switches_off",
+      "insights": [],
+      "sections": []
+    }
+  },
+  {
+    "id": "EXP-02",
+    "title": "no sample account chosen: nothing is read",
+    "persona": null,
+    "switches": {
+      "account": true,
+      "transactions": true,
+      "savings": true,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "unavailable",
+      "reason": "no_persona",
+      "insights": [],
+      "sections": []
+    }
+  },
+  {
+    "id": "EXP-03",
+    "title": "card insights need the card switch",
+    "persona": "long-time-client",
+    "switches": {
+      "account": true,
+      "transactions": false,
+      "savings": true,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "ok",
+      "insights": [],
+      "sections": [
+        "account",
+        "savings"
+      ]
+    }
+  },
+  {
+    "id": "EXP-04",
+    "title": "a long-time client sees ATM, currency, idle cash and subscription insights",
+    "persona": "long-time-client",
+    "switches": {
+      "account": true,
+      "transactions": true,
+      "savings": true,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "ok",
+      "insights": [
+        "atmFees",
+        "fxCardFees",
+        "idleCash",
+        "subscriptions"
+      ],
+      "sections": [
+        "account",
+        "flows",
+        "savings",
+        "spending"
+      ]
+    }
+  },
+  {
+    "id": "EXP-05",
+    "title": "overdraft cost from the account alone; never idle cash while the overdraft is used",
+    "persona": "new-client",
+    "switches": {
+      "account": true,
+      "transactions": true,
+      "savings": false,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "ok",
+      "insights": [
+        "overdraftCost"
+      ],
+      "sections": [
+        "account",
+        "flows",
+        "spending"
+      ]
+    }
+  },
+  {
+    "id": "EXP-06",
+    "title": "one ATM withdrawal elsewhere is under the threshold",
+    "persona": "new-client",
+    "switches": {
+      "account": false,
+      "transactions": true,
+      "savings": false,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_complete_month",
+    "expect": {
+      "status": "ok",
+      "insights": [],
+      "sections": [
+        "flows",
+        "spending"
+      ]
+    }
+  },
+  {
+    "id": "EXP-07",
+    "title": "two ATM withdrawals elsewhere trigger the card",
+    "persona": "small-loan",
+    "switches": {
+      "account": false,
+      "transactions": true,
+      "savings": false,
+      "offers": false,
+      "loans": false,
+      "cards": false
+    },
+    "period": "last_three_complete_months",
+    "expect": {
+      "status": "ok",
+      "insights": [
+        "atmFees"
+      ],
+      "sections": [
+        "flows",
+        "spending"
+      ]
+    }
+  }
+]

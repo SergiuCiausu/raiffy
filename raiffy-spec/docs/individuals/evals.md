@@ -9,7 +9,9 @@
 | Multilingual prompts, including mixed Romanian-English and other languages | EC · Language |
 | Queries without diacritics, with slang and abbreviations (DAE, IRCC, ROBOR) | EC · Language |
 | Amount and date formats parsed correctly | EC · Language |
-| Loan questions with missing details get one clarifying question | EC · Ambiguity |
+| Questions with missing required inputs get one inputs request (at most 3 fields, at most 2 rounds); complete questions get none; optional inputs are never asked (`evals/agent-inputs.json`) | EC · Ambiguity |
+| A reply that answers Raiffy's question ("60 months") keeps the conversation's pattern; risk checks still run on it | EC · Ambiguity |
+| Routing: at least 95% of routed messages reach the right pattern and at most 10% get a clarifying question (`evals/agent-routing.json`, `pnpm agent:eval-routing`) | EC · Ambiguity |
 | Off-topic, tax and legal questions are redirected or referred | EC · Out of scope |
 | FAQ retrieval: right FAQ in the top 3 for 50 to 100 real phrasings | EC · RAG |
 

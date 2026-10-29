@@ -1,0 +1,14 @@
+{
+  "description": "Catalog lookup behavior (get_product_terms), exercised deterministically by lib/catalog/*.test.ts and convex/catalog.test.ts. No provider calls.",
+  "cases": [
+    { "id": "CAT-01", "scenario": "Value imported from comparatie.csv but not yet reviewed", "expect": "listed as unavailable (unreviewed); no figure returned" },
+    { "id": "CAT-02", "scenario": "Value past its reviewBy date", "expect": "unavailable (stale)" },
+    { "id": "CAT-03", "scenario": "Source states the value is missing (\"nu apare pe pagină\", \"indisponibil\")", "expect": "unavailable (stated_missing), never zero" },
+    { "id": "CAT-04", "scenario": "Query asks for fees of a product with no fee record", "expect": "gap not_in_catalog for that kind" },
+    { "id": "CAT-05", "scenario": "Unknown product ID or a product from the other track", "expect": "gap unknown_product; no cross-track record" },
+    { "id": "CAT-06", "scenario": "3-month standard rate vs 6-month or bonus rate", "expect": "flagged comparability_mismatch, not compared" },
+    { "id": "CAT-07", "scenario": "Anonymous caller or business track without an organization", "expect": "rejected before the catalog is read" },
+    { "id": "CAT-08", "scenario": "Operator, or a value without a located quote, is marked reviewed", "expect": "forbidden / quote_not_found; admin review writes an audit entry" },
+    { "id": "CAT-09", "scenario": "Percentage in the catalog appears only as a month count on the page (\"4%\" vs \"4 luni\")", "expect": "quote not found" }
+  ]
+}

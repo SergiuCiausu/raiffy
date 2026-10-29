@@ -13,7 +13,7 @@ Every customer message goes through six steps. Three LLM workflows carry the jud
 | 5 | Evaluator | Code checks + LLM workflow (evaluator-optimizer) | Behavior rules, commission transparency, comparison honesty, language |
 | 6 | Thinking panel and delivery | Frontend | Visible reasoning, then word-by-word streaming with interactive blocks |
 
-The steps share one conversation state in Convex: detected language, mode, goals, slider values, the **current quote** (product, amount, term and price version, the baseline for any negotiation), tool results and evaluator verdicts. Each step reads it and writes its part, so any step can be logged, replayed and audited.
+The steps share one conversation state in Convex: detected language, mode, goals, the current pattern, the **inputs** the customer gave so far (each with its source) and any **pending inputs request**, slider values, the **current quote** (product, amount, term and price version, the baseline for any negotiation), tool results and evaluator verdicts. Each step reads it and writes its part, so any step can be logged, replayed and audited.
 
 ## Step 1: Safety gate
 
@@ -48,10 +48,27 @@ type Route = {
 | One goal, simple pattern (explain a term, fees, a status question) | Small, fast model with that pattern's prompt and tools |
 | One goal, complex pattern (purchase goal, debt, life event, comparison) | More capable model, still through the orchestrator as a single-goal plan so routes are decided the same way |
 | Negotiation on any turn ("can you do better?", a competitor's offer) | Pattern 11, with the current quote as the baseline; on a first message, scope `compare` |
-| Confidence below threshold | `freeform` with one clarifying question; never a guessed pattern |
+| Confidence below threshold | See "Pattern confidence" below; never a guessed pattern |
 | Mode set by the gate | Mode wins; the router only adds the pattern for later context |
 
 Each pattern gets its own short prompt (role, its 5 steps, its tools, its block recipe) instead of one giant system prompt, so tuning one pattern can't break another. Evals: a routing test set of 200+ real phrasings across languages, measuring pattern accuracy and multi-goal detection.
+
+**Pattern confidence** (`lib/agent/confidence.ts`). Jev classifies; code decides, in this order:
+
+1. **Risk checks first.** They run on every message, including replies to Raiffy's questions and tapped choices.
+2. **Pending question.** If Raiffy just asked for inputs and the message answers it (Jev's `answers_pending`, or the parser fills an asked input, or the customer used the inputs card), the conversation keeps its pattern.
+3. **Tapped choice.** A choice chip sets the pattern, but only one Raiffy offered on its last turn.
+4. **Jev's label.** Route when its confidence clears the label's floor (`thresholds.perInquiry`, default `routingConfidence`), or when it leads the runner-up by `routingMargin`. If the top two together reach `candidatePair` and need the same required inputs, route to the first and let the inputs request settle it.
+5. **Fallback model.** Otherwise a small Haiku call picks one of the candidate labels or says "unsure". It sees only the screened message, the structured context and the candidates; it never sees risk questions or extracts numbers.
+6. **Choice chips.** Still undecided: one line and a chip per candidate. Only when even the candidates are unclear does Raiffy ask the generic question.
+
+**Customer figures and euro amounts.** The answer's number check (`checkNumbers`) accepts the customer's own stated inputs (amounts, terms, payments, and the short form they wrote, such as the "50" in "50k"), never rates and never figures derived from them (`customerAllowedFigures` in `lib/agent/inputs.ts`). A euro amount is never converted (no dated exchange rate is connected); if the sources show only lei products, Raiffy says so and uses the same number in lei as a labelled example. Solution answers get a larger passage budget (`maxPublicChunksSolution`, 9) and, until the comparison calculator is connected, recommend one route by fit with the stated purpose, amount and term, with the reason and when another route fits better.
+
+**"Other" is not a dead end.** Jev's `other` label excludes any request to borrow, save, pay or open a product, even without a purpose ("a credit of 50k euro" is `purchase_goal`, which then asks what it's for). If Jev still answers `other` but a keyword reading of the message (`bankingIntent`, EN and RO) finds a clear banking request, the hinted patterns become candidates for step 5 and then chips. A message with no recognisable request gets chips from Jev's top labels.
+
+Only the pattern needs confidence. An unsure scope follows from the pattern (`compare` when options are named), and an unsure complexity uses the stronger model. Thresholds are provisional until the live routing eval calibrates them; every answer stores Jev's full inquiry distribution for that.
+
+**Inputs gate** (`lib/agent/inputs.ts`). Before the answer model runs, code reads the pattern's inputs from the message (an EN/RO parser for amounts, terms and rates, keywords for choices), earlier turns, and account data or confirmed memory where connected. Choices the keywords miss go to a second Jev request, then the fallback model; numbers only ever come from the customer's own text. If a required input is still missing, Raiffy replies without the answer model: one line plus an `inputs_request` block with at most 3 fields, for at most 2 rounds, then it answers with what it has. The answer model receives every required and optional input with its value or `null` and its source.
 
 ## Step 3: Orchestrator and subagents (orchestrator-workers workflow)
 
