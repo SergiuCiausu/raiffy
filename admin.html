@@ -83,7 +83,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
   .link:hover { text-decoration-color: var(--ink); }
 }
 
-.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; line-height: 1.5;
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; line-height: 1.5;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); white-space: nowrap; }
 .pill svg { width: 11px; height: 11px; }
 .pill.p-pending { --c: #8A6A00; background: #FFF3C4; }
@@ -107,7 +107,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .err svg { width: 13px; height: 13px; flex: none; margin-top: 1px; }
 .ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600;
   background: linear-gradient(135deg, #E9D8B4, #C9A86A); color: #4A3610; }
-.ava.sm { width: 20px; height: 20px; font-size: 9px; }
+.ava.sm { width: 20px; height: 20px; font-size: 11px; }
 .who { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* Segmented control: selection in ink */
@@ -148,7 +148,7 @@ textarea.ta.is-invalid { border-color: var(--danger); }
   transition: background-color 150ms ease, color 150ms ease; }
 .nav-item > svg { width: 15px; height: 15px; flex: none; color: var(--text-3); }
 .nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-item small { flex: none; min-width: 18px; padding: 0 5px; border-radius: 999px; text-align: center; font: 500 10.5px/18px var(--font-mono); color: var(--text-3); }
+.nav-item small { flex: none; min-width: 18px; padding: 0 5px; border-radius: 999px; text-align: center; font: 500 11px/18px var(--font-mono); color: var(--text-3); }
 .nav-item small.hot { background: #FFF3C4; color: #7A5A00; }
 .nav-item small.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .nav-item[aria-current="page"] { background: var(--surface); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px var(--border); }
@@ -157,6 +157,7 @@ textarea.ta.is-invalid { border-color: var(--danger); }
 @media (hover: hover) and (pointer: fine) { a.nav-item:not([aria-current="page"]):hover { background: rgba(20,20,20,.04); color: var(--text-1); } }
 .me { display: grid; gap: 10px; padding: 12px 6px 0; border-top: 1px solid var(--border); }
 .me-row { display: flex; align-items: center; gap: 10px; }
+.back-chat { width: 100%; }
 .me-row div { flex: 1; min-width: 0; line-height: 1.3; }
 .me-row b { display: block; font-size: 13px; font-weight: 500; }
 .me-row small { font-size: 11.5px; color: var(--text-3); }
@@ -219,8 +220,80 @@ textarea.ta.is-invalid { border-color: var(--danger); }
 .tbl .nm small { display: block; font-size: 11.5px; color: var(--text-3); }
 .tbl tr.click { cursor: pointer; transition: background-color 150ms ease; }
 .tbl tr.hl td { background: #FFF8DC; }
+/* Users and roles: edits stay pending until the table's save bar saves them all */
+/* Users and roles: edits stay pending until the table's save bar saves them all. Phone first (§12): each row is a
+   stacked card with label-over-value cells and 44px fields at 16px; from 640px it's the table. */
+.tbl tr.is-edited td, .usr-tbl tr.is-edited { background: #FFF8DC; }
+.usr-card .gc-h { flex-wrap: wrap; }
+.save-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; font-weight: 400; }
+.save-bar .cnt { flex: 1 1 100%; font-size: 13px; color: var(--text-2); }
+.save-bar .input { flex: 1 1 100%; height: 44px; }
+.save-bar .input input { font-size: 16px; }
+.save-bar .btn { height: 44px; flex: 1 1 0; }
+.usr-tbl thead { display: none; }
+.usr-tbl, .usr-tbl tbody, .usr-tbl tr, .usr-tbl td { display: block; }
+.usr-tbl tr { padding: 12px 16px; border-top: 1px solid var(--border); }
+.usr-tbl tr:first-child { border-top: 0; }
+.usr-tbl td { padding: 6px 0; border-top: 0; }
+.usr-tbl td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 4px; font-size: 11.5px; color: var(--text-3); }
+.usr-tbl td.mono { white-space: nowrap; }
+.usr-tbl .usr-sel { width: 100%; height: auto; }
+.usr-tbl select { min-height: 44px; }
+.usr-tbl select { font-size: 16px; }
+.usr-tbl .micro, .usr-card .gc-note { font-size: 13px; }
+@media (min-width: 640px) {
+  .usr-card .gc-h { flex-wrap: nowrap; }
+  .save-bar { justify-content: flex-end; width: auto; }
+  .save-bar .cnt { flex: none; font-size: 12.5px; }
+  .save-bar .input { flex: none; width: 200px; height: 32px; }
+  .save-bar .input input { font-size: inherit; }
+  .save-bar .btn { height: 32px; flex: none; }
+  .usr-tbl { display: table; }
+  .usr-tbl thead { display: table-header-group; }
+  .usr-tbl tbody { display: table-row-group; }
+  .usr-tbl tr { display: table-row; padding: 0; border-top: 0; }
+  .usr-tbl td { display: table-cell; padding: 11px 14px; border-top: 1px solid var(--border); }
+  .usr-tbl tr:first-child td { border-top: 0; }
+  .usr-tbl td[data-label]::before { content: none; }
+  .usr-tbl .usr-sel { width: 150px; height: 32px; }
+  .usr-tbl .usr-sel.wide { width: 210px; }
+  .usr-tbl select { font-size: inherit; min-height: 0; }
+  .usr-tbl .micro, .usr-card .gc-note { font-size: 11.5px; }
+}
+/* Touch screens keep 44px controls at every width */
+@media (pointer: coarse) {
+  .save-bar .input, .save-bar .btn { height: 44px; }
+  .usr-tbl .usr-sel { height: auto; }
+  .usr-tbl select { min-height: 44px; }
+}
 .tbl td.go { width: 36px; color: var(--text-3); }
 .tbl td.go svg { width: 15px; height: 15px; }
+/* The other tables follow the same phone-first card (§12): the first cell as the title, the rest label over value
+   (labelCells() copies the column headers into data-label); from 640px it's the table. Users and roles has its own above. */
+.tbl:not(.usr-tbl) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tbl:not(.usr-tbl) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.tbl:not(.usr-tbl) tr:first-child { border-top: 0; }
+.tbl:not(.usr-tbl) td { min-width: 0; padding: 0; border: 0; }
+.tbl:not(.usr-tbl) td:first-child, .tbl:not(.usr-tbl) td[colspan] { grid-column: 1 / -1; }
+.tbl:not(.usr-tbl) td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; margin-bottom: 2px; font-size: 11.5px; color: var(--text-3); }
+.tbl:not(.usr-tbl) .r { text-align: left; }
+.tbl:not(.usr-tbl) td.go { display: none; }
+.tbl:not(.usr-tbl) tr.hl { background: #FFF8DC; }
+.tbl:not(.usr-tbl) tr.click { position: relative; }
+.tbl:not(.usr-tbl) tr.click td:first-child a { position: static; }
+.tbl:not(.usr-tbl) tr.click td:first-child a::before { content: ""; position: absolute; inset: 0; }
+.tbl:not(.usr-tbl) tr.click :is(button, td:not(:first-child) a) { position: relative; z-index: 1; }
+@media (min-width: 640px) {
+  .tbl:not(.usr-tbl) thead { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .tbl:not(.usr-tbl) tr { display: table-row; padding: 0; border-top: 0; }
+  .tbl:not(.usr-tbl) tr.hl { background: none; }
+  .tbl:not(.usr-tbl) td { padding: 11px 14px; border-top: 1px solid var(--border); }
+  .tbl:not(.usr-tbl) tr:first-child td { border-top: 0; }
+  .tbl:not(.usr-tbl) td[data-label]:not(:first-child)::before { content: none; }
+  .tbl:not(.usr-tbl) .r { text-align: right; }
+  .tbl:not(.usr-tbl) td.go { display: table-cell; }
+  .tbl:not(.usr-tbl) tr.click td:first-child a::before { content: none; }
+}
 @media (hover: hover) and (pointer: fine) { .tbl tr.click:hover td { background: #FBFAF8; } }
 .pills { display: flex; flex-wrap: wrap; gap: 4px; }
 .empty-row { padding: 28px 16px; text-align: center; font-size: 13px; color: var(--text-3); }
@@ -302,7 +375,7 @@ textarea.ta.is-invalid { border-color: var(--danger); }
 .hl h4 { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .hl p { margin-top: 2px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
 .hl .evs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-.ev { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border); font: 400 10.5px var(--font-mono); color: var(--text-2); }
+.ev { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; border: 1px solid var(--border); font: 400 11px var(--font-mono); color: var(--text-2); }
 .prm-ed td { background: #FBFAF8; }
 .prm-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .prm-form .wide { grid-column: span 2; }
@@ -341,7 +414,7 @@ textarea.ta.is-invalid { border-color: var(--danger); }
 .check-line.bad { background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--danger); }
 
 .vol { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; }
-.vol-y { position: relative; height: 180px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.vol-y { position: relative; height: 180px; font: 400 11px var(--font-mono); color: var(--text-3); }
 .vol-y span { position: absolute; right: 0; translate: 0 -50%; }
 .vol-plot { position: relative; height: 180px; }
 .vol-plot .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--border); }
@@ -350,7 +423,7 @@ textarea.ta.is-invalid { border-color: var(--danger); }
 .vol-bars b i { display: block; width: 100%; height: var(--h); background: var(--ink); border-radius: 3px 3px 0 0; transition: opacity 150ms ease; }
 .vol-bars.hovering b i { opacity: .35; }
 .vol-bars.hovering b.on i { opacity: 1; }
-.vol-x { grid-column: 2; display: flex; justify-content: space-between; margin-top: 6px; font: 400 10.5px var(--font-mono); color: var(--text-3); }
+.vol-x { grid-column: 2; display: flex; justify-content: space-between; margin-top: 6px; font: 400 11px var(--font-mono); color: var(--text-3); }
 .tip { position: absolute; z-index: 5; pointer-events: none; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #fff; box-shadow: var(--shadow-float);
   font-size: 12px; line-height: 1.45; white-space: nowrap; }
 .tip b { display: block; font-weight: 600; }
@@ -404,6 +477,27 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
   .page.enter > * { animation: fade 200ms ease backwards; }
   .side { transition-duration: 0s !important; }
 }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  .icon-btn { width: 36px; height: 36px; }
+  /* Segmented filters draw at 40px; the 2px padding around them holds the rest of the hit area */
+  .seg button { height: 40px; min-width: 44px; }
+  .input { height: 44px; }
+  .tog { height: 40px; }
+}
+/* §12-touch:end */
 </style>
 </head>
 <body>
@@ -418,6 +512,7 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
     </div>
     <nav class="nav" id="nav" aria-label="Console pages"></nav>
     <div class="me">
+      <a class="btn btn-ghost btn-sm back-chat" href="chat.html"><i data-lucide="arrow-left"></i>Back to chat</a>
       <div class="me-row">
         <span class="ava" id="me-ava" aria-hidden="true"></span>
         <div><b id="me-name"></b><small id="me-role"></small></div>
@@ -497,6 +592,22 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
     user_adm_elena: { name: 'Elena Dobre', initials: 'ED', role: 'admin', title: 'Pricing team · Admin' }
   };
   var ROLE_USER = { operator: 'user_op_ioana', admin: 'user_adm_radu' };
+
+  /** Users and roles (web/app/admin/users): Clerk users with publicMetadata.role, plus the sample customer an admin
+      assigned (convex accountAccess.assignedPersona). user_gone was deleted in Clerk after the page loaded: saving fails. */
+  var TEAM = [
+    { id: 'user_adm_radu', name: 'Radu Ionescu', email: 'radu.ionescu@raiffeisen.ro', role: 'admin', sample: null, joined: '2026-09-02' },
+    { id: 'user_adm_elena', name: 'Elena Dobre', email: 'elena.dobre@raiffeisen.ro', role: 'admin', sample: null, joined: '2026-09-04' },
+    { id: 'user_op_ioana', name: 'Ioana Marin', email: 'ioana.marin@raiffeisen.ro', role: 'operator', sample: 'small-loan', joined: '2026-09-10' },
+    { id: 'user_ana', name: 'Ana Persona', email: 'ana.persona@example.com', role: 'member', sample: 'fixed-rate-ending', joined: '2026-10-28' },
+    { id: 'user_mihai', name: 'Mihai Stan', email: 'mihai.stan@example.com', role: 'member', sample: null, joined: '2026-10-21' },
+    { id: 'user_gone', name: 'Dan Pavel', email: 'dan.pavel@example.com', role: 'member', sample: null, joined: '2026-10-11' }
+  ];
+  /** The ten sample customers (convex/seed/demoPersonas.ts) */
+  var PERSONAS = [['long-time-client', 'Long-time client'], ['new-client', 'New client, overdraft'], ['competitor-secci', 'Has a competitor quote'], ['cheaper-competitor', 'Deposit maturing'],
+    ['mortgage-refinance', 'Mortgage elsewhere'], ['small-loan', 'Card near its limit'], ['fixed-rate-ending', 'Fixed rate ending'], ['early-repayment', 'Repaying early'],
+    ['near-age-limit', 'Near the age limit'], ['not-verified', 'Not verified']];
+  var ROLE_NAMES = { member: 'Member', operator: 'Operator', admin: 'Admin' };
 
   /** Field definitions. unit drives formatting; fee fields at 0 read "None, confirmed". */
   var FIELDS = {
@@ -989,6 +1100,7 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
   }
 
   /* summarize: mirrors lib/analytics/summarize.ts. Counts under minCount come back null. */
+  function datesBetween(from, to) { var out = []; for (var d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; }
   function summarize(A0, E0, f) {
     var k = f.minCount;
     function n(x) { return x < k ? null : x; }
@@ -1060,7 +1172,9 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
   var UI = {
     products: { q: '', track: 'all', status: 'all', review: false },
     analytics: { range: 30, track: 'all', entry: 'all' },
+    sentiment: { range: 30, track: 'all', entry: 'all' },
     audit: { q: '', action: 'all' },
+    users: { q: '', role: 'all', pending: {}, reason: '', confirm: false, errors: {} },
     paramOpen: null
   };
   var EDIT = null;
@@ -1084,12 +1198,15 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
       ['products', 'package', 'Products', '<small>' + DB.products.length + '</small>'],
       ['rules', 'sliders-horizontal', 'Rules', c.stale ? '<small class="bad" title="Values past their review date">' + c.stale + '</small>' : ''],
       ['analytics', 'chart-column', 'Analytics', ''],
+      ['sentiment', 'smile', 'Sentiment', ''],
+      ['users', 'users', 'Users and roles', '<small>' + TEAM.length + '</small>'],
       ['audit', 'scroll-text', 'Audit log', '']
     ];
-    var later = [['inbox', 'Reviews'], ['message-square-text', 'Prompts'], ['flask-conical', 'Evals'], ['book-open', 'Knowledge'], ['landmark', 'Regulations'], ['handshake', 'Counter-offers']];
+    var later = [['message-square-text', 'Prompts'], ['flask-conical', 'Evals'], ['book-open', 'Knowledge'], ['landmark', 'Regulations']];
     $('nav').innerHTML = '<span class="grp eyebrow">Console</span>' + items.map(function (it) {
       return '<a class="nav-item" href="#' + it[0] + '"' + (ROUTE.page === it[0] ? ' aria-current="page"' : '') + '>' + ic(it[1]) + '<span>' + it[2] + '</span>' + it[3] + '</a>';
-    }).join('') + '<span class="grp eyebrow">Later</span>' + later.map(function (it) {
+    }).join('') +
+      '<span class="grp eyebrow">Later</span>' + later.map(function (it) {
       return '<span class="nav-item is-later" aria-disabled="true">' + ic(it[0]) + '<span>' + it[1] + '</span><small>soon</small></span>';
     }).join('');
     var u = USERS[me()];
@@ -1565,6 +1682,238 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
     bars.addEventListener('pointerleave', hide);
   }
 
+  /* ───────────── Sentiment ───────────── */
+  /* Mock block, shapes from lib/analytics/sentiment.ts: SentimentEvent { at, conversationKey, customerKey, track, entry, inquiry,
+     sentiment, about, confidence, after } and AnswerFeedback { ..., answerKey, vote, reason? }. Labels only, never message text. */
+  var SN = null;
+  var SENTIMENT_LABEL = { positive: 'Positive', neutral: 'Neutral', confused: 'Confused', frustrated: 'Frustrated', angry: 'Angry' };
+  var NEGATIVE = ['confused', 'frustrated', 'angry'];
+  var ABOUT_LABEL = { answer: 'Raiffy’s answer', price: 'A rate, fee or price', service: 'The bank’s service', app: 'The app or a payment' };
+  var AFTER_LABEL = { first: 'Nothing yet, first message', answered: 'A checked answer', unavailable: 'An answer it couldn’t give', failed: 'A reply that failed',
+    stopped: 'A reply the customer stopped', menu: 'A “Which of these is closest?” menu', repeat: 'The same question, asked again' };
+  var REASON_LABEL = { wrong: 'Wrong', unclear: 'Unclear', missing: 'Missing information', other: 'Something else' };
+  var INQUIRY_LABEL = { purchase_goal: 'Buying something', affordability: 'Can I afford it?', debt_refinancing: 'Refinancing', product_comparison: 'Comparing products',
+    product_explanation: 'Explaining a product', fees_statements: 'Fees and statements', saving_goal: 'Saving', listing: 'Listing products', cash_shortfall: 'Short of cash' };
+  var INQUIRY_W = [['purchase_goal', 18], ['affordability', 14], ['debt_refinancing', 7], ['product_comparison', 15], ['product_explanation', 14], ['fees_statements', 13], ['saving_goal', 10], ['listing', 6], ['cash_shortfall', 3]];
+
+  function buildSentiment() {
+    var rnd = mulberry32(20261029), events = [], feedback = [];
+    function pick(w) { var t = 0, i; for (i = 0; i < w.length; i++) t += w[i][1]; var x = rnd() * t; for (i = 0; i < w.length; i++) { x -= w[i][1]; if (x < 0) return w[i][0]; } return w[0][0]; }
+    function p(x) { return rnd() < x; }
+    var DAYS = 90, start = addDays(TODAY, -DAYS), convN = 0, ansN = 0;
+    for (var d = 0; d < DAYS; d++) {
+      var day = addDays(start, d), dow = new Date(day + 'T00:00:00Z').getUTCDay();
+      var conv = Math.round((70 + d * 1.6) * (dow === 0 || dow === 6 ? .62 : 1) * (.9 + rnd() * .2));
+      for (var c = 0; c < conv; c++) {
+        var b = { conversationKey: 'cv' + (++convN), customerKey: 'cu' + Math.floor(rnd() * 3200), track: p(.86) ? 'personal' : 'business', entry: p(.58) ? 'smartMobile' : 'web' };
+        var hour = 7 + Math.floor(rnd() * 15), inquiry = pick(INQUIRY_W), n = 1 + Math.floor(rnd() * 3.4), prev = 'first';
+        for (var m = 0; m < n; m++) {
+          // Unhappy messages follow answers Raiffy couldn't give and menus more often; fees and refinancing run hotter.
+          var hot = (inquiry === 'fees_statements' ? .08 : inquiry === 'debt_refinancing' ? .05 : 0) + (day >= '2026-10-21' && inquiry === 'saving_goal' ? .1 : 0);
+          var neg = { first: .07, answered: .06, unavailable: .34, failed: .4, stopped: .22, menu: .18, repeat: .52 }[prev] + hot;
+          var sentiment = p(neg) ? pick([['confused', 5], ['frustrated', 4], ['angry', 1]]) : p(.16) ? 'positive' : 'neutral';
+          var about = sentiment === 'neutral' ? 'none' : inquiry === 'fees_statements' && p(.6) ? 'price' : pick([['answer', 5], ['price', 2], ['service', 2], ['app', 1]]);
+          var stamp = day + 'T' + String(hour).padStart(2, '0') + ':' + String(m * 4).padStart(2, '0');
+          events.push({ at: stamp + ':00Z', conversationKey: b.conversationKey, customerKey: b.customerKey,
+            track: b.track, entry: b.entry, inquiry: inquiry, sentiment: sentiment, about: about, confidence: .55 + rnd() * .4, after: prev });
+          prev = p(.04) ? 'repeat' : pick([['answered', 78], ['unavailable', inquiry === 'saving_goal' && day >= '2026-10-21' ? 22 : 9], ['menu', 7], ['stopped', 3], ['failed', 1]]);
+          if (prev !== 'stopped' && prev !== 'failed' && p(.14)) {
+            var down = p(prev === 'unavailable' ? .55 : .17);
+            feedback.push({ at: stamp + ':30Z', conversationKey: b.conversationKey, customerKey: b.customerKey, track: b.track, entry: b.entry, answerKey: 'an' + (++ansN),
+              vote: down ? 'down' : 'up', reason: down && p(.6) ? pick([['wrong', 3], ['unclear', 4], ['missing', 5], ['other', 1]]) : undefined });
+          }
+        }
+      }
+    }
+    return { events: events, feedback: feedback };
+  }
+
+  /* Mirrors summarizeSentiment in lib/analytics/sentiment.ts: a group with fewer distinct customers than minCount is hidden, and so is any share built on it. */
+  function summarizeSentiment(E0, F0, f) {
+    var k = f.minCount;
+    function inF(r) { var d = r.at.slice(0, 10); return d >= f.from && d <= f.to && (!f.track || r.track === f.track) && (!f.entry || r.entry === f.entry); }
+    function people(xs) { var s = {}, n = 0; xs.forEach(function (x) { if (!s[x.customerKey]) { s[x.customerKey] = 1; n++; } }); return n; }
+    function shown(xs) { return people(xs) >= k; }
+    function n(xs) { return shown(xs) ? xs.length : null; }
+    function share(part, whole) { return shown(whole) && shown(part) ? part.length / whole.length : null; }
+    function isNeg(e) { return NEGATIVE.indexOf(e.sentiment) >= 0; }
+    function by(xs, key) { var m = {}; xs.forEach(function (x) { (m[key(x)] = m[key(x)] || []).push(x); }); return m; }
+    var E = E0.filter(inF), neg = E.filter(isNeg);
+    var convs = Object.values(by(E, function (e) { return e.conversationKey; })).map(function (xs) { return { customerKey: xs[0].customerKey, negative: xs.some(isNeg) }; });
+    var latest = {}; F0.filter(inF).slice().sort(function (a, b) { return a.at < b.at ? -1 : 1; }).forEach(function (v) { latest[v.answerKey] = v; });
+    var votes = Object.values(latest), down = votes.filter(function (v) { return v.vote === 'down'; });
+    var byDay = by(E, function (e) { return e.at.slice(0, 10); }), byInq = by(E, function (e) { return e.inquiry; }), byAbout = by(neg, function (e) { return e.about; }), byAfter = by(E, function (e) { return e.after; });
+    return {
+      kpis: { conversations: shown(convs) ? convs.length : null, turns: n(E), negativeConversationShare: share(convs.filter(function (c) { return c.negative; }), convs),
+        thumbsDownShare: share(down, votes), votes: n(votes) },
+      daily: datesBetween(f.from, f.to).map(function (date) { var xs = byDay[date] || [];
+        return { date: date, turns: n(xs), positive: share(xs.filter(function (e) { return e.sentiment === 'positive'; }), xs), neutral: share(xs.filter(function (e) { return e.sentiment === 'neutral'; }), xs), negative: share(xs.filter(isNeg), xs) }; }),
+      mix: Object.keys(SENTIMENT_LABEL).map(function (s) { var xs = E.filter(function (e) { return e.sentiment === s; }); return { sentiment: s, turns: n(xs), share: share(xs, E) }; }),
+      byInquiry: Object.keys(byInq).map(function (key) { var xs = byInq[key]; return { key: key, turns: n(xs), negativeShare: share(xs.filter(isNeg), xs) }; })
+        .sort(function (a, b) { return ((b.negativeShare === null ? -1 : b.negativeShare) - (a.negativeShare === null ? -1 : a.negativeShare)) || ((b.turns || 0) - (a.turns || 0)); }),
+      about: Object.keys(ABOUT_LABEL).map(function (a) { var xs = byAbout[a] || []; return { about: a, turns: n(xs), share: share(xs, neg) }; }),
+      after: Object.keys(AFTER_LABEL).map(function (a) { var xs = byAfter[a] || [], ng = xs.filter(isNeg); return { after: a, negative: n(ng), negativeShare: share(ng, xs) }; }),
+      reasons: Object.keys(REASON_LABEL).map(function (r) { return { reason: r, votes: n(down.filter(function (v) { return v.reason === r; })) }; })
+    };
+  }
+
+  /* Bar rows with one ink series: label, bar, count, mono share. */
+  function shareRows(rows, cols) {
+    var top = Math.max.apply(null, rows.map(function (r) { return r.share || 0; })) || 1;
+    return '<div class="fn">' + rows.map(function (r) {
+      return '<div class="fn-row" style="grid-template-columns:' + (cols || 'minmax(110px,160px) minmax(0,1fr) 64px 44px') + '"><span class="lb" title="' + esc(r.label) + '">' + r.label + '</span><span class="tr" aria-hidden="true"><i style="--w:' + ((r.share || 0) / top * 100).toFixed(1) + '%"></i></span>' +
+        '<span class="ct">' + fmtCount(r.count) + '</span><span class="pc">' + (r.share === null ? '' : pct(r.share)) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function renderSentiment() {
+    crumbs([['Sentiment']]);
+    // Admins only, like the live /admin/sentiment (convex/sentiment.ts summary).
+    if (ROLE !== 'admin') return '<div class="pg-head"><div><h2>Sentiment</h2><p>Only admins can see how customers feel across chats. Switch to Admin below to view it.</p></div></div>';
+    var f = UI.sentiment;
+    var seg = function (key, opts) { return '<div class="seg" role="group" aria-label="' + key + '">' + opts.map(function (o) { return '<button type="button" data-act="sf" data-k="' + key + '" data-v="' + o[0] + '" aria-pressed="' + (String(f[key]) === String(o[0])) + '">' + o[1] + '</button>'; }).join('') + '</div>'; };
+    return '<div class="pg-head"><div><h2>Sentiment</h2><p>How customers feel in their messages, labelled by Jev, and what came before the unhappy ones. Labels only: no message text is kept here, and groups under ' + param('analytics-min') + ' customers are hidden.</p></div>' +
+      '<span class="pill">' + ic('flask-conical') + 'Pilot traffic · mock data</span></div>' +
+      '<div class="filters">' + seg('range', [[7, '7 days'], [30, '30 days'], [90, '90 days']]) + seg('track', [['all', 'All'], ['personal', 'Individuals'], ['business', 'Business']]) +
+        seg('entry', [['all', 'All entry points'], ['web', 'Web'], ['smartMobile', 'Smart Mobile']]) + '</div>' +
+      '<div id="sn-body">' + sentimentBody() + '</div>';
+  }
+
+  function sentimentBody() {
+    if (!SN) SN = buildSentiment();
+    var f = UI.sentiment, to = addDays(TODAY, -1), from = addDays(TODAY, -f.range);
+    var s = summarizeSentiment(SN.events, SN.feedback, { from: from, to: to, track: f.track === 'all' ? null : f.track, entry: f.entry === 'all' ? null : f.entry, minCount: param('analytics-min') });
+    var k = s.kpis, confused = s.mix.filter(function (m) { return m.sentiment === 'confused'; })[0];
+    var html = '<div class="kpis" style="--n:4">' +
+      kpi('Conversations labelled', fmtCount(k.conversations), fmtCount(k.turns) + ' customer messages') +
+      kpi('With an unhappy message', fmtShare(k.negativeConversationShare), 'confused, frustrated or angry') +
+      kpi('Confused', fmtShare(confused.share), 'of customer messages') +
+      kpi('Answers voted down', fmtShare(k.thumbsDownShare), 'of ' + fmtCount(k.votes) + ' rated answers') + '</div>';
+
+    // Daily share of unhappy messages: one series
+    var max = Math.max.apply(null, s.daily.map(function (d) { return d.negative || 0; })) || .1;
+    var nice = Math.ceil(max * 20) / 20, ticks = [nice, nice / 2, 0];
+    html += '<section class="gcard sec" aria-labelledby="sn-vol-h"><div class="gc-h"><span id="sn-vol-h">Unhappy messages per day</span><span class="an-from">Share of customer messages · ' + date(from) + ' – ' + date(to) + '</span></div><div class="gc-b">' +
+      '<div class="vol"><div class="vol-y" aria-hidden="true">' + ticks.map(function (t) { return '<span style="top:' + (100 - t / nice * 100) + '%">' + pct(t) + '</span>'; }).join('') + '</div>' +
+      '<div class="vol-plot" id="sn-plot"><span class="gl" style="top:0"></span><span class="gl" style="top:50%"></span><span class="gl" style="bottom:0"></span>' +
+      '<div class="vol-bars" id="sn-bars" role="img" aria-label="Share of unhappy customer messages per day, up to ' + pct(max) + '. The data table below has every day.">' +
+      s.daily.map(function (d, i) { return '<b data-i="' + i + '"><i style="--h:' + ((d.negative || 0) / nice * 100).toFixed(1) + '%"></i></b>'; }).join('') + '</div>' +
+      '<div class="tip" id="sn-tip" hidden></div></div>' +
+      '<div class="vol-x" aria-hidden="true"><span>' + dateShort(from) + '</span><span>' + dateShort(s.daily[Math.floor(s.daily.length / 2)].date) + '</span><span>' + dateShort(to) + '</span></div></div></div>' +
+      '<details class="tv"><summary>' + ic('chevron-right') + 'Data table</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th class="r">Messages</th><th class="r">Positive</th><th class="r">Neutral</th><th class="r">Unhappy</th></tr></thead><tbody>' +
+      s.daily.slice().reverse().map(function (d) { return '<tr><td class="mono" style="font-size:12px">' + date(d.date) + '</td><td class="r mono">' + fmtCount(d.turns) + '</td><td class="r mono">' + fmtShare(d.positive) + '</td><td class="r mono">' + fmtShare(d.neutral) + '</td><td class="r mono">' + fmtShare(d.negative) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></details></section>';
+    SN.lastDaily = s.daily;
+
+    html += '<div class="an-grid sec">';
+    html += card('How customers feel', 'Share of customer messages', shareRows(s.mix.map(function (m) { return { label: SENTIMENT_LABEL[m.sentiment], count: m.turns, share: m.share }; })));
+    html += card('What unhappy messages were about', 'Share of unhappy messages', shareRows(s.about.map(function (a) { return { label: ABOUT_LABEL[a.about], count: a.turns, share: a.share }; })));
+    html += '</div>';
+
+    html += '<section class="gcard sec" aria-labelledby="sn-after-h"><div class="gc-h"><span id="sn-after-h">What came just before</span><span class="an-from">Raiffy’s previous reply · unhappy next messages and their share</span></div><div class="gc-b">' +
+      shareRows(s.after.map(function (a) { return { label: AFTER_LABEL[a.after], count: a.negative, share: a.negativeShare }; }), 'minmax(140px,260px) minmax(0,1fr) 64px 44px') +
+      '<p class="micro" style="margin-top:12px">Answers Raiffy couldn’t give are often blocked by stale data: see Assistant quality in <a class="link" href="#analytics">Analytics</a> and the values past their review date in <a class="link" href="#rules">Rules</a>.</p></div></section>';
+
+    html += '<div class="an-grid sec">';
+    html += card('By answer pattern', 'Messages · share unhappy', shareRows(s.byInquiry.map(function (r) { return { label: INQUIRY_LABEL[r.key] || r.key, count: r.turns, share: r.negativeShare }; }), 'minmax(120px,170px) minmax(0,1fr) 64px 44px'));
+    var downN = s.reasons.reduce(function (t, r) { return t + (r.votes || 0); }, 0);
+    html += card('Why answers were voted down', 'Optional reason after a thumbs down', shareRows(s.reasons.map(function (r) { return { label: REASON_LABEL[r.reason], count: r.votes, share: r.votes === null || !downN ? null : r.votes / downN }; })) +
+      '<p class="micro" style="margin-top:12px">Share of the reasons given. Most thumbs down come without one.</p>');
+    html += '</div>';
+    return html;
+  }
+
+  function bindSentiment() {
+    var bars = $('sn-bars'), tip = $('sn-tip'), plot = $('sn-plot');
+    if (!bars) return;
+    function hide() { tip.hidden = true; bars.classList.remove('hovering'); var on = bars.querySelector('.on'); if (on) on.classList.remove('on'); }
+    bars.addEventListener('pointermove', function (ev) {
+      var b = ev.target.closest('b'); if (!b) return;
+      var d = SN.lastDaily[+b.dataset.i]; var on = bars.querySelector('.on'); if (on !== b) { if (on) on.classList.remove('on'); b.classList.add('on'); }
+      bars.classList.add('hovering');
+      tip.innerHTML = '<b>' + date(d.date) + '</b><span>' + (d.negative === null ? 'Too few customers to show' : pct(d.negative) + ' unhappy') + '</span><br><span>' + (d.turns === null ? '' : num(d.turns) + ' messages') + '</span>';
+      tip.hidden = false;
+      var pr = plot.getBoundingClientRect(), br = b.getBoundingClientRect(), x = br.left - pr.left + br.width / 2;
+      tip.style.left = Math.max(0, Math.min(pr.width - tip.offsetWidth, x - tip.offsetWidth / 2)) + 'px';
+      tip.style.top = '-8px'; tip.style.transform = 'translateY(-100%)';
+    });
+    bars.addEventListener('pointerleave', hide);
+  }
+
+  /* ───────────── Users and roles ───────────── */
+  /* Edits are pending until "Save changes": one reason for the save, each change applied on its own (setUserRole,
+     accounts:assignSample), and failed rows stay pending with their error. */
+  function personaName(id) { var p = PERSONAS.filter(function (x) { return x[0] === id; })[0]; return p ? p[1] : 'None'; }
+  function userChanges() {
+    var P = UI.users.pending;
+    return TEAM.filter(function (u) { return P[u.id]; }).map(function (u) {
+      var c = { user: u, list: [] };
+      if (P[u.id].role !== undefined && P[u.id].role !== u.role) c.list.push(['Role', ROLE_NAMES[u.role], ROLE_NAMES[P[u.id].role]]);
+      if (P[u.id].sample !== undefined && P[u.id].sample !== u.sample) c.list.push(['Sample customer', personaName(u.sample), personaName(P[u.id].sample)]);
+      return c;
+    }).filter(function (c) { return c.list.length; });
+  }
+  function renderUsers() {
+    crumbs([['Users and roles']]);
+    if (ROLE !== 'admin') return '<div class="pg-head"><div><h2>Users and roles</h2><p>Only admins manage roles. Switch to Admin below to view it.</p></div></div>';
+    var f = UI.users, q = f.q.trim().toLowerCase();
+    var list = TEAM.filter(function (u) { return (f.role === 'all' || u.role === f.role) && (!q || (u.name + ' ' + u.email).toLowerCase().indexOf(q) >= 0); });
+    var admins = TEAM.filter(function (u) { return u.role === 'admin'; }).length;
+    var changes = userChanges(), hidden = changes.filter(function (c) { return list.indexOf(c.user) < 0; }).length;
+    var n = changes.reduce(function (a, c) { return a + c.list.length; }, 0), failed = Object.keys(f.errors).length;
+    var promoting = changes.filter(function (c) { return f.pending[c.user.id].role === 'admin' && c.user.role !== 'admin'; });
+    var bar = n ? '<div class="save-bar" id="save-bar"><span class="cnt" role="status">' +
+        (failed ? failed + ' change' + (failed > 1 ? 's' : '') + ' didn\u2019t save' : n + ' change' + (n > 1 ? 's' : '')) + (hidden ? ' \u00b7 ' + hidden + ' hidden by filters' : '') + '</span>' +
+        '<label class="input"><span class="sr-only">Reason for these changes</span><input type="text" id="usr-reason" maxlength="500" placeholder="Reason (optional)" value="' + esc(f.reason) + '"></label>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="usr-discard">Discard</button>' +
+        '<button type="button" class="btn btn-dark btn-sm" data-act="usr-save">' + (f.confirm ? 'Yes, make ' + promoting.map(function (c) { return c.user.name.split(' ')[0]; }).join(' and ') + ' admin' : 'Save changes') + '</button>' +
+        (f.confirm ? '<button type="button" class="btn btn-ghost btn-sm" data-act="usr-cancel">Cancel</button>' : '') + '</div>'
+      : '<span class="micro">Changes are saved together</span>';
+    return '<div class="pg-head"><div><h2>Users and roles</h2><p>Members use Raiffy. Operators review answers and counter-offers. Admins approve changes and manage roles. A new role takes effect within about a minute.</p></div></div>' +
+      '<div class="filters"><label class="input">' + ic('search') + '<span class="sr-only">Search users</span><input type="search" id="uq" placeholder="Search names and emails" value="' + esc(f.q) + '" autocomplete="off"></label>' +
+      '<div class="seg" role="group" aria-label="Role">' + [['all', 'All'], ['member', 'Members'], ['operator', 'Operators'], ['admin', 'Admins']].map(function (o) {
+        return '<button type="button" data-act="usrf" data-v="' + o[0] + '" aria-pressed="' + (f.role === o[0]) + '">' + o[1] + ' <span class="mono">' + TEAM.filter(function (u) { return o[0] === 'all' || u.role === o[0]; }).length + '</span></button>'; }).join('') + '</div></div>' +
+      '<section class="gcard usr-card" aria-labelledby="usr-h"><div class="gc-h"><span id="usr-h">Users</span>' + bar + '</div>' +
+      (f.confirm ? '<div class="gc-note" style="border-top:0;border-bottom:1px solid var(--border)">Admins approve changes and manage every role.</div>' : '') +
+      '<div class="tbl-wrap"><table class="tbl usr-tbl"><thead><tr><th>User</th><th>Joined</th><th>Sample customer</th><th>Role</th></tr></thead><tbody>' +
+      (list.length ? list.map(function (u) {
+        var p = f.pending[u.id] || {}, role = p.role !== undefined ? p.role : u.role, sample = p.sample !== undefined ? p.sample : u.sample;
+        var edited = role !== u.role || sample !== u.sample, self = u.id === me(), lastAdmin = u.role === 'admin' && admins <= 1;
+        var roleCell = self ? '<span class="micro">' + ROLE_NAMES[u.role] + ' \u00b7 you can\u2019t change your own role</span>'
+          : lastAdmin ? '<span class="micro">' + ROLE_NAMES[u.role] + ' \u00b7 the only admin</span>'
+          : '<label class="input usr-sel"><span class="sr-only">Role for ' + esc(u.name) + '</span><select data-usr="role" data-id="' + u.id + '">' +
+            ['member', 'operator', 'admin'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + ROLE_NAMES[r] + '</option>'; }).join('') + '</select></label>';
+        var sampleCell = '<label class="input usr-sel wide"><span class="sr-only">Sample customer for ' + esc(u.name) + '</span><select data-usr="sample" data-id="' + u.id + '"><option value="">None</option>' +
+          PERSONAS.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === sample ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('') + '</select></label>';
+        return '<tr' + (edited ? ' class="is-edited"' : '') + '><td class="nm"><span class="who"><span class="ava sm" aria-hidden="true">' + esc(u.name.split(' ').map(function (w) { return w[0]; }).join('')) + '</span><b>' + esc(u.name) + '</b></span><small>' + esc(u.email) + '</small>' +
+          (f.errors[u.id] ? '<p class="err">' + ic('circle-alert') + esc(f.errors[u.id]) + '</p>' : edited ? '<small>Edited, not saved</small>' : '') + '</td>' +
+          '<td class="mono" style="font-size:12px" data-label="Joined">' + date(u.joined) + '</td><td data-label="Sample customer">' + sampleCell + '</td><td data-label="Role">' + roleCell + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" class="empty-row">No users match.</td></tr>') +
+      '</tbody></table></div><div class="gc-note">' + TEAM.length + ' users. Roles live in Clerk publicMetadata. A sample customer is test data for trying account questions; the tester still switches on what Raiffy may read. Every saved change goes into the audit log.</div></section>';
+  }
+  function setUserEdit(id, key, value) {
+    var u = TEAM.filter(function (x) { return x.id === id; })[0], P = UI.users.pending;
+    P[id] = P[id] || {}; P[id][key] = value;
+    if ((P[id].role === undefined || P[id].role === u.role) && (P[id].sample === undefined || P[id].sample === u.sample)) delete P[id];
+    delete UI.users.errors[id]; UI.users.confirm = false;
+  }
+  function saveUsers() {
+    var f = UI.users, changes = userChanges();
+    var promoting = changes.some(function (c) { return f.pending[c.user.id].role === 'admin' && c.user.role !== 'admin'; });
+    if (promoting && !f.confirm) { f.confirm = true; render(); refocus('[data-act="usr-save"]'); return; }
+    var saved = 0; f.errors = {};
+    changes.forEach(function (c) {
+      if (c.user.id === 'user_gone') { f.errors[c.user.id] = 'That user no longer exists.'; return; }
+      var p = f.pending[c.user.id];
+      if (p.role !== undefined) c.user.role = p.role;
+      if (p.sample !== undefined) c.user.sample = p.sample;
+      delete f.pending[c.user.id]; saved += c.list.length;
+    });
+    f.confirm = false; if (!Object.keys(f.errors).length) f.reason = '';
+    render();
+    toast(saved ? saved + ' change' + (saved > 1 ? 's' : '') + ' saved' : 'Nothing saved', Object.keys(f.errors).length ? 'Some changes didn\u2019t save. They\u2019re still marked.' : 'Recorded in the audit log');
+  }
+
   /* ───────────── Audit ───────────── */
   function renderAudit() {
     crumbs([['Audit log']]);
@@ -1602,7 +1951,7 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
   /* ───────────── Router ───────────── */
   function parseHash() {
     var h = location.hash.replace(/^#/, '') || 'home', parts = h.split('/');
-    var pages = ['home', 'products', 'rules', 'analytics', 'audit'];
+    var pages = ['home', 'products', 'rules', 'analytics', 'sentiment', 'users', 'audit'];
     ROUTE = { page: pages.indexOf(parts[0]) >= 0 ? parts[0] : 'home', id: parts[1] ? decodeURIComponent(parts[1]) : null };
   }
   function render(opts) {
@@ -1611,6 +1960,8 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
       case 'products': html = ROUTE.id ? renderProduct(ROUTE.id) : renderProducts(); break;
       case 'rules': html = renderRules(); break;
       case 'analytics': html = renderAnalytics(); break;
+      case 'sentiment': html = renderSentiment(); break;
+      case 'users': html = renderUsers(); break;
       case 'audit': html = renderAudit(); break;
       default: html = renderHome();
     }
@@ -1620,6 +1971,7 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
     renderNav(); icons();
     if (ROUTE.page === 'products' && ROUTE.id && EDIT) { var n = editDiff().length; if ($('pub-count')) $('pub-count').textContent = n ? n + ' change' + (n > 1 ? 's' : '') : ''; }
     if (ROUTE.page === 'analytics') bindVolume();
+    if (ROUTE.page === 'sentiment') bindSentiment();
     document.title = ($('crumbs').querySelector('h1') || {}).textContent + ' · Raiffy Admin';
   }
   function navigate() {
@@ -1656,6 +2008,15 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
       document.querySelectorAll('[data-act="af"][data-k="' + t.dataset.k + '"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); });
       $('an-body').innerHTML = analyticsBody(); icons(); bindVolume(); announce('Analytics updated.');
     }
+    else if (act === 'sf') {
+      UI.sentiment[t.dataset.k] = t.dataset.k === 'range' ? +t.dataset.v : t.dataset.v;
+      document.querySelectorAll('[data-act="sf"][data-k="' + t.dataset.k + '"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); });
+      $('sn-body').innerHTML = sentimentBody(); icons(); bindSentiment(); announce('Sentiment updated.');
+    }
+    else if (act === 'usrf') { UI.users.role = t.dataset.v; render(); refocus('[data-act="usrf"][data-v="' + t.dataset.v + '"]'); }
+    else if (act === 'usr-discard') { UI.users.pending = {}; UI.users.errors = {}; UI.users.confirm = false; UI.users.reason = ''; render(); toast('Changes discarded'); }
+    else if (act === 'usr-save') saveUsers();
+    else if (act === 'usr-cancel') { UI.users.confirm = false; render(); }
     else if (act === 'audf') { UI.audit.action = t.dataset.v; render(); refocus('[data-act="audf"][data-v="' + t.dataset.v + '"]'); }
     else if (act === 'export') { exportCsv(); toast('Exported the audit log', DB.audit.length + ' entries as CSV.'); }
     else if (act === 'when') { EDIT.when = t.dataset.v; refreshPublish(); refocus('[data-act="when"][data-v="' + t.dataset.v + '"]'); }
@@ -1707,7 +2068,17 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
     else if (t.id === 'pub-note') EDIT.note = t.value;
     else if (t.id === 'when-date') { EDIT.date = t.value; }
   });
-  document.addEventListener('change', function (ev) { if (ev.target.id === 'when-date' && EDIT) refreshPublish(); });
+  document.addEventListener('change', function (ev) {
+    if (ev.target.id === 'when-date' && EDIT) refreshPublish();
+    var u = ev.target.dataset && ev.target.dataset.usr;
+    if (u) { setUserEdit(ev.target.dataset.id, u, ev.target.value || null); render(); refocus('[data-usr="' + u + '"][data-id="' + ev.target.dataset.id + '"]'); }
+  });
+  document.addEventListener('input', function (ev) {
+    if (ev.target.id === 'usr-reason') UI.users.reason = ev.target.value;
+    if (ev.target.id === 'uq') { UI.users.q = ev.target.value; render(); var q = $('uq'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  });
+  /* Unsaved user edits: the browser asks before leaving */
+  window.addEventListener('beforeunload', function (ev) { if (Object.keys(UI.users.pending).length) { ev.preventDefault(); ev.returnValue = ''; } });
 
   document.addEventListener('submit', function (ev) {
     var form = ev.target.closest('[data-pform]'); if (!form) return;
@@ -1727,6 +2098,21 @@ details.tv .tbl-wrap { max-height: 280px; overflow-y: auto; border-top: 1px soli
 
   window.addEventListener('hashchange', navigate);
   navigate();
+})();
+/* Phones show table rows as cards (§12), so each cell carries its column header as data-label */
+(function () {
+  var queued = false;
+  function labelCells() {
+    queued = false;
+    document.querySelectorAll('table.tbl').forEach(function (t) {
+      var heads = [].map.call(t.querySelectorAll('thead th'), function (th) { return th.querySelector('.sr-only') ? '' : th.textContent.trim(); });
+      t.querySelectorAll('tbody tr').forEach(function (tr) {
+        [].forEach.call(tr.children, function (td, i) { if (heads[i] && !td.hasAttribute('data-label')) td.setAttribute('data-label', heads[i]); });
+      });
+    });
+  }
+  labelCells();
+  new MutationObserver(function () { if (!queued) { queued = true; requestAnimationFrame(labelCells); } }).observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 </body>

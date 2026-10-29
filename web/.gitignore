@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.mobile-audit/
 
 # next.js
 /.next/

@@ -69,3 +69,12 @@ describe("remainingBalance", () => {
     expect(remainingBalance(8000, 0.079, 12, 12)).toBeCloseTo(0, 6);
   });
 });
+
+describe("monthlyPayment matches the server calculator", () => {
+  it("gives the same payment as lib/calc annuityPayment, so the live simulation card agrees with the server", async () => {
+    const { annuityPayment } = await import("../../lib/calc/loan");
+    for (const [p, rate, n] of [[30000, 0.0795, 36], [5000, 0.12, 12], [120000, 0.065, 60]] as const) {
+      expect(monthlyPayment(p, rate, n)).toBeCloseTo(annuityPayment(p, n, rate), 6);
+    }
+  });
+});

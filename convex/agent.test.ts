@@ -4,11 +4,15 @@ import { anyApi } from "convex/server";
 import schema from "./schema";
 import { AUDIENCES, COMPLEXITIES, INQUIRIES, MEMORY_CANDIDATES, MEMORY_OPERATIONS, SCOPES } from "../lib/agent/jev";
 
-const { runAgentMock, embedMock, jevMock, searchMock } = vi.hoisted(() => ({ runAgentMock: vi.fn(), embedMock: vi.fn(), jevMock: vi.fn(), searchMock: vi.fn() }));
+const { runAgentMock, embedMock, jevMock, searchMock, slotsMock, fallbackMock } = vi.hoisted(() => ({ runAgentMock: vi.fn(), embedMock: vi.fn(), jevMock: vi.fn(), searchMock: vi.fn(), slotsMock: vi.fn(), fallbackMock: vi.fn() }));
 vi.mock("../lib/rag/agent", () => ({ runAgent: runAgentMock }));
 vi.mock("./openai", () => ({ embedTexts: embedMock }));
-vi.mock("./jevTransport", () => ({ requestJev: jevMock }));
+vi.mock("./jevTransport", () => ({ requestJev: jevMock, requestJevSlots: slotsMock }));
+vi.mock("./fallbackModel", () => ({ askFallbackModel: fallbackMock }));
 vi.mock("./knowledge", () => ({ searchKnowledge: searchMock }));
+
+/** Number of inquiry labels Jev chooses from; split distributions below are built from it. */
+const LABELS = Object.keys(INQUIRIES).length;
 
 const choice = (labels: Record<string, string>, selected: string) => {
   const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
@@ -27,6 +31,11 @@ const modules = {
   "./_generated/server.js": () => import("./_generated/server"),
   "./agent.ts": () => import("./agent"),
   "./rag.ts": () => import("./rag"),
+  "./calculator.ts": () => import("./calculator"),
+  "./catalog.ts": () => import("./catalog"),
+  "./advice.ts": () => import("./advice"),
+  "./accounts.ts": () => import("./accounts"),
+  "./pricing.ts": () => import("./pricing"),
   "./regulatoryLimits.ts": () => import("./regulatoryLimits"),
   "./memory.ts": () => import("./memory"),
   "./conversations.ts": () => import("./conversations"),
@@ -45,6 +54,8 @@ beforeEach(() => {
   embedMock.mockReset().mockRejectedValue(new Error("mock_embedding_boundary"));
   jevMock.mockReset().mockResolvedValue({ status: "classified", classification: classification() });
   searchMock.mockReset();
+  slotsMock.mockReset().mockResolvedValue(null);
+  fallbackMock.mockReset().mockResolvedValue(null);
   vi.stubEnv("RAIFFY_JEV_ENABLED", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", "test-key-not-real");
   // The private-memory demo fallback must never permit paid agent access.
@@ -90,13 +101,18 @@ describe("UI to Jev to RAG pipeline", () => {
     expect(runAgentMock.mock.calls[0]![0].customerStatements).toEqual([question]);
   });
 
-  it("withholds exact financial figures until a reviewed catalog is connected", async () => {
+  it("shows financial figures from a checked answer as fetched (demo)", async () => {
     runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "The interest rate is 5.5%." });
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
-    expect(result.answer.text).not.toContain("5.5");
-    expect(result.answer.text).toContain("prices are not available");
-    expect(result.answer.verification.financialTermsSupported).toBe(false);
-    expect(result.answer.ui.mode).toBe("degraded");
+    expect(result.answer.text).toContain("5.5%");
+    expect(result.answer.text).not.toContain("prices are not available");
+    expect(result.answer.verification.financialTermsSupported).toBe(true);
+  });
+
+  it("still withholds an answer whose figures failed the source check", async () => {
+    runAgentMock.mockResolvedValue({ ...answer, status: "failed_checks", text: "The interest rate is 9.9%." });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(result.answer.text).not.toContain("9.9");
   });
 
   it("hardship suppresses sales before Claude and exposes the controlled UI envelope", async () => {
@@ -149,58 +165,60 @@ describe("UI to Jev to RAG pipeline", () => {
       expect(other.passages).toHaveLength(2);
       return answer;
     });
-    await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Compare a Raiffeisen personal loan with a BCR one." });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Compare Raiffeisen's personal loan with BCR's for 40,000 lei over 5 years." });
     expect(searchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("reserves evidence space for the product FAQs in a product question", async () => {
-    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
-      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.collection}-${i}` })),
-      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
-    runAgentMock.mockImplementation(async (input, deps) => {
-      expect(input.withholdFinancialFigures).toBe(true);
-      const docs = await deps.search({ collection: "bank_product_docs", query: "depozit la termen", limit: 5 });
-      const faq = await deps.search({ collection: "banking_help", query: "depozit la termen", limit: 5 });
-      expect(docs.passages).toHaveLength(3);
-      expect(faq.passages).toHaveLength(2);
-      return answer;
-    });
-    await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
-    expect(searchMock).toHaveBeenCalledTimes(2);
+  it("asks only for missing required inputs, then answers with every input in the brief", async () => {
+    const c = classification(); const inquiry = c.answers.inquiry;
+    [inquiry.probabilities.affordability, inquiry.probabilities.product_explanation] = [inquiry.probabilities.product_explanation!, inquiry.probabilities.affordability!];
+    inquiry.choice = "affordability";
+    jevMock.mockResolvedValue({ status: "classified", classification: c });
+    const t = fresh(); const alice = t.withIdentity(identity());
+    const first = await alice.action(anyApi.agent.ask, { ...args, question: "Can I afford a 2,000 lei monthly payment?" });
+    expect(runAgentMock).not.toHaveBeenCalled();
+    expect(first.answer.routing).toMatchObject({ handler: "collect_inputs", inquiry: "affordability" });
+    expect(first.answer.ui.blocks[0].fields.map((f: { key: string }) => f.key)).toEqual(["income", "obligations"]);
+    expect(first.answer.ui.actions).toEqual([expect.objectContaining({ kind: "skip_inputs" })]);
+
+    // The form reply is short, so Jev sees "other"; the pending question keeps the pattern.
+    const other = classification(); other.answers.inquiry = { ...other.answers.inquiry, choice: "other",
+      probabilities: Object.fromEntries(Object.keys(INQUIRIES).map(k => [k, k === "other" ? 0.87 : 0.13 / (LABELS - 1)])) };
+    other.answers.inquiry.confidence = (0.87 - 1 / LABELS) / (1 - 1 / LABELS);
+    jevMock.mockResolvedValue({ status: "classified", classification: other });
+    const second = await alice.action(anyApi.agent.ask, { ...args, threadId: first.threadId, question: "Net monthly income: 7,500 lei · Monthly loan and card payments: 0",
+      reply: { kind: "inputs", values: { income: 7500, obligations: 0, amount: 999 } } });
+    expect(second.answer.routing).toMatchObject({ inquiry: "affordability", basis: "pending", inputs: { known: { monthlyPayment: "conversation", income: "form", obligations: "form" } } });
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps no competitor space when both compared options are Raiffeisen products", async () => {
-    jevMock.mockResolvedValue({ status: "classified", classification: classification("product_comparison", "compare") });
-    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
-      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.query}-${i}` })),
-      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
-    runAgentMock.mockImplementation(async (_input, deps) => {
-      const overdraft = await deps.search({ collection: "bank_product_docs", query: "descoperit de cont", limit: 5 });
-      const loan = await deps.search({ collection: "bank_product_docs", query: "credit nevoi personale", limit: 5 });
-      expect([overdraft.passages.length, loan.passages.length]).toEqual([3, 2]);
-      return answer;
-    });
-    await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Is an overdraft or a personal loan better?" });
+  it("offers close patterns as choices when neither Jev nor the fallback can decide, and accepts only an offered choice", async () => {
+    const c = classification(); const inquiry = c.answers.inquiry;
+    inquiry.probabilities = Object.fromEntries(Object.keys(INQUIRIES).map(k => [k, k === "negotiation" ? 0.45 : k === "product_comparison" ? 0.42 : 0.13 / (LABELS - 2)]));
+    inquiry.choice = "negotiation"; inquiry.confidence = (0.45 - 1 / LABELS) / (1 - 1 / LABELS);
+    jevMock.mockResolvedValue({ status: "classified", classification: c });
+    const t = fresh(); const alice = t.withIdentity(identity());
+    const first = await alice.action(anyApi.agent.ask, { ...args, question: "BT is cheaper." });
+    expect(fallbackMock).toHaveBeenCalledTimes(1);
+    expect(first.answer.ui.actions.map((a: { inquiry: string }) => a.inquiry)).toEqual(["negotiation", "product_comparison"]);
+    await expect(alice.action(anyApi.agent.ask, { ...args, threadId: first.threadId, question: "Approve", reply: { kind: "choose", inquiry: "security_complaint" } }))
+      .resolves.toMatchObject({ answer: { routing: { handler: "clarify" } } });
+    const chosen = await alice.action(anyApi.agent.ask, { ...args, threadId: first.threadId, question: "Get a better offer", reply: { kind: "choose", inquiry: "negotiation" } });
+    expect(chosen.answer.routing).toMatchObject({ inquiry: "negotiation", basis: "choice", handler: "collect_inputs" });
   });
 
-  it("leaves evidence space for three routes when the customer describes a goal", async () => {
-    jevMock.mockResolvedValue({ status: "classified", classification: classification("purchase_goal", "solution") });
-    searchMock.mockImplementation(async (_ctx, _track, input) => ({ status: "ok", collection: input.collection,
-      passages: Array.from({length: input.limit}, (_,i) => ({ passageId: `${input.query}-${i}` })),
-      coverage: { requested: input.limit, returned: input.limit, gaps: [] } }));
-    runAgentMock.mockImplementation(async (_input, deps) => {
-      const routes = [];
-      for (const query of ["credit nevoi personale", "descoperit de cont", "card de credit rate"]) {
-        routes.push((await deps.search({ collection: "bank_product_docs", query, limit: 5 })).passages.length);
-      }
-      expect(routes).toEqual([2, 2, 1]);
-      return answer;
-    });
-    await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
-    expect(searchMock).toHaveBeenCalledTimes(3);
+  it("routes on the fallback model's pick when Jev is split", async () => {
+    const c = classification(); const inquiry = c.answers.inquiry;
+    inquiry.probabilities = Object.fromEntries(Object.keys(INQUIRIES).map(k => [k, k === "negotiation" ? 0.45 : k === "product_comparison" ? 0.42 : 0.13 / (LABELS - 2)]));
+    inquiry.choice = "negotiation"; inquiry.confidence = (0.45 - 1 / LABELS) / (1 - 1 / LABELS);
+    jevMock.mockResolvedValue({ status: "classified", classification: c });
+    fallbackMock.mockResolvedValue({ inquiry: "product_comparison", inputs: {} });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Which current account is cheaper, yours or ING's?" });
+    expect(result.answer.routing).toMatchObject({ inquiry: "product_comparison", basis: "fallback", fallbackUsed: true });
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
   });
 
-  it("runs the calculator on the customer's figures and the stored limits, and keeps its figures in the answer", async () => {
+  it("runs the affordability check on the customer's figures and the stored limits, and keeps its figures in the answer", async () => {
     jevMock.mockResolvedValue({ status: "classified", classification: classification("affordability") });
     const t = fresh();
     await t.run(async (ctx) => {
@@ -214,7 +232,7 @@ describe("UI to Jev to RAG pipeline", () => {
       expect((await deps.calculate({ calculation: "loan_affordability", netMonthlyIncome: 9000, loanAmount: 50000, termMonths: 60 })).status).toBe("unavailable");
       return { ...answer, status: "answered", text: "Up to 1,800 lei a month can go to instalments." };
     });
-    const result = await t.withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "My salary is 4500 lei. Can I borrow 50000 lei over 60 months?" });
+    const result = await t.withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "My salary is 4500 lei and I have no other loans. Can I borrow 50000 lei over 60 months?" });
     expect(result.answer.verification.financialTermsSupported).toBe(true);
     expect(result.answer.text).toContain("1,800 lei");
   });
@@ -227,7 +245,7 @@ describe("UI to Jev to RAG pipeline", () => {
     Object.assign(stated.answers, { memory_candidate: choice(MEMORY_CANDIDATES, "goal"), memory_durable: { type: "noul", noul: 0.9 } });
     jevMock.mockResolvedValue({ status: "classified", classification: stated });
     const alice = fresh().withIdentity(identity());
-    const question = "I want to buy a used car next year.";
+    const question = "I want to buy a used car next year for about 30,000 lei.";
     runAgentMock.mockImplementation(async (input, deps) => {
       expect(input.customerContext).toBeUndefined();
       expect(await deps.proposeMemory({ kind: "goal", text: "buy a used car next year", customerQuote: question })).toMatchObject({ status: "proposed" });
@@ -240,7 +258,7 @@ describe("UI to Jev to RAG pipeline", () => {
     await alice.mutation(anyApi.memory.confirm, { track: "personal", proposalId: block.proposals[0].id });
 
     runAgentMock.mockImplementation(async (input) => { expect(input.customerContext).toContain("buy a used car next year"); return answer; });
-    await alice.action(anyApi.agent.ask, { ...args, question: "Which loan would suit me?" });
+    await alice.action(anyApi.agent.ask, { ...args, question: "Which loan would suit me for a 30,000 lei car?" });
     expect(runAgentMock).toHaveBeenCalledTimes(2);
 
     const inspect = classification(); inspect.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect");

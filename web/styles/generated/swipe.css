@@ -148,7 +148,15 @@
 .pg-swipe .progress span { display: block; height: 100%; width: var(--p, 0%); background: var(--ink); }   /* live value: no transition */
 
 /* Topic filter: quick-reply chips, selection shown with ink */
-.pg-swipe .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+/* Phone first (§12): one row that scrolls sideways, bleeding to the screen edge, with room above and below for
+   44px hit areas and a fade on the edge that has more (chipEdges()); from 640px the chips wrap */
+.pg-swipe .chips { display: flex; gap: 8px; margin: 4px -16px 0; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; scroll-padding-inline: 16px; }
+.pg-swipe .chips::-webkit-scrollbar { display: none; }
+.pg-swipe .chips > * { flex: none; scroll-snap-align: start; }
+.pg-swipe .chips.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+.pg-swipe .chips.more-l { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px); mask-image: linear-gradient(to right, transparent, #000 24px); }
+.pg-swipe .chips.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+@media (min-width: 640px) { .pg-swipe .chips { flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; } }
 .pg-swipe .qbtn { display: inline-flex; font: 500 12px/1 var(--font-sans); padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border-strong);
   background: var(--surface); color: var(--text-2); cursor: pointer; transition: transform 160ms var(--ease-out), border-color 150ms ease; }
 .pg-swipe .qbtn:active { transform: scale(.97); }
@@ -172,10 +180,10 @@
     radial-gradient(circle calc(var(--size) * .62) at 62.5% 59.4%, rgb(255 154 61 / .8), rgb(255 154 61 / .66) 20%, rgb(255 154 61 / .42) 45%, rgb(255 154 61 / .18) 70%, rgb(255 154 61 / .05) 88%, transparent); }
 .pg-swipe .frag { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-float); font-size: 12px; }
 .pg-swipe .cursor { position: absolute; width: 16px; height: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); z-index: 3; }
-.pg-swipe .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+.pg-swipe .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
   color: var(--c, #5C5C5F); background: color-mix(in srgb, var(--c, #5C5C5F) 12%, transparent); }
 .pg-swipe .pill svg { width: 11px; height: 11px; }
-.pg-swipe .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; }
+.pg-swipe .ava { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; }
 .pg-swipe .ava-raiffy { background: var(--ink); color: var(--accent-a); }
 .pg-swipe .ava-raiffy svg { width: 12px; height: 12px; stroke-width: 2.2; }
 
@@ -204,7 +212,7 @@
 .pg-swipe .v-opts { left: 18px; right: -30px; top: 18px; display: grid; gap: 7px; }
 .pg-swipe .v-opt { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; }
 .pg-swipe .v-opt .nm { font-size: 12px; font-weight: 500; }
-.pg-swipe .v-opt .ds { font-size: 10.5px; color: var(--text-3); }
+.pg-swipe .v-opt .ds { font-size: 11px; color: var(--text-3); }
 .pg-swipe .v-opt .rt { text-align: right; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pg-swipe .liq { display: flex; gap: 2px; justify-content: flex-end; margin-top: 3px; }
 .pg-swipe .liq i { width: 8px; height: 3px; border-radius: 2px; background: #E9E6DE; }
@@ -212,10 +220,10 @@
 
 /* statement */
 .pg-swipe .v-stmt { left: 18px; right: 18px; top: 18px; padding: 5px; }
-.pg-swipe .v-stmt-h { display: flex; justify-content: space-between; padding: 7px 9px 8px; font-size: 10.5px; color: var(--text-3); }
+.pg-swipe .v-stmt-h { display: flex; justify-content: space-between; padding: 7px 9px 8px; font-size: 11px; color: var(--text-3); }
 .pg-swipe .v-stmt-h b { color: var(--text-1); font-weight: 600; font-size: 11.5px; }
 .pg-swipe .line { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 7px 9px; border-radius: 8px; font-size: 11.5px; }
-.pg-swipe .line small { display: block; font-size: 10.5px; color: var(--text-3); }
+.pg-swipe .line small { display: block; font-size: 11px; color: var(--text-3); }
 .pg-swipe .line .amt { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
 .pg-swipe .line.sel { background: #FFF8DC; box-shadow: inset 0 0 0 1px rgba(200,150,20,.25); }
 .pg-swipe .line.sel .amt { color: var(--text-1); }
@@ -227,7 +235,7 @@
 .pg-swipe .prog { height: 3px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
 .pg-swipe .prog span { display: block; height: 100%; width: var(--p); background: var(--ink); }
 .pg-swipe .ck { display: grid; grid-template-columns: 18px 1fr auto; gap: 9px; align-items: center; font-size: 11.5px; line-height: 1.35; padding: 2px 0; }
-.pg-swipe .ck small { display: block; font-size: 10.5px; color: var(--text-3); }
+.pg-swipe .ck small { display: block; font-size: 11px; color: var(--text-3); }
 .pg-swipe .bx { width: 16px; height: 16px; border-radius: 5px; border: 1px solid var(--border-strong); display: grid; place-items: center; }
 .pg-swipe .bx.ok { background: #2E7D4F; border-color: #2E7D4F; color: #fff; }
 .pg-swipe .bx svg { width: 11px; height: 11px; stroke-width: 2.6; }
@@ -250,7 +258,7 @@
 
 /* message (scam warning signs) */
 .pg-swipe .v-msg { left: 18px; right: 18px; top: 16px; padding: 12px; display: grid; gap: 9px; }
-.pg-swipe .v-msg-h { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); }
+.pg-swipe .v-msg-h { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); }
 .pg-swipe .v-msg-h b { color: var(--text-1); font-weight: 600; font-size: 11.5px; }
 .pg-swipe .v-msg p { font-size: 11.5px; line-height: 1.5; padding: 9px 11px; border-radius: 12px; border-top-left-radius: 4px; background: var(--surface-2); }
 .pg-swipe .v-msg mark { background: #FFF3C4; color: inherit; border-radius: 3px; padding: 0 2px; box-shadow: inset 0 -1px 0 rgba(200,150,20,.45); }
@@ -260,11 +268,11 @@
 .pg-swipe .v-note { width: 230px; height: 118px; left: 50%; top: 50%; translate: -50% -50%; padding: 12px 14px; overflow: hidden;
   background: repeating-linear-gradient(115deg, #FBFAF8 0 6px, #F4F3F0 6px 7px); }
 .pg-swipe .v-note.dim { translate: -42% -60%; rotate: 8deg; }
-.pg-swipe .v-note .nt-top { display: flex; justify-content: space-between; font: 500 10px/1 var(--font-mono); letter-spacing: .08em; color: var(--text-3); }
+.pg-swipe .v-note .nt-top { display: flex; justify-content: space-between; font: 500 11px/1 var(--font-mono); letter-spacing: .08em; color: var(--text-3); }
 .pg-swipe .v-note .nt-big { position: absolute; left: 14px; bottom: 10px; font: 600 40px/1 var(--font-sans); letter-spacing: -.04em; }
 .pg-swipe .v-note .nt-win { position: absolute; right: 18px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: var(--bg);
   box-shadow: inset 0 0 0 1px var(--border-strong), 0 0 0 4px rgba(255,210,63,.3); }
-.pg-swipe .v-note .nt-foot { position: absolute; right: 14px; bottom: 11px; max-width: 128px; text-align: right; font-size: 10px; line-height: 1.35; color: var(--text-3); }
+.pg-swipe .v-note .nt-foot { position: absolute; right: 14px; bottom: 11px; max-width: 128px; text-align: right; font-size: 11px; line-height: 1.35; color: var(--text-3); }
 
 @media (max-width: 480px) {
   .pg-swipe .sc-body { padding: 16px 20px 18px; }
@@ -285,3 +293,18 @@
   @keyframes pg-swipe-fade { from { opacity: 0; } }
   .pg-swipe.js .head, .pg-swipe.js .stage, .pg-swipe.js .guide { animation: pg-swipe-fade 400ms ease backwards; }
 }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  .pg-swipe :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  .pg-swipe :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  .pg-swipe :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  .pg-swipe :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  .pg-swipe input[type="range"] { height: 44px; }
+}
+
+/* §12-touch:end */

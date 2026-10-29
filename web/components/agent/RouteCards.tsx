@@ -12,7 +12,7 @@ export function RouteCards({ routes, cite, enter }: { routes: RouteCard[]; cite:
     <div className={enter ? "gcard routes-card enter" : "gcard routes-card"}>
       <div className="gc-h"><span><ScaleIcon />{routes.length} routes side by side</span><span className="micro">From dated public pages</span></div>
       <div className="gc-b">
-        <ul className="opts routes" aria-label="Routes" data-count={routes.length}>
+        <ul className="opts text-routes" aria-label="Routes" data-count={routes.length}>
           {routes.map((r) => (
             <li key={r.title} className={r.recommended ? "opt rec" : "opt"}>
               <div className="opt-h">

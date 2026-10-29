@@ -27,6 +27,8 @@ const ROUTES = {
   "login.html": "/sign-in",
   "chat.html": "/chat",
   "swipe.html": "/did-you-know",
+  "admin.html": "/admin/users",
+  "console.html": "/console/reviews",
 };
 
 const PAGES = [
@@ -50,6 +52,9 @@ const PAGES = [
   { file: "login.html", scope: "pg-auth", markup: [{ name: "AuthBrand", select: "aside.brand" }] },
   { file: "chat.html", scope: "pg-chat", markup: [{ name: "ChatStarters", select: "div.starters" }] },
   { file: "swipe.html", scope: "pg-swipe", markup: [{ name: "SwipeNav", select: "header.nav" }], strokeWidth: 1.6 },
+  // Staff pages: styles only, the shell and views are React (components/staff) over real Clerk and Convex data
+  { file: "admin.html", scope: "pg-staff-admin", markup: [] },
+  { file: "console.html", scope: "pg-console", markup: [] },
 ];
 
 /* ───────────── CSS: scope every rule under the page wrapper ───────────── */

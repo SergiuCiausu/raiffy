@@ -9,7 +9,7 @@ import type { KnowledgeGap, Passage, SearchKnowledgeResult } from "./knowledge";
 import type { Track } from "./schemas";
 
 /** Bump when the instructions or the tool change, so logs and cached answers can be told apart. */
-export const RAG_PROMPT_VERSION = "rag-agent@11";
+export const RAG_PROMPT_VERSION = "rag-agent@12";
 
 /** Searches the agent may run for one question before it must answer. */
 export const MAX_SEARCHES = 3;
@@ -32,7 +32,8 @@ How to answer:
 - If the results don't contain what was asked (a rate, a fee, a condition, a document), say plainly that you don't have that information, and point to the most relevant page or tariff document in the results, or to a Raiffeisen adviser. Never fill the gap from general knowledge.
 - Do not write collection dates or snapshot-date notes. The application renders each source's collection date from verified metadata, and adds the AI disclosure and indicative-information notice. Dates in the source metadata are not product facts.
 - Give no investment, tax or legal advice. For those, suggest a Raiffeisen adviser or a professional.
-- Keep it short: two to four sentences in plain words, with no headings, lists or tables.
+- Keep it short and in plain words. A simple answer is two to four sentences. When the answer has several parallel items (conditions to check, documents, fees, steps), use a list instead: at most 8 items, each a short **bold** label and one sentence.
+- Formatting: use only **bold** for short labels and key terms, *italic* sparingly for a Romanian term, lines starting with "- " for a list, "1. " for steps in order (one nested level at most), and a blank line between paragraphs. Never use headings, tables, links, underline, code or HTML: the application shows each source as a numbered chip.
 - When the question is about one specific product, end with one short question that invites the customer to go deeper into that product or to look at a related Raiffeisen solution.
 - If the question has nothing to do with banking or money, say so in one friendly line and offer help with Raiffeisen products instead, without searching.`;
 
@@ -60,8 +61,8 @@ function contractTool(name: string): BetaTool {
   const { $schema: _schema, ...input } = tool.input_schema as Record<string, unknown>;
   return { name: tool.name, description: tool.description, input_schema: input as BetaTool["input_schema"] };
 }
-export const CALCULATE_TOOL_NAME = "calculate_scenario";
-export const CALCULATE_TOOL = contractTool(CALCULATE_TOOL_NAME);
+export const AFFORDABILITY_TOOL_NAME = "check_affordability";
+export const AFFORDABILITY_TOOL = contractTool(AFFORDABILITY_TOOL_NAME);
 export const PROPOSE_MEMORY_TOOL_NAME = "propose_memory_change";
 export const PROPOSE_MEMORY_TOOL = contractTool(PROPOSE_MEMORY_TOOL_NAME);
 

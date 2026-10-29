@@ -119,6 +119,6 @@ export function memoryContextNote(raw: readonly ContextMemory[]): string | undef
   return [
     "What this customer asked Raiffy to remember in earlier chats (their own statements, with the date they made them; not verified):",
     ...lines,
-    "Use them to tailor routes, questions and next steps to this customer, and say so when you rely on one (\"as you told me\"). A stated figure is only a calculator input: pass it to calculate_scenario instead of repeating it. If the current message contradicts a memory, follow the message. Leave out memories that don't help with this question, and never use them to judge creditworthiness.",
+    "Use them to tailor routes, questions and next steps to this customer, and say so when you rely on one (\"as you told me\"). A stated figure is only a calculator input: pass it to check_affordability instead of repeating it. If the current message contradicts a memory, follow the message. Leave out memories that don't help with this question, and never use them to judge creditworthiness.",
   ].join("\n");
 }

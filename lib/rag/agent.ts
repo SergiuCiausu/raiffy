@@ -10,14 +10,15 @@ import {
   type CalculateScenarioInput, calculateScenarioInputSchema, type ProposeMemoryInput, proposeMemoryInputSchema, type SearchKnowledgeInput,
   searchKnowledgeInputSchema,
 } from "../agent/prompt";
-import { assembleCitations, type Citable, citableFromPassage, checkNumbers, citedSegments, type RagAnswer } from "./answer";
+import { addCardSources, assembleCitations, type Citable, citableFromPassage, checkNumbers, type CitedSegment, citedSegments, type RagAnswer } from "./answer";
 import type { SearchKnowledgeResult } from "./knowledge";
 import { containsFinancialFigure } from "./numbers";
+import { citableToSearchResult } from "./tools";
 import {
   buildSystem,
   buildUserTurn,
-  CALCULATE_TOOL,
-  CALCULATE_TOOL_NAME,
+  AFFORDABILITY_TOOL,
+  AFFORDABILITY_TOOL_NAME,
   PROPOSE_MEMORY_TOOL,
   PROPOSE_MEMORY_TOOL_NAME,
   coverageNote,
@@ -51,7 +52,7 @@ export type AgentDeps = {
   createMessage: (request: ModelRequest) => Promise<BetaMessage>;
   /** The search_knowledge handler, already scoped to the session's track by the caller. */
   search: (input: SearchKnowledgeInput) => Promise<SearchKnowledgeResult>;
-  /** The calculate_scenario handler; offered to the model only when the caller passes it. */
+  /** The check_affordability handler; offered to the model only when the caller passes it. */
   calculate?: (input: CalculateScenarioInput) => Promise<CalculatorResult>;
   /** Queues a memory for the customer to confirm; offered only when the caller passes it. Never saves directly. */
   proposeMemory?: (input: ProposeMemoryInput) => Promise<MemoryProposalResult>;
@@ -75,19 +76,50 @@ export type AgentInput = {
    * about) are the customer's, not the bank's prices, so the answer may repeat them without a citation.
    */
   customerStatements?: readonly string[];
+  /** Numbers the customer stated as inputs, which the answer may repeat (see checkNumbers). */
+  customerFigures?: readonly string[];
+  /** An optional presentation tool (answer cards). Its input is checked against the search results the model has seen. */
+  cards?: CardsTool;
+  /** Data tools run by the host (catalog terms, calculators). Their results are citable like search results. */
+  hostTools?: readonly HostTool[];
+  /**
+   * Host tool calls made before the model's first turn (the catalog lookup for a catalog-shaped question). Each one is
+   * shown to the model as its own earlier call with the results, so it reads the database before it searches.
+   */
+  preload?: readonly { tool: string; input: unknown }[];
+};
+
+/**
+ * A host tool: the caller validates the input, authorizes it and runs it. What it returns as citables is shown to
+ * the model as search_result blocks and joins the hits, so the answer cites it and the number check accepts its
+ * figures; a note is plain text (gaps, what wasn't available) and is not citable.
+ */
+export type HostTool = {
+  tool: BetaTool;
+  run: (input: unknown, hits: readonly Citable[]) => Promise<{ citables: Citable[]; note?: string } | { error: string }>;
+};
+
+export type CardsTool = {
+  tool: BetaTool;
+  check: (input: unknown, hits: readonly Citable[]) => { ok: true; cards: unknown[]; urls: string[]; note: string } | { ok: false; error: string };
+  /** Cards guessed from a checked answer when the model showed none; null when nothing fits or nothing is supported. */
+  fallback?: (segments: readonly CitedSegment[], hits: readonly Citable[]) => { cards: unknown[]; urls: string[] } | null;
 };
 
 /**
  * Agentic RAG: Claude decides when and what to search, code runs each search scoped to the session's track,
  * the fragments go back as search_result blocks, and the final text is checked so every number is grounded.
  */
-export async function runAgent({ question, track, history = [], model, allowedCollections, withholdFinancialFigures = false, customerContext, customerStatements = [] }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
+export async function runAgent({ question, track, history = [], model, allowedCollections, withholdFinancialFigures = false, customerContext,
+  customerStatements = [], customerFigures = [], cards, hostTools = [], preload = [] }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
   const system = customerContext ? [...buildSystem(track), { type: "text" as const, text: customerContext }] : buildSystem(track);
   // A route with no collections (an explicit "remember this") offers no search at all.
   const searchTool = allowedCollections ? { ...SEARCH_TOOL, input_schema: { ...SEARCH_TOOL.input_schema,
     properties: { ...(SEARCH_TOOL.input_schema.properties as Record<string, unknown>), collection: { type: "string", enum: [...allowedCollections] } } } } : SEARCH_TOOL;
-  const tools = [...(allowedCollections?.length === 0 ? [] : [searchTool]),
-    ...(deps.calculate ? [CALCULATE_TOOL] : []), ...(deps.proposeMemory ? [PROPOSE_MEMORY_TOOL] : [])];
+  const tools = [...(allowedCollections?.length === 0 ? [] : [searchTool]), ...hostTools.map((h) => h.tool),
+    ...(deps.calculate ? [AFFORDABILITY_TOOL] : []), ...(deps.proposeMemory ? [PROPOSE_MEMORY_TOOL] : []), ...(cards ? [cards.tool] : [])];
+  // The last accepted cards: a later call replaces them.
+  let shown: { cards: unknown[]; urls: string[] } | null = null;
   const messages: BetaMessageParam[] = [
     ...history.map((turn) => ({ role: turn.role, content: turn.text })),
     { role: "user", content: buildUserTurn(question, history.length === 0) },
@@ -101,12 +133,28 @@ export async function runAgent({ question, track, history = [], model, allowedCo
   let attempts = 0;
   let nudged = false;
 
+  // Preloaded host calls: run now, shown as the model's own earlier tool call. A failed or empty one is left out.
+  for (const [i, call] of preload.entries()) {
+    const host = hostTools.find((h) => h.tool.name === call.tool);
+    if (!host) continue;
+    const ran = await host.run(call.input, hits).catch(() => null);
+    if (!ran || "error" in ran || !ran.citables.length) continue;
+    hits.push(...ran.citables);
+    const id = `preload_${i + 1}`;
+    messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: call.tool, input: call.input as Record<string, unknown> }] });
+    // A tool result with search_result blocks may hold only those (Anthropic API), so the note follows as a system message
+    messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: ran.citables.map(citableToSearchResult) }] });
+    if (ran.note) messages.push({ role: "system", content: `${call.tool}: ${ran.note}` });
+  }
+
   const result = (fields: Pick<RagAnswer, "status" | "text" | "segments" | "sources" | "checks">): RagAnswer => ({
     ...fields,
     model,
     promptVersion: RAG_PROMPT_VERSION,
     searches,
     retrieval: hits.map((hit) => ({ chunkId: hit.chunkId, score: hit.score })),
+    // Cards only travel with a checked answer, and their cited results join the source list.
+    ...(shown && fields.status === "answered" ? { cards: shown.cards, sources: addCardSources(fields.sources, shown.urls, hits) } : {}),
   });
 
   for (let call = 0; call < MAX_MODEL_CALLS; call++) {
@@ -132,14 +180,34 @@ export async function runAgent({ question, track, history = [], model, allowedCo
       const toolUses = response.content.filter((block): block is BetaToolUseBlock => block.type === "tool_use");
       const toolResults: BetaToolResultBlockParam[] = [];
       const searchResults: SearchKnowledgeResult[] = [];
+      const hostNotes: string[] = [];
       for (const toolUse of toolUses) {
+        if (cards && toolUse.name === cards.tool.name) {
+          const checked = cards.check(toolUse.input, hits);
+          if (checked.ok) shown = { cards: checked.cards, urls: checked.urls };
+          toolResults.push(checked.ok ? { type: "tool_result", tool_use_id: toolUse.id, content: checked.note }
+            : toolErrorResult(toolUse.id, `The cards were not shown: ${checked.error}. Fix them and call ${cards.tool.name} again, or answer without cards.`));
+          continue;
+        }
+        const host = hostTools.find((h) => h.tool.name === toolUse.name);
+        if (host) {
+          const ran = await host.run(toolUse.input, hits).catch((error: unknown) => ({ error: error instanceof Error ? error.message : "tool failed" }));
+          if ("error" in ran) { toolResults.push(toolErrorResult(toolUse.id, ran.error)); continue; }
+          hits.push(...ran.citables);
+          // Citable rows alone in the result (the API rejects search_result mixed with text); a note without rows is the result itself
+          if (ran.citables.length) {
+            toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: ran.citables.map(citableToSearchResult) });
+            if (ran.note) hostNotes.push(`${toolUse.name}: ${ran.note}`);
+          } else toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: ran.note ?? "No usable results." });
+          continue;
+        }
         const { block, result } = await runTool(toolUse, deps, hits, searches, trusted, proposals);
         toolResults.push(block);
         if (result) searchResults.push(result);
       }
       messages.push({ role: "user", content: toolResults });
       // Harness notes go in their own system message, never inside the citable tool results.
-      const note = coverageNote(searchResults);
+      const note = [coverageNote(searchResults), ...hostNotes.splice(0)].filter(Boolean).join("\n");
       if (note) messages.push({ role: "system", content: note });
       continue;
     }
@@ -168,7 +236,7 @@ export async function runAgent({ question, track, history = [], model, allowedCo
     }
     attempts++;
     // Calculator results and the customer's own figures may appear without a citation; document prices may not.
-    const ownFigures = [...trusted, ...customerStatements];
+    const ownFigures = [...trusted, ...customerStatements, ...customerFigures];
     const checks = checkNumbers(segments, hits, ownFigures);
     const passed = checks.ungroundedNumbers.length === 0 && checks.uncitedSegmentsWithNumbers === 0
       && !checks.invalidCitationIndexes;
@@ -186,6 +254,7 @@ export async function runAgent({ question, track, history = [], model, allowedCo
       continue;
     }
     const status = !passed ? "failed_checks" : hits.length || trusted.length ? "answered" : "no_results";
+    if (status === "answered" && !shown && cards?.fallback) shown = cards.fallback(segments, hits);
     return result({ status, ...assembleCitations(segments, hits), checks: { ...checks, attempts } });
   }
 
@@ -207,7 +276,7 @@ async function runTool(
   proposals: string[],
 ): Promise<{ block: BetaToolResultBlockParam; result?: SearchKnowledgeResult }> {
   const name = toolUse.name.toLowerCase();
-  if (name === CALCULATE_TOOL_NAME && deps.calculate) {
+  if (name === AFFORDABILITY_TOOL_NAME && deps.calculate) {
     const input = calculateScenarioInputSchema.safeParse(toolUse.input);
     if (!input.success) {
       return { block: toolErrorResult(toolUse.id, `Invalid input: ${input.error.issues.map((i) => i.message).join("; ")}`) };

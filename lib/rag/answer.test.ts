@@ -99,6 +99,14 @@ describe("answer assembly", () => {
       .toEqual({ ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0 });
   });
 
+  it("lets the answer repeat the customer's own inputs, cited or not, but nothing derived from them", () => {
+    const figures = ["50000", "50", "60"]; // "50k euro over 60 months", as parsed by lib/agent/inputs
+    expect(checkNumbers([{ text: "For a loan of 50,000 lei over 60 months, see the conditions.", hitIndexes: [0] }], hits, figures).ungroundedNumbers).toEqual([]);
+    expect(checkNumbers([{ text: "You asked about 50k euro, so take 50.000 lei as an example.", hitIndexes: [] }], hits, figures))
+      .toMatchObject({ ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0 });
+    expect(checkNumbers([{ text: "That is about 833 lei a month.", hitIndexes: [] }], hits, figures).ungroundedNumbers).toEqual(["833"]);
+  });
+
   it("does not let the customer's question establish a financial number", () => {
     expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [0] }], hits).ungroundedNumbers).toEqual(["7.10"]);
     expect(checkNumbers([{ text: "It pays 7.10%.", hitIndexes: [] }], hits)).toMatchObject({

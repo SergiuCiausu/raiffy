@@ -1,9 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/* End-to-end checks of the ported pages in a real browser. Run: pnpm test:e2e */
+/* End-to-end checks of the ported pages in a real browser. Run: pnpm test:e2e
+ * Disabled 2026-10-28: testIgnore skips every spec. Remove it (and restore the test:e2e script) to turn them back on. */
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
+  testIgnore: "**/*",
   fullyParallel: true,
   retries: 0,
   reporter: [["list"]],

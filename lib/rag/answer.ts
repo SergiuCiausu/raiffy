@@ -62,6 +62,8 @@ export const ragAnswerSchema = z.object({
   }),
   model: z.string(),
   promptVersion: z.string(),
+  /** Cards the model filled through an extra presentation tool, already checked by the caller's validator. */
+  cards: z.array(z.unknown()).optional(),
   /** The searches the agent ran, in order. */
   searches: z.array(z.object({
     query: z.string(),
@@ -97,6 +99,20 @@ export function citedSegments(content: readonly BetaContentBlock[]): CitedSegmen
 }
 
 /** Turn cited segments into answer text, per-segment source ids and one source per cited page. */
+/** Adds a source entry for each URL a card cites that the text did not, so every card figure has a source chip. */
+export function addCardSources(sources: readonly RagSource[], urls: readonly string[], hits: readonly Citable[]): RagSource[] {
+  const out = [...sources];
+  for (const url of urls) {
+    if (out.some(s => s.url === url)) continue;
+    const used = hits.filter(h => h.url === url);
+    const hit = used[0];
+    if (!hit) continue;
+    out.push({ id: `src-${out.length + 1}`, url, title: hit.label, collectedOn: hit.collectedAt.slice(0, 10), sectionType: hit.sectionType,
+      ...(hit.docType ? { docType: hit.docType } : {}), chunkIds: [...new Set(used.map(h => h.chunkId))] });
+  }
+  return out;
+}
+
 export function assembleCitations(segments: readonly CitedSegment[], hits: readonly Citable[]) {
   const sources: RagSource[] = [];
   const idByUrl = new Map<string, string>();

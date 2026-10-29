@@ -1,0 +1,23 @@
+[
+  { "id": "PRICE-01", "title": "long-time client: lowest list price, already qualifies for the salary discount",
+    "persona": "long-time-client", "competitor": null, "switches": { "account": true, "savings": true },
+    "expect": { "currentRateBps": 740, "salaryQualifies": true } },
+  { "id": "PRICE-02", "title": "new client: list price, with salary transfer shown as a lever",
+    "persona": "new-client", "competitor": null, "switches": { "account": true, "savings": true },
+    "expect": { "currentRateBps": 940, "salaryQualifies": false } },
+  { "id": "PRICE-03", "title": "competitor cheaper by headline rate only: no counter-offer needed",
+    "persona": "competitor-secci", "competitor": "sample-bank-a-loan", "switches": { "account": true, "savings": true },
+    "expect": { "resolution": "not_needed" } },
+  { "id": "PRICE-04", "title": "competitor about 120 lei cheaper in total: automatic counter-offer inside the band (fee waiver)",
+    "persona": "cheaper-competitor", "competitor": "sample-bank-b-loan", "switches": { "account": true, "savings": true },
+    "expect": { "resolution": "band", "levers": ["feeWaiver"] } },
+  { "id": "PRICE-05", "title": "mortgage refinance beyond the band: escalated to a specialist, no offer",
+    "persona": "mortgage-refinance", "competitor": "sample-bank-c-mortgage", "switches": { "account": true, "savings": true },
+    "expect": { "resolution": "escalate", "level": "specialist" } },
+  { "id": "PRICE-06", "title": "small loan, risk C, no band: escalated, never an automatic offer",
+    "persona": "small-loan", "competitor": "sample-bank-b-loan", "switches": { "account": true, "savings": true },
+    "expect": { "resolution": "escalate" } },
+  { "id": "PRICE-07", "title": "account switch off: no risk view, list price, could be better, escalated instead of a counter-offer",
+    "persona": "cheaper-competitor", "competitor": "sample-bank-b-loan", "switches": { "account": false, "savings": true },
+    "expect": { "resolution": "escalate", "currentRateBps": 940, "couldBeBetter": true } }
+]

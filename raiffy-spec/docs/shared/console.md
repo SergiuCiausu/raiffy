@@ -154,6 +154,26 @@ An **assistant quality** strip sits under them: evaluator first-pass rate, safe 
 - **"Raiffeisen options only" default:** after a customer's first signing, comparisons show only Raiffeisen options unless the customer asks for competitors. Each switch is logged.
 - **Reminders:** `fixedRateEnding` (lead time from the `fixed-end-lead` parameter) and `depositMaturity` (`maturity-lead`), each with sent, opened and acted stages.
 
+### Sentiment
+
+How customers feel in their messages, and what came before the unhappy ones. Admins only. Prototype: `admin.html#sentiment`. Live: `/admin/sentiment`. Logic: `lib/analytics/sentiment.ts` (`summarizeSentiment`, with Zod schemas and tests).
+
+- **Labels:**
+  - Jev labels every customer message in its routing call: `sentiment` (positive, neutral, confused, frustrated, angry) and `sentiment_about` (answer, price, service, app, none).
+  - The labels are for this page only; they never change routing or answers.
+- **Stored per message:** pseudonymous keys, the track and entry point, Jev's pattern, the labels and their confidence, and what Raiffy's previous reply was. That last field is worked out in code and is one of: first, answered, unavailable, failed, stopped, menu, repeat. Never the message text.
+- **Votes:** thumbs up and down on answers, with an optional reason after a thumbs down (wrong, unclear, missing, other). The latest vote per answer counts.
+- **Privacy:** the same rules as Analytics. A group with fewer distinct customers than `analytics-min` is hidden, with any share built on it. Rows expire with the message retention period.
+- **Sections:**
+  - KPIs: conversations labelled, conversations with an unhappy message, confused, answers voted down;
+  - unhappy messages per day;
+  - how customers feel;
+  - what unhappy messages were about;
+  - what came just before;
+  - by answer pattern;
+  - why answers were voted down.
+- **Before real users:** a Data Protection sign-off, and a line in the privacy notice. Labelling every message is processing for service improvement.
+
 ## Data model (Convex)
 
 ```ts

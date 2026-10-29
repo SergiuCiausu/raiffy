@@ -8,6 +8,7 @@ import { planQuery, withFocus } from "../lib/rag/query";
 import { PUBLIC_COLLECTIONS, scopeField, SEARCH_FOCUS, searchArgsSchema, type SearchArgs, type SearchHit } from "../lib/rag/schemas";
 import { rankHits, type StoredChunk } from "../lib/rag/search";
 import { requireAgentScope } from "./agentAuth";
+import { NO_TRACE, type Trace } from "./trace";
 
 const CANDIDATES = 64;
 
@@ -47,32 +48,36 @@ export async function searchChunks(ctx: ActionCtx, input: SearchArgs): Promise<S
 }
 
 /** The same search without the identity check. Internal callers only (the retrieval eval). */
-export async function hybridSearch(ctx: ActionCtx, input: SearchArgs): Promise<SearchHit[]> {
+export async function hybridSearch(ctx: ActionCtx, input: SearchArgs, t: Trace = NO_TRACE): Promise<SearchHit[]> {
   const { question, track, collection, k, focus } = searchArgsSchema.parse(input);
   const plan = withFocus(planQuery(question), focus);
   const field = scopeField(track, collection);
+  const terms = plan.lexicalTerms.map(toSearchText).join(" ");
+  const started = Date.now();
 
   const [dense, lexicalIds] = await Promise.all([
-    embedTexts([question]).then(([vector]) =>
-      ctx.vectorSearch("ragChunks", "by_embedding", {
+    t.time("rag.embed", () => embedTexts([question]), (v) => ({ model: "text-embedding-3-small", dimensions: v[0]?.length ?? 0 }))
+      .then(([vector]) => t.time("rag.vector", () => ctx.vectorSearch("ragChunks", "by_embedding", {
         vector: vector!,
         limit: CANDIDATES,
         filter: (q) => q.eq(field, true),
-      }),
-    ),
-    ctx.runQuery(internal.rag.textSearch, {
-      terms: plan.lexicalTerms.map(toSearchText).join(" "),
+      }), (r) => ({ index: "by_embedding", filter: field, hits: r.length, topScores: r.slice(0, 3).map((x) => Math.round(x._score * 1000) / 1000) }))),
+    t.time("rag.keyword", () => ctx.runQuery(internal.rag.textSearch, {
+      terms,
       track,
       collection,
       limit: CANDIDATES,
-    }),
+    }), (r) => ({ index: "search_text", filter: field, hits: r.length, terms: t.text(terms) })),
   ]);
 
   const denseIds = dense.map((result) => result._id);
   const ids = [...new Set<Id<"ragChunks">>([...denseIds, ...lexicalIds])];
   const docs = await ctx.runQuery(internal.rag.getChunks, { ids });
   const byId = new Map<string, StoredChunk>(docs.map((doc) => [doc._id, doc as StoredChunk]));
-  return rankHits(denseIds, lexicalIds, byId, plan, { k });
+  const hits = rankHits(denseIds, lexicalIds, byId, plan, { k });
+  t.step("rag.ranked", { ms: Date.now() - started, focus, merged: ids.length, loaded: docs.length, kept: hits.length,
+    top: hits.slice(0, 5).map((h) => ({ chunk: h.chunkId, bank: h.bank, section: h.sectionType, score: Math.round(h.score * 1000) / 1000, dense: h.denseRank, keyword: h.lexicalRank })) });
+  return hits;
 }
 
 /** Retrieval only (used by starter/eval.py --backend convex). Public product data, no customer data. */

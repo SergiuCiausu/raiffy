@@ -73,6 +73,146 @@ tools:
     }
   - {
       "type": "custom",
+      "name": "query_catalog",
+      "description": "Query the structured product catalog before searching documents: which products exist, or their rates, fees, limits, terms and conditions, through typed filters (bank, product kind, product IDs, kind of term, currency, term, rate type, sort). The host fixes the track and the banks the turn may read. Rows carry their source text and say whether a person reviewed them; what the catalog lacks comes back as a gap, never as zero.",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "find": {
+            "type": "string",
+            "enum": [
+              "products",
+              "terms"
+            ]
+          },
+          "banks": {
+            "minItems": 1,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "raiffeisen",
+                "ing",
+                "bcr"
+              ]
+            }
+          },
+          "productKind": {
+            "type": "string",
+            "enum": [
+              "mortgage",
+              "car_loan",
+              "credit_card",
+              "overdraft",
+              "personal_loan",
+              "term_deposit",
+              "savings_account",
+              "current_account",
+              "other"
+            ]
+          },
+          "productIds": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "termKinds": {
+            "minItems": 1,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "interest_rate",
+                "dae",
+                "fee",
+                "limit",
+                "term",
+                "eligibility",
+                "document",
+                "benefit"
+              ]
+            }
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "RON",
+              "EUR"
+            ]
+          },
+          "termMonths": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 600
+          },
+          "rateType": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "variable",
+              "campaign",
+              "promo"
+            ]
+          },
+          "sort": {
+            "type": "string",
+            "enum": [
+              "lowest",
+              "highest"
+            ]
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "find",
+          "limit"
+        ],
+        "additionalProperties": false
+      }
+    }
+  - {
+      "type": "custom",
+      "name": "get_holdings",
+      "description": "Read the customer's own Raiffeisen products as the mobile app shows them: accounts and overdraft, savings and term deposits with maturity, loans with the amount left, rate, fixed-rate end and early-repayment fee, cards with limits and fees, bank-issued pre-approved offers, and age, residency and digital-signing status. Each kind is read only when the customer switched it on; what is switched off is named, never returned as empty. Never request raw account identifiers or another customer's data.",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kinds": {
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "accounts",
+                "savings",
+                "loans",
+                "cards",
+                "offers",
+                "profile"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  - {
+      "type": "custom",
       "name": "get_product_terms",
       "description": "Look up exact structured terms for identified bank or competitor products. Use this for rates, commissions, eligibility conditions and comparison inputs; document similarity alone cannot establish these values. The host returns versioned records with effective dates, verification deadlines and official source URLs, marking incomplete or stale terms unavailable. This is an indicative catalog lookup and cannot approve credit or create a binding offer.",
       "input_schema": {
@@ -130,18 +270,82 @@ tools:
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "productIds": {
-            "minItems": 1,
-            "maxItems": 6,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+          "productId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amountLei": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "months": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
-          "productIds"
+          "productId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  - {
+      "type": "custom",
+      "name": "negotiate_offer",
+      "description": "Compare the customer's Raiffeisen price with a competitor offer by total cost and return the pricing tool's outcome: no counter-offer needed, a counter-offer inside a pre-approved band, a specialist review, evidence needed (a typed claim alone never earns an offer) or an affordability stop. The host reads only what the customer allowed, logs every outcome and never reveals band limits. Present exactly the outcome; never invent, promise or hint at another price.",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "amountLei": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "months": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "competitor": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "offerId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "offerId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "claimedBank": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  }
+                },
+                "required": [
+                  "claimedBank"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "productId",
+          "competitor"
         ],
         "additionalProperties": false
       }
@@ -296,4 +500,4 @@ tools:
     }
 metadata:
   template: raiffy-assistant
-  policy_version: raiffy-agent@2
+  policy_version: raiffy-agent@14

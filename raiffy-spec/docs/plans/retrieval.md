@@ -70,6 +70,7 @@ type Provenance = {
 type TermRecord = {
   termId: string;
   productId: string;          // e.g. "raiffeisen:persoane-fizice__produsele-noastre__credite__..."
+  product: string;            // customer-facing name
   bank: "raiffeisen" | "ing" | "bcr";
   track: "personal" | "business";
   kind: "interest_rate" | "dae" | "fee" | "limit" | "term" | "eligibility" | "document" | "benefit";
@@ -78,9 +79,11 @@ type TermRecord = {
     | { type: "exact"; amount: number }             // in `unit`
     | { type: "range"; min: number; max: number }
     | { type: "from"; min: number }                 // "de la 5,05%": never shown as the customer's rate
+    | { type: "up_to"; max: number }                // "până la 60 de luni": a ceiling, never what the customer gets
     | { type: "text"; text: string }                // conditions that aren't a number
     | { type: "unavailable"; reason: string };      // stated as missing on the page
   unit: "bps" | "minor_ron" | "minor_eur" | "months" | "years" | "days" | "none";
+  frequency?: "once" | "monthly" | "yearly"; // for charges
   conditions: string[];       // what the value depends on
   comparability: { category: string; termMonths?: number; currency?: "RON" | "EUR"; insuranceIncluded?: boolean;
                    rateType?: "fixed" | "variable" | "campaign" | "promo" };

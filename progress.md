@@ -2,7 +2,347 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-29 (demo fixes: Jev, follow-ups, customer figures, adviser handoff, Docker). Branch: `codex/demo-fixes`.
+Last updated: 2026-10-29 (merge of `main`'s demo fixes into `starter-vignette-motion`, PR #9). Branch: `starter-vignette-motion`.
+
+## Merge with main (PR #8 demo fixes), 2026-10-29
+
+The branch's agent pipeline is the base; main's features are ported into it.
+- **Kept from the branch:**
+  - routing: an unsure pattern gets choice chips (with the fallback model), never public documents only;
+  - the audience label never asks personal or business.
+  - main's opposite rules for both were left out, with their tests and the `"salut"` eval case.
+- **Ported from main:**
+  - memory proposals with consent, inspect and forget answers (`memoryResponse`), and the memory panel;
+  - the adviser handoff action and `handoffRequests`;
+  - follow-ups that name the product or route;
+  - one Jev retry after `invalid_response` or `provider_error`;
+  - uncertain goal count → the stronger model;
+  - the per-search evidence cap for solution and compare answers;
+  - `customerStatements` in the number check.
+- **Two calculators, two tools:**
+  - The branch's catalog-backed `calculate_scenario` (loan and overdraft cost) keeps its name.
+  - Main's debt-service check is now `check_affordability` (same input, `calculation: "loan_affordability"`), offered on affordability and purchase routes.
+  - Two tools with one name can't both be offered to the model.
+- **Prices:**
+  - The branch's demo rule stands: figures are shown as fetched when a cited passage backs them.
+  - Main's `withholdFinancialFigures` and the catalog-required replacement stay in `lib/rag/agent.ts` but are off in `convex/agent.ts`.
+- **Route cards:**
+  - Main's text-derived routes block (`routesFromAnswer`) is still composed, only when no checked routes card exists, and drives the route follow-ups.
+  - The chat keeps the branch's Markdown renderer, which already shows that list as a list card, so `RouteCards` (now class `text-routes`) isn't drawn in the chat yet.
+- `RAG_PROMPT_VERSION` is `rag-agent@12`.
+
+## Admin area: Home, Products, Rules, Analytics and Audit log, read-only, 2026-10-29
+
+- **Pages:** `/admin` (Home, no longer a redirect), `/admin/products`, `/admin/products/[productId]`, `/admin/rules` and `/admin/audit`, converted from `admin.html` over live Convex data. Admin-only through `components/staff/AdminPage.tsx`; Convex checks the role again on every read.
+- **Backend:** `convex/adminViews.ts` (tested):
+  - `products` and `product`: Raiffeisen's product pages with their imported values. Each value shows its quote, source, review date, who signed it off, and whether answers may use it (the `get_product_terms` rule, `lib/catalog/review.ts`). Due means within 14 days of the review date. New permission `catalog.read` (operators and admins).
+  - `audit`: the audit log with names from the `users` mirror; the page filters, searches and exports CSV.
+  - `home`: products with values past review, due or waiting for a sign-off, open escalated counter-offers (count only, decided in the console), the last 5 changes, and last week's conversations, answers and failed replies.
+  - `rules`: `lib/agent/rules.ts`. Hard limits list the files that enforce them and their eval cases; a test fails if an eval ID or a file doesn't exist. Parameters are read from where the code defines them (`AGENT_POLICY`, `REVIEW_DAYS`, message retention, `ANALYTICS_MIN_GROUP`), so the page can't drift.
+- **Read-only by design:** no edit, approve, schedule or rollback controls yet. The prototype's versions, owners, pending and scheduled states, impact preview and stale-parameter blocking need the versioned change workflow (console.md build order step 1), planned separately.
+- **Analytics** (`/admin/analytics`, `convex/analytics.ts`, tested): `convex/agent.ts` records one `answerTraces` row per delivered answer, best-effort like sentiment. A row holds pseudonymous keys, the track, the intent (from Jev's inquiry), which kinds of account data the tools actually read (`lib/analytics/trace.ts`; `DATA_SOURCES` gains `transactions` for the expense summary), retries, fallback and escalation. No text or figures. It expires with message retention (hourly cron). The page shows conversations, answers, the share using account data, first-pass checks, fallbacks, answers per day and data usage, through `summarize()` with groups under 10 hidden. Offers, applications, contracts, reminders, fees, eligibility and money saved need outcome events and are listed as "Not connected yet", never as zeros. `staleBlocked` is always false until catalog gaps are reported per answer.
+- **Not done:** Only 5 of the ~146 Raiffeisen product pages have imported values so far, so most products show "No values imported". The pages were checked by typecheck and tests, not yet with a signed-in admin in the browser. Not yet deployed to the dev deployment (the push also ships the bank-layer changes, pending a decision).
+
+## Sample customers with Smart Mobile holdings (policy `raiffy-agent@14`), 2026-10-29
+
+- **Bank layer** (`lib/bank/schemas.ts`, `holdings.ts`, `persona.ts`, tested): a customer's Raiffeisen holdings as Smart Mobile shows them:
+  - current accounts (masked IBAN, balance, overdraft limit, use, rate and renewal);
+  - savings accounts;
+  - term deposits (amount, rate, term, maturity, renewal);
+  - loans (principal, amount left, monthly payment, rate type and rate, fixed-rate end and what follows, payments left, early-repayment fee);
+  - cards (limit, use, annual fee and due date, how often used);
+  - bank-issued pre-approved offers;
+  - age, residency and digital-signing status.
+
+  Each holding has a stable reference (`loan_fr1`) and links to the real Raiffeisen product in the `products` catalog. Dates are relative to today, so the sample data never goes stale. Balances, the overdraft and Raiffeisen loan payments in the generated statements come from the holdings (`withHoldings`), so the two never disagree.
+- **Ten sample customers** (`convex/seed/demoPersonas.ts`). The six existing ones keep their IDs and figures and now hold products. Each one tests a scenario:
+  - a credit card hardly used, with its fee due in 18 days;
+  - an overdraft used for months;
+  - a pre-approved personal loan;
+  - a deposit maturing in 6 days, with idle cash;
+  - a mortgage at another bank;
+  - a credit card near its limit;
+  - **new:** a Casa Ta mortgage whose fixed rate ends in 3 months;
+  - **new:** a personal loan half repaid, with savings that could clear it;
+  - **new:** 63 and asking about a long mortgage;
+  - **new:** identity not verified for digital signing.
+- **Six switches**, as in Smart Mobile: accounts and overdraft, transactions, savings and deposits, pre-approved offers, loans, cards (`chat.html`, `AccessPanel.tsx`, `convex/accounts.ts`). Older rows keep working: their "cards" switch meant card spending and now reads as "transactions".
+  - The expense summary splits into `account` (balance and overdraft), `flows` (income, outgoings, debt, fees) and `spending` (by category, subscriptions, ATM and FX).
+  - The inputs gate takes income and debt payments from transactions, or Raiffeisen loan payments from the loans switch alone.
+- **`get_holdings`** (`convex/accounts.ts`), a host tool on purchase, affordability, refinancing, saving, explanation, fees, life events, cash shortfall, negotiation and spending questions.
+  - It returns one citable per holding, labelled as sample data with masked numbers, with the product page in its text. The number check applies to each.
+  - A kind that's switched off is named, never returned as empty.
+- **Catalog fix:** "fără ipotecă" loans were counted as mortgages; now they're personal loans (Raiffeisen: 4 mortgages and 3 personal loans, not 6 and 1).
+- **Assigning test customers (step 4):**
+  - On `/admin/users`, admins pick one of the ten sample customers for each user ("Sample customer" column). Edits to roles and sample customers stay pending, marked on their row, until the table's save bar saves them all with one reason (`SaveBar.tsx`, `saveUserChanges` server action, batch checks in `web/lib/user-changes.ts`, tested): your own role and leaving no admin are refused across the whole batch, each change is applied on its own, and failed rows stay marked with their error. The prototype is `admin.html#users`. Convex re-checks the admin role (`accounts:assignSample`) and writes `user.sample_assigned` (details `from`/`to`) to the audit log in the same transaction. The "Recent changes" list shows it next to role changes.
+  - An assignment sets the tester's sample account with every switch off: the tester still chooses what Raiffy may read. Users who haven't opened Raiffy yet can't be assigned (no Convex user row).
+  - Testers see "Your admin assigned …" in "What Raiffy can see", and "Reset sample data" (`accounts:resetSample`) returns them to that customer with everything off. Sample data is read-only seed data, so a reset never loses holdings.
+- **Not done:** the Smart Mobile launch context (step 5), and the account-scenario eval set and scripted browse pass (step 6). Card transactions don't yet include the annual card fee or deposit interest. Pre-approved offers in `get_holdings` are separate from the pricing flow's computed quotes. Not deployed, and `products.import.jsonl` needs re-importing for the mortgage fix.
+
+## Chat sentiment in the Admin area (policy `raiffy-agent@13`), 2026-10-29
+
+- **Labels:** Jev labels every customer message in the same call that routes it, with two new questions in `lib/agent/jev.ts`:
+  - `sentiment`: positive, neutral, confused, frustrated or angry;
+  - `sentiment_about`: the answer, a price, the bank's service, the app, or none.
+  Both are optional in the response schema, so older recorded responses still validate. The labels never route, answer or treat a customer differently.
+- **Storage:** `convex/agent.ts` records one `sentimentEvents` row per message after routing (`convex/sentiment.ts` `record`). Best-effort: a failed write is traced and never breaks the turn.
+  - A row holds labels only: pseudonymous SHA-256 conversation and customer keys (salted with `ANALYTICS_KEY_SALT` when set), the track, the entry point, Jev's pattern, the labels with their confidence, and `after`.
+  - `after` is what Raiffy's previous reply was: first message, a checked answer, an answer it couldn't give, failed, stopped, a menu, or the same question asked again. It's worked out in code from the stored messages.
+  - Message text is never copied.
+- **Votes:** thumbs up and down are now saved (`sentiment:rate`, `answerFeedback`). A thumbs down shows an optional "What was wrong?" row: Wrong, Unclear, Missing information, Something else (in `chat.html` and `AgentChat.tsx`). The latest vote per answer counts.
+- **Retention:** both tables expire with the message retention period; an hourly cron removes expired rows.
+- **Aggregation:** `lib/analytics/sentiment.ts` `summarizeSentiment` (tested). Any group with fewer distinct customers than the minimum (10) is hidden, and so is every share built on a hidden count. One customer with many messages is still one person.
+- **Page:** `admin.html#sentiment` (prototype with seeded mock data, admin-only in the role switch) and live `/admin/sentiment`. The page shows:
+  - KPIs: conversations labelled, conversations with an unhappy message, confused, answers voted down;
+  - unhappy messages per day, with a data table;
+  - how customers feel, and what unhappy messages were about;
+  - what came just before an unhappy message;
+  - by answer pattern;
+  - why answers were voted down.
+  `convex/sentiment.ts` `summary` checks the admin role and never lowers the minimum group size.
+- **Not done:** a Data Protection sign-off and a privacy-notice line before real users (labelling every message is processing for service improvement). `ANALYTICS_KEY_SALT` isn't set in the Convex env yet. Smart Mobile traffic is recorded as `web` until that entry point exists. Drilling into the chats behind a number goes through Reviews, which isn't linked from the Admin area by design. No eval set yet for the sentiment labels.
+
+## Comparison card phases 3–4: catalog-built rows in the live chat, 2026-10-29
+
+- **Phase 3:** `convex/compare.ts` adds the `compare_products` host tool. It's offered when the route has `get_product_terms` and the answer compares products (scope compare, or the `product_comparison` pattern).
+  - It reads the track's catalog, limited to the banks the turn's collections allow, for exactly the product IDs the model passes.
+  - It builds `fromCatalog`. The customer's amount and term count only when they appear in the customer's own words; "5 years" grounds 60 months.
+  - It returns one citable per product with every row as the card writes it.
+- **The block:** `lib/compare/block.ts`, 8 tests. `comparisonBlock` turns any comparison into one `compare_table` block:
+  - the catalog table, using the customer's names for the products (lined up by bank, not by position), with the model's cited facts filling its gaps;
+  - or the model's facts alone. The documents card in the screenshot becomes the three document rows.
+  - A value whose source the answer doesn't cite reads "Not in the sources".
+  - The model's comparison card isn't shown separately any more. The recommendation stays only if it names a product on the card.
+  - `convex/agent.ts` builds it next to the spending and price cards, and `composer.ts` accepts it.
+- **Phase 4:** `web/components/agent/CompareTable.tsx` shows group headings, a citation per value, "Not confirmed" and "Not in the sources", the bold deciding row, and the yellow light only on a single cheaper exact option. It also shows the notes on payments and DAE examples, and "Why I recommend" when there is a recommendation. `cardNames` hides text that repeats the product names.
+- **Suite:** 621 passing. `convex/agent.test.ts` "screens stored messages…" timed out once at 5.07s under the full parallel run and passes alone.
+- **Not done:** not deployed to Convex, and not seen in the live chat (that needs a deploy and a signed-in run).
+
+## Comparison card: fixed rows with amounts and commissions (phases 1–2), 2026-10-29
+
+- **Phase 1** (`chat.html`): a new `bankcompare` card, Flexicredit vs Credit George, from the reviewed catalog terms.
+  - Groups and rows: Cost (DAE, interest rate), Amounts (amount, term) and Commissions (analysis, administration and early repayment fees).
+  - A citation on every value, a "Not confirmed" chip and "Not in the sources" text, and a note explaining why there's no monthly payment and why the DAE examples aren't compared.
+  - The mock block mirrors `CompareTable`. Asking about BCR, ING, BT or BRD (and not about documents) routes to it.
+  - The header button is renamed "Talk to a specialist" here too.
+  - Checked at 900px and 390px with no horizontal scroll and no console errors. Prototypes are synced (`pnpm sync:prototypes`).
+- **Phase 2** (`lib/compare/`, 12 tests): the row keys and groups.
+  - `rowForTerm` (catalog terms) and `rowForLabel` (the model's English or Romanian fact labels), and `focusOfLabels`.
+  - `fromCatalog`: unreviewed, stale, unquoted and stated-missing terms are "not confirmed". Monthly payment and total cost come from `repaymentSchedule`, but only with an exact reviewed rate and confirmed lei fees; otherwise `paymentUnavailable`. The yellow light goes only to a single cheaper option on exact, comparable values.
+  - `fromFacts`: the documents card from the screenshot maps to document rows only.
+  - `mergeTables`: catalog first, search fills the gaps.
+- **Not done:** phase 3 (a `compare_products` host tool over raiffy-0f's `queryTerms`) and phase 4 (the web `Comparison` renderer). The live chat still shows the model's own rows.
+
+## Timing input, retrieval tuning and catalog-first answers (policy `raiffy-agent@12`), 2026-10-29
+
+- **"When do you need it?"** (`lib/agent/inputs.ts` `needBy`, policy `@11`): an optional input on purchase goals and cash shortfalls. It reads "in 8 months", "peste 2 ani", "as soon as possible" or a tapped choice (Now, Within 6 months, Within a year, In 2 years or more, Not sure yet; `NEED_BY_MONTHS`). A deadline phrase is blanked before figures are read, so it never becomes the loan term, and "pay it back in 2 years" stays a term. `compare_routes` now takes the customer's stated timing over the model's `timing`, which is only the fallback (`lib/advice/tool.ts`, `convex/advice.ts` `adviceStatedOf`). "Not sure yet" and defaults stay unknown. When the recommendation waits on timing, the answer offers the four timing replies as follow-ups (`NEED_BY_REPLIES`, `generate()` returns `needsTiming`).
+- **Retrieval** (`lib/rag/search.ts`): the vector ranking now weighs 1.5× the keyword ranking in fusion, and the glossary gained borrow, repay, grace period, interest-free and issue. Measured with a local harness that reproduces the live search over the exported chunks (exact cosine on the stored embeddings, BM25 standing in for Convex's keyword index; it matches the published live numbers within a few points): hit@5 68% → 71% overall, competitors 56% → 60%, Raiffeisen set 78% → 80%, hit@1 on Romanian queries 47% → 53%. Tried and dropped: capping chunks per page (page@5 rose to 92–96% but passage hits fell, because the expected passage is often a page's second chunk) and reordering a page's chunks by query terms (worse on every set). The English rows understate live quality: the RAG prompt already tells the model to search in Romanian, and the paired questions score 86% in Romanian vs 72% in English. Remaining misses: BCR deposit rates in PDF tables (an English page of BCR's site wins), and answers split across neighbouring chunks.
+- **Catalog first** (`lib/catalog/products.ts`, `lib/catalog/query.ts`, `convex/catalogQuery.ts`): a `products` table with one row per product page, built from chunk metadata (`pnpm catalog:build-products`: 423 products, 16 guide pages marked). Each row has a kind (the chat's product kinds), a link, a short description and the chunks' scope flags. `query_catalog` is a host tool with typed filters (products or terms; bank, product kind, IDs, kind of term, currency, term, rate type, sort, limit), never free-form queries. The host fixes the track and the readable banks: Raiffeisen with bank docs, ING and BCR only with competitor docs. Reviewed terms come back as reviewed; unreviewed ones come back labelled "not reviewed yet: a dated public figure copied from the bank's page on DATE". Stale, unquoted and stated-missing terms are gaps, never values. On a listing, and on a comparison, fee or explanation question with a known product kind, the host runs the catalog query before the model (`runAgent` `preload`, shown as the model's own earlier call), so the database is the first layer in code. The system text tells the model a catalog row overrides a passage.
+- **Tests:** inputs (needBy evals in `evals/agent-inputs.json`), advice inputs, `lib/catalog/{products,query}.test.ts`, the preload in `lib/rag/agent.test.ts`. The suite is at 609.
+- **Deployed** 2026-10-29 01:31 to `diligent-rhinoceros-830` (the whole working tree), with 423 rows imported into `products`. Checked through the deployed `catalogQuery:allProducts` and `termsOfTrack`.
+- **Not done:** the term catalog still has only 72 terms for 13 products; extracting terms from every product page and tariff PDF is the next step for the catalog to answer most rate and fee questions. PDF tables aren't re-chunked yet. No live eval yet of catalog-first answers against search-only answers (it costs model calls).
+
+## Catalog in the cloud, personal-loan terms reviewed, 2026-10-29
+
+- **Imported** `productTerms.import.jsonl` (72 terms) into the cloud dev deployment. The table was empty, so it used `--append`; `--replace` was refused by the permission check because it deletes rows.
+- **Reviewed:** the admin (`user_3LKlwBzh15hFKFyhVVTG1IfcxKi`) signed off all 16 personal-loan terms with a quote, through `catalog:markReviewed`, each with its own audit entry.
+  - **Raiffeisen Flexicredit, 6:** rate 5.55–17.95%, up to 50,000 euro (the page states euro, so this isn't a seed error), up to 60 months, analysis fee 200 lei, administration fee 5 lei a month, DAE in the example 9.49%.
+  - **ING Personal, 4.**
+  - **BCR Credit George, 6:** rate 6.29–14.99%, up to 250,000 lei, up to 60 months, analysis fee 200 lei, administration fee 0 lei, DAE in the example 9.94–16.41%.
+- **Not reviewable** (no quote on the page): ING's maximum amount and ING's DAE.
+- **Still missing for an exact plan or payment:** every bank publishes its rate as a range, so `buildPlan` and `compare_routes` still return `rate_not_exact`. The comparison card will show "from" figures.
+- **Decision:** a comparison about documents shows only document rows, with no cost rows.
+
+## Booking a call with a specialist, 2026-10-29
+
+- **Renamed** "Talk to an advisor" to "Talk to a specialist" (user decision). The header button now opens the booking card directly, with no message and no model call. The handoff card's button sends "I'd like to talk to a specialist about this.", which routes to `human_contact`.
+- **Rules** in `lib/booking/` (schemas and rules, 13 tests), the same ones as `console.html`:
+  - slots come from weekly hours, breaks, days off, a buffer, a daily cap, a 2-hour lead time and a 14-day horizon;
+  - wall-clock times are in Europe/Bucharest (the clock change is tested);
+  - one open call per customer, release if not confirmed 24 h ahead, a 30-day pause after two no-shows;
+  - the join window, the share window, and a pseudonymous customer reference with first name and initial.
+- **Convex:**
+  - tables `operatorAvailability`, `bookings` and `bookingEvents`;
+  - `convex/bookings.ts` (8 tests): `options`, `book`, `confirm` and `cancel` for the customer (owner only); `setAvailability` (an operator for themselves, an admin for anyone, audited); `agenda`, `operatorCancel` (the reason is shown to the customer) and `recordOutcome` for operators; a `releaseUnconfirmed` cron every 15 minutes.
+  - The client never sends a slot list: `book` recomputes the open slots and refuses anything else.
+- **Chat:** `web/components/booking/BookingCard.tsx` appears under the header button and under every `human_contact` answer. It handles picking a time, call type and topic. Plan sharing is offered only when the thread has a plan, and starts unticked. Once booked, the card shows the confirm reminder, "starts soon" and "Join video call" (a demo Jitsi room, shown only inside the join window). It also covers cancelling, notices when the operator cancels or the call is released, and the pause. The `human_contact` text now points at the card.
+- **Demo labels:** the video room is public Jitsi, nobody phones, and the card header says "Demo".
+- **Not done:**
+  - no operator page in `web/` (the functions exist; `console.html#calendar` remains the reference);
+  - no chat-summary sharing: only a plan the customer chose to share;
+  - no push or email reminders: they're in-app only;
+  - not deployed to the cloud dev deployment, and no operator hours seeded (see `web/README.md`).
+- **Suite:** 584 passing; root and web type checks are clean.
+
+## "Talk to a person" routing (fix 2), 2026-10-29
+
+- **Bug**: "How can I book a meeting with a Raiffeisen advisor?" (the `/chat` header button's text) matched none of Jev's labels, so it got the "Which of these is closest?" menu with three choices that didn't fit.
+- **Fix**: a new inquiry label, `human_contact` (`lib/agent/jev.ts`), with its own handler and a fixed answer. It makes no model call: talk to someone at a branch or through the official contact channels on raiffeisen.ro; booking from the chat isn't connected yet; Raiffy can help prepare questions and documents. It says nothing is booked and gives no time or figures. Chip label: "Talk to someone at the bank".
+- **Keyword path**: a hint row in `lib/agent/confidence.ts` (English and Romanian: book, schedule or arrange a meeting, appointment or call; talk or speak with a person, adviser or specialist; programare; vorbesc cu un consilier) settles Jev's ambiguous split or "other" to `human_contact`. It never overrides a confident pattern, a risk route or a tapped choice.
+- **Tests**: 5 in `lib/agent/agent.test.ts`, including the screenshot's split. Plus 6 cases in `evals/agent-routing.json` for `pnpm agent:eval-routing --live`, one of them a question *about* advisers that must stay `professional_advice`. Policy is `raiffy-agent@9`, setup rebuilt, and the suite is at 531 passing.
+- **Not done:** the button still sends text (fix 1, the booking card, waits on the booking decisions). The live Jev routing eval wasn't run.
+
+## No "personal or business?" question, 2026-10-29
+
+- `lib/agent/route.ts` no longer stops with `confirm_track_before_access` when Jev labels the audience business or isn't sure. Every account is treated as an individual: the plan stays on the signed-in track (personal), and retrieval stays filtered by that track. The test in `lib/agent/agent.test.ts` checks business at 0.95 and 0.4 and personal at 0.3. Not deployed yet.
+
+## Staff pages converted from the prototypes, 2026-10-29
+
+- `pnpm sync:prototypes` now also generates `styles/generated/staff-admin.css` (from `admin.html`, scope `.pg-staff-admin`) and `console.css` (from `console.html`, scope `.pg-console`). Styles only: the views are React (`web/components/staff/`) over Clerk and Convex.
+- `StaffShell` is the shared sidebar, breadcrumbs and phone drawer (inert background, Escape, scrim, focus back to the menu button). Signing out goes through Clerk.
+- `/admin/users` uses `admin.html`'s page head, search and role filter, and `.tbl`. Columns: user, joined, last active, personalised-offers consent as a word, and role. The role is read-only on your own row and on the last admin, and promoting someone to admin asks once more. The server action also refuses to demote the last admin. Recent role changes appear as `admin.html`'s audit table.
+- `/console/reviews` uses `console.html#reviews`: KPIs, open/closed chips and the queue, oldest first. `?case=<id>` opens a case page with total cost, the decision (approve with a rate and an optional fee waiver, or decline with a reason) and approval levels, followed by the win-rate tables. The decision rules are enforced in Convex.
+- Prototype data that isn't in the backend is left out: the conversation, the competitor's rate and fees, band limits, "approve with conditions" and passing a case to someone else.
+- `web/styles/admin.css` no longer has an importer.
+- **Reviews layout, less repetitive:**
+  - The queue has three counters: open, at or below your level, and oldest waiting. The lone type chip is gone, and the open/closed chips show counts.
+  - The win rate stays below the queue: one headline row and one breakdown table with a group-by switch, plus "Why customers said no". Before any counter-offer it's a single empty state, not four empty cards.
+  - Built in `console.html` first (`winRateHTML`, the `CO_WINRATE` mock), then synced.
+- **Each staff area links only within itself**. "Back to chat" is a ghost button in the sidebar footer (`StaffShell`), not a nav row:
+  - The links live in `web/lib/staff-nav.ts`, rendered by `components/staff/StaffNav.tsx` (`AdminNav`, `ConsoleNav`). `lib/staff-nav.test.ts` fails on a cross-area link.
+  - `/admin` redirects to `/admin/users` and `/console` to `/console/reviews`. Logos and the first breadcrumb point at the area root.
+  - `admin.html` drops Reviews and Counter-offers from "Later". Both prototypes put "Back to chat" above the signed-in person in `.me`.
+  - Admins can still open the console by URL; role checks are unchanged.
+
+## Negotiation and counter-offers on sample pricing (phase C1, policy `raiffy-agent@10`), 2026-10-29
+
+- **Approved by the user:** risk bands, automatic counter-offers inside a pre-approved band and escalation, for the six synthetic customers only, labelled indicative and sample pricing. The SECCI upload (C2) is deferred.
+- **Pure pricing** (`lib/pricing/`), following `docs/shared/pricing.md`:
+  - `quote` gives the price without conditions, one line per condition with the cost of required products inside total and DAE, and the customer's own price. A valid personal offer overrides it; an expired one falls back to list pricing and says so.
+  - `negotiate` compares total cost first, at the same amount and term. A typed claim gets no offer ("evidence needed"). The indicative affordability check (40% of income, from the sample rules) runs before any offer. Only customers with a risk view get the smallest lever combination inside their band: the fee waiver first, then the smallest margin cut in 5 bp steps. Otherwise the case escalates to the lowest level that can approve the gap. Offers are valid for the band's `validityDays` (7).
+  - `profileFrom` reads only what the switches allow: the account switch gives salary, products, risk band, income and debts; savings gives deposits. A loan the product would refinance doesn't count against affordability.
+- **Sample data** (`convex/seed/pricing.ts`, `pricing@1`): personal loan and mortgage rules, two bands and three sample competitor offers (Bank A, B, C). Every figure is labelled as sample data. The six personas reach the outcomes `pricing.md` expects: lowest price with "You already qualify"; list price with salary transfer as a lever; no counter-offer needed; a fee-waiver counter-offer; a mortgage escalated to a specialist; a small loan with no band.
+- **Tools** (`convex/pricing.ts`):
+  - `get_approved_offers` returns the quote. `negotiate_offer` is a new tool in `lib/agent/route.ts` and `prompt.ts`, on the negotiation and product_comparison routes. It returns the outcome as citable text with no band limits, needed cut or level. A test checks this.
+  - Every outcome, including "not needed", goes to `counterOfferLogs`. Asking again within the validity returns the same offer and expiry.
+  - Customer actions: `requestReview` (their own tap, only after an escalation) and `setOutcome` (simulated accept or decline, refused once expired). `myNegotiations` drives the card's status.
+- **Operators** (`/console/reviews`, `components/console/ReviewQueue.tsx`):
+  - The queue lists open cases with the cut needed. Each reviewer can decide only up to their approval level (`canApproveAt`: operators at specialist level, admins at any level).
+  - An approved price becomes a `personalOffers` row ("Offer from Ana M., valid 7 days") that the next quote uses.
+  - The win rate is accepted ÷ (band + escalated), by resolution, product, competitor and segment, with average gap, "not needed" and typed-claim counts. It's pseudonymous.
+- **UI:** HTML-first in `chat.html` (`offerHTML`, scripted "Bank B offers less. Can you do better?"), then `OfferCard.tsx`. See `DESIGN.md` → Price and counter-offer card. `pnpm sync:prototypes` was rerun.
+- **Tests:**
+  - `lib/pricing/price.test.ts`: `evals/pricing-negotiation.json` PRICE-01..07 plus the `pricing.md` checks (conditional with unconditional, required-product cost in total and DAE, no offer on a claim, total cost first, inside the band and only with a risk view, validity, escalation level, ban-exact levers, affordability, "could be better", expired offers, no band details in the model text).
+  - `convex/pricing.test.ts`: ownership, operator-only queue and KPI, approval levels, the same offer when asked again, simulated outcomes and expiry.
+  - Suite: 576 lib and Convex tests, plus 44 web.
+- **Not done:** the SECCI upload and customer confirmation (C2); competitor figures taken from real `competitor_docs` passages (the tool only uses the sample store offers); a link to `/console/reviews` from the chat; real outcomes from the official application flow. Nothing is deployed yet.
+
+## Account data, synthetic (phase B), 2026-10-29
+
+- **Sample accounts, labelled everywhere.** `convex/seed/demoPersonas.ts` has six synthetic customers matching `pricing.md` (long-time client, new client, competitor offer, cheaper competitor, mortgage refinance, small loan). `lib/expenses/synthetic.ts` generates their statements deterministically from a seed, so answers and tests repeat. None of it is a real account. The model text starts with "SAMPLE DATA", the card says "Sample data", and the panel says "Real accounts aren't connected in this preview".
+- **"What Raiffy can see"** (`convex/accounts.ts`, table `accountAccess`, `web/components/agent/AccessPanel.tsx`): each signed-in user picks a sample account and turns on current account, savings and card transactions. Everything starts off, and nothing can be turned on without a sample account. Every function checks identity, and one user never sees another's choice. Business conversations get no account.
+- **Pure aggregates** (`lib/expenses/summary.ts`): income, money out, debt payments, fees and balances; spending by category with the period before; subscriptions with price changes. Insight rules come from the "From Raiffy" cards 01–04 and 09 (overdraft cost, other banks' ATM fees, FX card fees, idle cash, subscriptions), with thresholds in `lib/expenses/rules.ts` (`insights@1`). A switched-off source is never read and is listed in `notUsed`.
+- **`get_expense_summary`** is a host tool on the routes that list it (purchase goal, affordability, debt refinancing, saving goal, fees and statements, life event, cash shortfall, expense insights). It returns one citable summary of aggregates and category names only, with no merchants, IBANs or card numbers, at a `raiffy:account/...` address. Its figures pass the number check like any cited result. The trusted-route text now says account data comes only from this tool and must be called sample data.
+- **Inputs:** with the account switch on, income and existing loan payments (3-month averages) fill the inputs gate as source `account`, below anything the customer says. `compare_routes` reads them as customer values.
+- **Spending card:** HTML-first in `chat.html` (`spendingHTML`, scripted "Where does my money go?" turn), then `web/components/agent/SpendingCard.tsx`. The card is built by code and shown only when the answer cites the summary it comes from. It reuses the statement card's `.stmt`/`.line` and `.why` rows, with one lead total on `--tint-hl`. `raiffy:` sources render as chips and cites without a link.
+- **Tests:** `lib/expenses/summary.test.ts` (aggregates, switches, the model-facing text, `evals/expense-insights.json` EXP-01..07) and `convex/accounts.test.ts` (off by default, sign-in, no switches without an account, isolation between users). The suite is at 526 lib and convex tests plus 44 web tests.
+- **To see it live:** push the schema and functions (`pnpm exec convex dev --once`), then pick a sample account in the side panel and ask "Where does my money go?". Not pushed yet, because the push also deploys the other sessions' uncommitted work.
+
+## Route recommendations: card and evals (phases 5 and 6), 2026-10-29
+
+- **Card (phase 5)**: the live routes card in `web/components/agent/AnswerCards.tsx` already had the Recommended badge and the "Why I recommend" panel. The host-built card now fits it. `whenOther` no longer repeats "the choice is yours", which the panel adds. The recommended route's summary says what kind of route it is. A new optional `chosen` flag on routes (`lib/agent/blocks.ts`, `web/lib/agent-api.ts`) marks the customer's own route, and raiffy-0f renders it as a grey "Your choice" pill next to Recommended, also when they differ.
+- **Answer check (phase 6)**: `lib/advice/check.ts` `checkAdviceAnswer` flags a final text that unconditionally recommends another route than the rule's pick, recommends while the rule waits for an input, claims eligibility or approval, or calls the simulation an offer. It's pattern-based, like the privacy screen. Cases: `evals/advice-answers.json` (ANS-01 to ANS-12), run by `lib/advice/check.test.ts` over the shared renovation fixture (`lib/advice/fixtures.ts`).
+- **Live eval**: `pnpm advice:eval --live` (`scripts/eval-advice.ts`) runs LIVE-01 to LIVE-03 through `runAgent` with the real model and the fixture comparison as the `compare_routes` result. It scores the number check, one tool call and `checkAdviceAnswer`, and saves the answers to `evals/results/`. It needs `ANTHROPIC_API_KEY` in the shell. It hasn't been run yet.
+- **Not done:** `checkAdviceAnswer` isn't enforced in the live loop yet. It runs in evals only, because a retry on it needs a check hook in `lib/rag/agent.ts`. The suite is at 519 passing.
+
+## Route recommendations live in the chat (phases 3 and 4), 2026-10-29
+
+- **`compare_routes`** (`convex/advice.ts`): a host tool, like raiffy-9b's `calculate_scenario`, offered only on a solution answer when the route allows the calculator. It checks the session first. Terms come from reviewed catalog records and the product's plan template, and customer figures from the conversation's inputs. The model's figures count only when the customer said them, defaults never count, and "no other loans" counts as zero. Timing is `now`, `can_wait` with a stated number of months, or `unknown`. The tool returns one citable comparison (`lib/advice/copy.ts`) and a routes card built from the same numbers. Without the customer's amount and term, or reviewed terms, it says what's missing and recommends nothing.
+- **Card replacement** (`convex/agent.ts`, `lib/advice/copy.ts` `withHostRoutesCard`): the host-built routes card replaces any routes card the model makes, in both the card check and the fallback, so the recommendation is never model-written. The host card must pass the card check whole, or it isn't shown. The model's other card types are kept. A system sentence tells the model to call `compare_routes` for a goal and not to pick another route.
+- **Debt share ceiling**: a new optional `debtShareCeilingTermId` on plan templates (`planTemplates`, `plans:setTemplate`). It's read only from a fresh, reviewed, exact eligibility term in basis points; otherwise there's no "room" claim.
+- **Policy** `raiffy-agent@8`: an `advice` block (save first for 8 months, show save-only up to 24 months, another term 12 months shorter). Rebuilt with `pnpm agent:build-setup`.
+- **Tests**: `lib/advice/copy.test.ts` and `tool.test` cases in it (12), and `convex/advice.test.ts` (8). The suite is at 500 passing. Under full parallel load, `convex/plans.test.ts`'s first test can hit the 5-second timeout; it passes alone.
+- **Not done:** not deployed. A live recommendation still needs, in the catalog, a reviewed exact loan rate and a template set for the product. The "when do you need it" question has no input field yet (the model passes timing). There's no promptfoo eval of the live answer yet (phase 6). Raiffy's other notes in the trusted-route sentence ("No calculators … are connected") are raiffy-9b's to update.
+
+## Route recommendations in `lib/advice` (phases 1 and 2), 2026-10-28
+
+- **`buildRoutes`** (`lib/advice/routes.ts`): pure. Builds routes side by side from the customer's amount, term, income, other payments and monthly saving: the chosen loan, up to two other terms of it, the overdraft, save first then borrow less (over `saveFirstMonths`), and save only (up to `maxSaveOnlyMonths`). Every borrowing figure comes from raiffy-9b's `runScenario` (`lib/calc/scenario.ts`) over reviewed records; a route the catalog can't back is unavailable with its gaps. Saving routes count no interest on savings and don't use existing savings (labelled assumptions). A variable rate's affordability uses the stress-test payment.
+- **`recommendRoute`** (`lib/advice/recommend.ts`): the agreed rule (hard limits, then timing, then cost, with near ties going to a fixed rate). The customer's term stands for its loan. Missing income or timing that would change the pick returns `needs_input`. Returns reason keys (checked against every route shown), trade-offs with differences in bani, the "better if it can wait" route, and the excluded routes with reasons. The debt share ceiling is an argument from a reviewed catalog term; without one, no "room" claim.
+- **Tests**: `lib/advice/*.test.ts` (24), including the renovation example built end to end; `evals/advice-recommend.json` (ADV-01 to ADV-12) runs in the same tests. Rule written into `answer-patterns.md`.
+- **Not done:** nothing calls it yet (phase 3 is the Convex tool handler, phase 4 the agent wiring with raiffy-0f); the "when do you need it" input, a reviewed savings rate and a stated debt share ceiling don't exist yet; the policy numbers (`saveFirstMonths`, `maxSaveOnlyMonths`, near-tie margin) still need a home in `lib/agent/config.ts`.
+
+## Financial plans in Convex (phase 3), 2026-10-28
+
+- **Tables** (`convex/schema.ts`): `planTemplates`, one per track and product, which names the catalog records behind a product's plan; `planSummaries`, one row per version, scoped by owner and organization like the conversation it belongs to.
+- **`convex/plans.ts`**: `setTemplate` is admin only (`change.publish`), checks every term ID belongs to that product and track, and is audited. `create` authorizes the conversation first, then builds the plan with `buildPlan` from the catalog and template it reads itself, never from client figures. It returns the gaps and saves nothing when the catalog can't back the plan; each change is a new version of the same plan ID (at most 20), and a confirmation carries over as "changed". `get` and `listForThread` are owner only, and a plan that isn't yours looks the same as one that doesn't exist. Every stored plan is re-validated with `planSummarySchema` on read.
+- **Tests**: `convex/plans.test.ts` (8).
+- **Not done:** not deployed; the catalog import into cloud dev and the admin reviews still need to run (see `web/README.md`). Raiffeisen's personal-loan rate is a published range (5.55%–17.95%), so a live plan stays unavailable until a reviewed exact rate exists. The recommended route is the chosen one until phase 4 wires in the recommendation.
+
+## Server calculators in the answer loop (policy `raiffy-agent@7`), 2026-10-28
+
+- **`calculate_scenario`** (`lib/calc/scenario.ts`, pure): loan cost (monthly payment, total interest, fees, total payable, DAE via `repaymentSchedule`), overdraft cost (equal parts, yearly fee per started year, amount and term limits) and loan vs overdraft with the existing deterministic recommendation. Inputs are catalog term IDs, never values: every record is re-checked (fresh, quoted, reviewed, same product) with the plan builder's own `exactAmount`/`bounds`, so a scenario and a plan agree. A starting rate, ceiling, range, missing fee, promo rate or an amount or term outside the product's limits returns a gap. When the product has a plan template, its rate, counted fees and limits are used instead of the model's references. A variable rate gets a separate `stressTest` figure (+2 pp, `calculator.variableStressBps`), never shown as the rate. The amount and term are the customer's (a model-sent value counts only if the customer said it); a defaulted input makes the result an example.
+- **Live wiring** (`convex/calculator.ts`, `lib/rag/tools.ts`, `HostTool` in `lib/rag/agent.ts`): the answer model now gets `get_product_terms` and `calculate_scenario` on routes that allow them, plus a list of catalog product IDs. Results come back as citable `search_result` blocks (`term:<termId>`, `calc:<n>`), so the existing citation and number checks accept a quoted calculation and reject an invented figure; unusable terms and gaps are a plain note. Trace: `terms.done`, `calc.done`.
+- **Not in this phase:** the debt-to-income check (credit-decision features wait for approval); deposit real return (no inflation config). The cards don't take calculator figures directly yet.
+- **Still needed for live figures:** push the schema, import the catalog seed and have an admin review terms (`markReviewed`). Until then both tools return "unavailable" and Raiffy keeps using dated public sources.
+- Tests: `lib/calc/scenario.test.ts` (matches Raiffeisen's published example and `buildPlan` to the ban), `evals/calc-scenarios.json` (CALC-01 to CALC-09), `lib/rag/tools.test.ts`, a host-tool test in `lib/rag/agent.test.ts`. 474 lib and convex tests pass.
+
+## Financial plan builder in `lib/plan` (phase 2), 2026-10-28
+
+- **`lib/plan/schemas.ts`**: Zod `PlanSummary` in bani and basis points, versioned, with commission lines as keys (`charged`, `none`, `if_used`, `missing`), routes side by side (one chosen, exactly one recommended), affordability as a debt share in bps, assumption and gap notes as keys with params, every catalog value used as a source, the check status, and the handoff target. Also `PlanGap` and `BuildPlanResult`.
+- **`buildPlan`** (`lib/plan/build.ts`): pure. A per-product template names which catalog records fill the rate, each commission line and the limits; every record is re-checked (fresh, quoted, reviewed, same product and track). It refuses, returning every gap at once, a starting rate ("de la"), a ceiling, a range, a variable rate, a charge counted in the total that the catalog doesn't confirm, a frequency mismatch, and an amount or term outside the product's limits. A conditional fee that isn't confirmed is listed as "Not confirmed", never zero. A confirmation of the previous version carries over as "changed after the check". `planInvariants` checks that the schedule adds up to the figures to the ban and that every template line is listed.
+- **Tests**: `lib/plan/build.test.ts` (24), including Raiffeisen's published example (within 10 bani of 961.21 lei) and the chat prototype's plan to the ban. `evals/plan-build.json` (PLAN-01 to PLAN-14) is data-driven and runs in the same test. Spec schema updated in `plan-summary-handoff.md`.
+- **Not done:** no product templates yet (they need reviewed term IDs), nothing calls `buildPlan` yet; phase 3 is `convex/plans.ts`.
+
+## Financial plan prototypes (phase 1), 2026-10-28
+
+- **Plan card** in `chat.html`: "Build my plan" on the simulator (or asking for a plan) builds a `PlanSummary` from the newest simulation in the chat: the goal, the chosen personal loan, monthly payment, total payable and DAE (labelled Estimate), the balance over time, where the rate and fees come from, the indicative label, a check status (Not checked, Being checked, Confirmed by, Changed after check) and "Open plan" / "Ask a specialist to check it". One plan per chat, versioned: a moved simulation shows "Update plan", the earlier card points to the newer version, and a confirmation given to an earlier version shows "Changed after the check". New flow for "What happens when I apply?".
+- **`plan.html`** (`plan.html#PS-…`, later `/plan/[id]`): the full plan in SECCI order with three routes side by side (one recommended, with reasons and when another fits better), main features with sources, every commission including the ones that are none, affordability when the customer gave income, the schedule (6 rows, then all, with totals), assumptions, gaps, sources, and next steps (Apply in Smart Mobile as a labelled placeholder, ask a specialist, send to the Inbox (simulated), Download PDF through a print stylesheet). Without a saved plan it shows the example PS-2210 that matches the console's plan check R-1041.
+- **Figures**: both pages mirror `lib/calc/schedule.ts` in bani and basis points; the chat plan for 8,000 lei over 24 months at 7.9% matches it to the ban (361.45 lei a month, 8,923.89 lei total).
+- **Bridge** (demo only): plans are saved under `raiffy.demo.plans`. A plan check sent from the card or from `plan.html` reaches the console, which now shows the plan the customer saw (`fromSavedPlan`), and its automatic checks pass. The sign-off reaches the card and the page. Data from storage is validated and escaped.
+- **Checked** in Chrome (Playwright script): no page errors in the build, check, sign, update and print flows; no horizontal scroll at 375px; the print view shows all rows and hides the actions. The booking and calendar flows still pass.
+- **Next:** phase 2, `lib/plan/` (Zod `PlanSummary` and `buildPlan`, which refuses floor rates and unreviewed, stale or missing terms), then `convex/plans.ts`.
+
+## Product terms catalog, schedule calculator and operator calendar prototypes, 2026-10-28
+
+- **Catalog** (`lib/catalog/`): Zod `TermRecord` (exact, range, from, up_to, text, unavailable values; integer bps and bani), the quote verifier (`quote.ts`, a percentage matches only a percentage, every number in one chunk) and the `comparatie.csv` seed builder (`seed.ts`). `pnpm catalog:build-import` writes `productTerms.import.jsonl` (gitignored): 72 terms, 57 with the quote found, 6 stated missing, 9 not found (mostly BCR deposits). Every record starts unreviewed.
+- **`get_product_terms`** (`lib/catalog/terms.ts`, `convex/catalog.ts`): fresh, quoted, reviewed values only; everything else comes back `unavailable` with a reason (stated missing, stale, quote not found, unreviewed, unknown product, not in catalog), never zero. Values are compared only when kind, unit and comparability key match. `markReviewed` needs `change.publish` (admin), refuses unquoted or missing values and writes `catalog.term_reviewed` to the audit log. Not offered to the live agent yet. Evals: `evals/catalog-terms.json` (CAT-01 to CAT-09).
+- **Repayment schedule** (`lib/calc/schedule.ts`): annuity rows in bani with fees, the last instalment absorbs rounding, DAE by bisection. Checked against Raiffeisen's published example (961.21 lei a month).
+- **Operator calendar** (`console.html#calendar`): week grid (agenda under 760px), open slots from weekly hours, breaks, days off, a daily cap, lead time and buffers; the availability sheet warns about booked meetings outside new hours; the meeting sheet opens the shared summary only from 15 minutes before to 24 hours after, logs every opening, and handles join, done, no-show (two pause bookings for 30 days), cancel with a note, and pause (admin only, operators send it to an admin). Unconfirmed meetings are released 24 hours before.
+- **Booking card** (`chat.html`, documents and specialist answers): one call per customer, four slots, video or phone, an unticked summary-sharing checkbox with "See what's sent", and scope and anti-fraud notes. Investment questions point to a licensed adviser and offer no booking. The two pages share bookings, slots and cancellations in both directions through `raiffy.demo.*` localStorage keys (demo only); data from storage is validated and escaped.
+- **Checked** in Chrome (Playwright script, `/browse` would not stay up on this machine): no page errors, a chat booking appears in the console, cancellations sync both ways, no horizontal scroll at 375px.
+- **Not done:** `productTerms` schema not pushed and the seed not imported (`pnpm exec convex dev --once`, `pnpm catalog:build-import`, `pnpm exec convex import --table productTerms --replace -y productTerms.import.jsonl`); no records reviewed; no Convex bookings table, real reminders or video links yet.
+
+## Answer cards in the live chat, 2026-10-28
+
+- The live chat now renders cards: comparison table, routes with one recommendation, key facts, checklist and adviser handoff. Claude fills them as JSON through a `show_cards` tool (`lib/agent/blocks.ts`); `/chat` renders them with the demo card markup (`web/components/agent/AnswerCards.tsx`, CSS in `web/styles/agent.css`).
+- Deviation from "numbers never come from the LLM", approved by the user for this step: Claude transcribes figures, it never computes them. Each figure must appear in the search result it cites (same check as the text) or be the customer's own figure; unsupported facts are dropped and logged (`cards.checked` / `cards.rejected` in the trace). Simulations and totals still need the catalog and calculators.
+- Layout fix: fact values are capped at 48 characters, one figure each, in English (context in the label); routes stack as rows when there are three or four (chat.html `.saves`), with label-above-value figures (`.plan-figs`); fact rows wrap instead of overlapping. The card instructions also keep routes on the customer's purpose (refinancing only when they mention existing loans).
+- Tests: `lib/agent/blocks.test.ts`, a cards test in `lib/rag/agent.test.ts`. Visual check at 900px and 375px with sample data. Not yet seen with a live answer.
+
+## Customer figures, euro amounts and solution recommendations (policy `raiffy-agent@6`), 2026-10-28
+
+- Found with the trace: "a credit of 50k euro" searched and found sources, then failed the number check twice (`ungroundedNumbers: ["50","50"]`) because the answer repeated the customer's own "50k", and was replaced by the unavailable message. The second Raiffeisen search was also denied (5-passage budget used).
+- `checkNumbers` now accepts `customerFigures`: stated amounts, terms and payments plus the short form the customer wrote, never rates and never derived figures (`customerAllowedFigures`). The "Can I get 7.10%?" protection is unchanged.
+- Euro amounts: never converted; the model says when the sources show only lei products and uses the same number in lei as a labelled example, with an adviser to confirm euro options.
+- Solution scope: 9 passages instead of 5, at least three routes, and one recommendation by fit (purpose, amount, term against sourced conditions), with why and when another route fits better. Not an approval or offer.
+- Trace: new `model.figures` line (count of customer figures, euro, scope). Not yet verified with a live message.
+
+## "Other" no longer swallows loan requests (policy `raiffy-agent@4`), 2026-10-28
+
+- Found with the trace: "i want to take a credit of 50k euro" came back from Jev as `other` 0.92, because `other` covered "the purpose is unclear", and a confident `other` went straight to the generic question with no fallback and no retrieval.
+- Jev's `purchase_goal` now covers any borrowing or financing request, including an amount without a purpose; `other` excludes requests to borrow, save, pay or open a product. Policy bumped to `raiffy-agent@4` (label wording changes the distributions).
+- Safety net: `bankingIntent` in `lib/agent/confidence.ts` (EN/RO keywords). When Jev says `other` but the message clearly asks for a banking product, the hinted patterns go to the Haiku fallback, then to chips. Any remaining `other` offers chips from Jev's top labels instead of the open question.
+- `/chat` no longer calls `agent:run` twice per message (the resume effect skipped replies this tab started).
+- 6 new routing cases (54). The live routing eval has not been re-run against the new label wording.
+
+## Backend message trace, 2026-10-28
+
+- `convex/trace.ts` logs each step of one message through the backend, tagged `[raiffy <messageId>]`: `message.received`, `run.start`, `privacy.screen`, `state.loaded`, `jev.classify` (top 3 patterns, risk scores, or why Jev was unavailable), `route.decided`, `fallback.pattern`, `inputs.extracted`, `jev.slots`, `fallback.slots`, `inputs.gate`, `model.start`, `model.call#n` (stop reason, tokens), `search.call` / `search.denied` / `search.done`, `rag.embed`, `rag.vector` (hits, top scores), `rag.keyword`, `rag.ranked` (top chunks with bank, section, score), `knowledge.result`, `answer.checked`, `run.done`, and `run (at <step>) FAILED` with the error (previously swallowed).
+- Off by default. Dev only: `pnpm exec convex env set RAIFFY_TRACE true`; add `RAIFFY_TRACE_TEXT true` to include the screened question and search queries. Read with `pnpm exec convex logs`, the `convex dev` terminal or the dashboard. Lines carry ids, labels, counts, scores and timings, never account data.
+- `model.call#n` and the `rag.*` lines run only against the real deployment (tests mock the model loop and search); the rest is exercised by `convex/agent.test.ts` with `RAIFFY_TRACE=true ... --silent=false`.
+
+## Pattern confidence and required inputs (policy `raiffy-agent@3`), 2026-10-28
+
+- **Routing** (`lib/agent/confidence.ts`, `route.ts`): only the pattern needs confidence now. Route on the label's floor (`perInquiry`, default 0.8) or a 0.35 lead over the runner-up; if the top two need the same required inputs, route and let the inputs request settle it; otherwise a small Haiku call (`convex/fallbackModel.ts`, `claude-haiku-5-5`, structured output limited to the candidate labels) picks one or says unsure; still undecided, Raiffy offers a chip per candidate. An unsure scope follows from the pattern, an unsure complexity uses the stronger model. Risk checks still run first on every message.
+- **Conversation state** (`lib/agent/state.ts`, `ragThreads.agentState`): pattern, the customer's inputs with their source, a pending inputs request and the choices offered. Jev's `recentContext` is now a structured summary plus the last two turns, and a new `answers_pending` question keeps the pattern when a message answers Raiffy's question.
+- **Inputs** (`lib/agent/inputs.ts`): required and optional inputs per pattern (`answer-patterns.md` → Inputs per pattern), an EN/RO parser for amounts, terms and rates, keyword choices, then a Jev slot request and the Haiku fallback for choices it misses. Missing required inputs get one `inputs_request` card (at most 3 fields, at most 2 rounds, a "Skip, show typical examples" reply) without calling the answer model. The answer model then gets every input with its value or null and its source. Customer-stated figures may be repeated back without tripping the catalog check.
+- **UI**: the inputs card is in `chat.html` (affordability question in the scripted demo) and in `/chat` (`InputsCard` in `AgentChat.tsx`); choice and skip replies go to `agent:send` as `reply`, accepted only for what was offered.
+- **Evals**: `evals/agent-inputs.json` (28 cases, run by `lib/agent/inputs.test.ts`), 22 new routing cases in `evals/agent-routing.json` (48 total), and `pnpm agent:eval-routing --live | --replay <file>` to record Jev's distributions and re-score thresholds without new calls. No live Jev run yet, so thresholds remain provisional.
+- **Not done:** the schema changes (`agentState`, `reply`) are not pushed to the cloud dev deployment; routing metrics are not in `admin.html` Analytics yet; account data and memory don't fill inputs yet because neither is connected.
+
+## Playwright e2e disabled, 2026-10-28
+
+- `web/` Playwright specs are turned off: `pnpm test:e2e` prints a notice, and `web/playwright.config.ts` ignores every spec (`testIgnore: "**/*"`). The `e2e/` files, `@playwright/test` and the config stay, so re-enabling is a small revert (see `web/README.md`). The opt-in paid cloud test (`RAIFFY_LIVE_AGENT_TEST=1 node scripts/test-agent-cloud.mjs`) is unchanged and still behind its flag. Unit tests (Vitest) and evals are unaffected.
 
 ## Demo fixes, 2026-10-29
 

@@ -8,7 +8,7 @@ const NOT_CHECKED = ["credit history at the Biroul de Credit", "the bank's minim
   "the product's actual rate and fees", "other loans the customer didn't mention"];
 
 /**
- * The calculate_scenario handler: it runs only on figures the customer wrote (in this message or an earlier one),
+ * The check_affordability handler: it runs only on figures the customer wrote (in this message or an earlier one),
  * so the model can't feed the calculator an assumed income or amount. The result echoes the inputs and the
  * limit's source, rounded the way the answer may quote them: whole lei and one decimal for percentages.
  */

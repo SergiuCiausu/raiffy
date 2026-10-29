@@ -5,6 +5,7 @@ import { AgentChat } from "@/components/agent/AgentChat";
 import { ConvexClientProvider } from "@/components/agent/ConvexClientProvider";
 import "@/styles/generated/chat.css";
 import "@/styles/agent.css";
+import { logChatError, logChatWarning } from "@/lib/chat-log";
 
 export const metadata: Metadata = {
   title: "Raiffy",
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 export default function ChatPage() {
-  if (!CONVEX_URL || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) return <main className="agent-setup"><h1>Chat setup is incomplete</h1><p>The secure banking chat is waiting for authentication configuration.</p></main>;
+  if (!CONVEX_URL || !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    logChatError("setup incomplete", { missing: [!CONVEX_URL && "NEXT_PUBLIC_CONVEX_URL", !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"].filter(Boolean) });
+    return <main className="agent-setup"><h1>Chat setup is incomplete</h1><p>The secure banking chat is waiting for authentication configuration.</p></main>;
+  }
   // The Convex client is per visitor (its connection id is random), so it renders per request, not in the static shell
   return (
     <Suspense>
@@ -24,6 +28,8 @@ export default function ChatPage() {
 }
 
 async function SecureChat({ url }: { url: string }) {
+  const { userId } = await auth();
+  if (!userId) logChatWarning("no Clerk session on the server, redirecting to sign-in");
   await auth.protect();
   return <ConvexClientProvider url={url}><AgentChat /></ConvexClientProvider>;
 }

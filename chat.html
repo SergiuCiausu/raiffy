@@ -111,7 +111,16 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 
 /* ───────────── App shell ───────────── */
 .app { display: grid; grid-template-columns: 260px minmax(0, 1fr) 320px; height: 100vh; height: 100dvh; }
-@media (min-width: 1200px) { .app.ctx-closed { grid-template-columns: 260px minmax(0, 1fr); } .app.ctx-closed .ctx { display: none; } }
+/* Context panel on wide screens: it slides closed and the chat takes the space (toggle and ⌘\ in the header) */
+@media (min-width: 1200px) {
+  .app { transition: grid-template-columns 200ms var(--ease-out); }
+  .app.ctx-closed { grid-template-columns: 260px minmax(0, 1fr) 0px; }
+  .ctx { overflow: hidden; }
+  .ctx-top, .ctx-body { min-width: 320px; }
+  .app.ctx-closed .ctx { visibility: hidden; border-left-width: 0; transition: visibility 0s 200ms; }
+}
+.app.no-anim, .app.no-anim .ctx { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .app, .app.ctx-closed .ctx { transition: none; } }
 
 /* Sidebar */
 .side { display: flex; flex-direction: column; min-height: 0; padding: 14px 12px 12px; background: var(--surface-2); border-right: 1px solid var(--border); }
@@ -218,6 +227,10 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 @media (hover: hover) and (pointer: fine) { .vbtn:hover { border-color: var(--border-hover); color: var(--text-1); } }
 .gfoot .vbtn { margin-left: auto; }
 .gfoot .vbtn:not([hidden]) + .acts { margin-left: 0; }
+/* After a thumbs down: one optional reason, saved as a label for the Console's Sentiment page */
+.vote-why { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: var(--text-micro); color: var(--text-3); }
+.vote-why span { margin-right: 2px; }
+.vote-why .vbtn[aria-pressed="true"] { border-color: var(--ink); color: var(--text-1); }
 .vreq { max-width: 64ch; display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-panel); background: var(--surface); }
 .vreq h3 { font-size: var(--text-sm); }
 .vreq p { font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
@@ -249,6 +262,26 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .gc-b { padding: 14px; }
 .gc-note { padding: 10px 14px; border-top: 1px solid var(--border); background: var(--surface-3); font-size: var(--text-xs); color: var(--text-2); }
 
+/* Inputs request: only the missing required inputs, at most three, answerable here or in the composer */
+.inputs-form { display: grid; gap: 14px; }
+.inp { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.inp > label, .inp > legend { padding: 0; font-size: var(--text-xs); color: var(--text-2); }
+.inp small { font-size: var(--text-xs); color: var(--text-2); }
+.inp-box { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-btn); background: var(--surface);
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out); }
+.inp-box:focus-within { border-color: var(--ink); box-shadow: var(--halo); }
+.inp-box input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font: 500 var(--text-sm) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-1); }
+.inp-box span { flex: none; font-size: var(--text-xs); color: var(--text-2); }
+.inp-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.inp-opts button { height: 32px; padding: 0 12px; border-radius: var(--radius-btn); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: var(--text-xs); color: var(--text-2);
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
+.inp-opts button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+@media (hover: hover) and (pointer: fine) { .inp-opts button:not([aria-pressed="true"]):hover { border-color: var(--border-hover); color: var(--text-1); } }
+.inputs-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.inputs-foot p { margin: 0; font-size: var(--text-xs); color: var(--text-2); }
+.inputs-form[data-done] .inp-box, .inputs-form[data-done] .inp-opts button { background: var(--surface-3); }
+@media (max-width: 640px) { .inp-box input { font-size: 16px; } }
+
 /* Comparison table */
 .tbl-wrap { overflow-x: auto; }
 .cmp { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); min-width: 440px; font-size: var(--text-xs); }
@@ -272,6 +305,18 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .rec-badge svg { width: 12px; height: 12px; stroke-width: 2.4; }
 .rec-badge[hidden] { display: none; }
 .cmp .th .rec-badge { margin-top: 7px; }
+/* Bank comparison (lib/compare): fixed rows in groups, a cited value per cell, and two kinds of gap */
+.cmp .cg { grid-column: 1 / -1; padding: 12px 14px 4px; font-size: var(--text-eyebrow); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.cmp .cg + div { border-top: 0; }
+.cmp .na { color: var(--text-3); }
+.cmp .nc { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); border: 1px dashed var(--border-strong); background: var(--surface-2); color: var(--text-2); font-size: var(--text-micro); }
+.cmp .rk.lead { font-weight: 600; color: var(--text-1); }
+.cmp .calc { display: block; font-size: var(--text-micro); color: var(--text-2); }
+/* The one cheaper option on the deciding row, when every value there is exact and comparable */
+.cmp .win { background: var(--tint-rec); box-shadow: inset 0 0 0 1px var(--rec-line-mid); }
+.cite { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 3px; vertical-align: 2px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-2); font: 500 11px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .cmp .cg { padding-top: 14px; } }
 .rec-why { display: grid; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface-warm); }
 .rec-why-h { display: flex; align-items: center; gap: 10px; font-size: var(--text-xs); font-weight: 600; }
 .rec-why-h .ava-raiffy { width: 22px; height: 22px; }
@@ -289,9 +334,10 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .ctrl label, .label { font-size: var(--text-xs); color: var(--text-2); }
 .ctrl output { font: 600 var(--text-body)/1 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .range { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; margin: 0; cursor: pointer; }
-.range::-webkit-slider-runnable-track { height: 4px; border-radius: var(--radius-xs); background: linear-gradient(to right, var(--ink) 0 var(--p, 30%), var(--track) var(--p, 30%)); }
+/* The fill is yellow light, with a 1px amber edge so it reads on the light track */
+.range::-webkit-slider-runnable-track { height: 4px; border-radius: var(--radius-xs); background: linear-gradient(to right, var(--accent-b) 0 var(--p, 30%), transparent var(--p, 30%)) bottom / 100% 1px no-repeat, linear-gradient(to right, var(--accent-a) 0 var(--p, 30%), var(--track) var(--p, 30%)); }
 .range::-moz-range-track { height: 4px; border-radius: var(--radius-xs); background: var(--track); }
-.range::-moz-range-progress { height: 4px; border-radius: var(--radius-xs); background: var(--ink); }
+.range::-moz-range-progress { height: 4px; border-radius: var(--radius-xs); background: var(--accent-a); box-shadow: inset 0 -1px 0 var(--accent-b); }
 .range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: var(--surface);
   border: 1px solid var(--border-thumb); box-shadow: var(--shadow-thumb); transition: box-shadow 150ms var(--ease-out); }
 .range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border-thumb); box-shadow: var(--shadow-thumb); }
@@ -361,6 +407,34 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .why-row svg { width: 14px; height: 14px; margin-top: 2px; color: var(--text-1); }
 .why-row.tip svg { color: var(--amber-ink-3); }
 
+/* Spending summary: the statement card's lines, one lead total, insights as .why rows */
+.spend-lead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px; margin-bottom: 6px; border-radius: var(--radius-md); background: var(--tint-hl); }
+.line .share { display: block; height: 2px; margin-top: 6px; border-radius: var(--radius-xs); background: var(--surface-2); overflow: hidden; }
+.line .share i { display: block; height: 100%; background: var(--text-3); border-radius: inherit; }
+.spend-note { margin-top: 10px; font-size: var(--text-xs); color: var(--text-2); }
+
+/* Price and counter-offer: conditional price rows, total cost side by side, source pills */
+.offer-lead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px; margin-bottom: 10px; border-radius: var(--radius-md); background: var(--tint-hl); }
+.prices { display: grid; gap: 2px; }
+.price-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: baseline; padding: 8px 10px; border-radius: var(--radius-md); font-size: var(--text-xs); }
+.price-row .nm { min-width: 0; }
+.price-row .dsc { display: block; color: var(--text-2); }
+.price-row .rt, .price-row .tt { font-family: var(--font-mono); color: var(--text-1); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+.price-row.cur { box-shadow: inset 0 0 0 1px var(--border-strong); }
+.price-row .pill { margin-left: 6px; }
+.vs { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--text-xs); }
+.vs .h { color: var(--text-2); }
+.vs .h:not(:first-child), .vs .v { text-align: right; white-space: nowrap; }
+.vs .v { font-family: var(--font-mono); color: var(--text-1); font-variant-numeric: tabular-nums; }
+.src-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.offer-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.offer-status { margin-top: 10px; font-size: var(--text-xs); color: var(--text-2); }
+@media (max-width: 480px) {
+  .price-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .price-row .nm { grid-row: span 2; }
+  .vs .wide-only { display: none; }
+}
+
 /* Documents + booking */
 .docs { display: grid; gap: 16px; }
 .cl-h { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--text-xs); font-weight: 600; }
@@ -393,6 +467,41 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .book-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .booked { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--radius-btn); background: var(--ok-bg); font-size: var(--text-xs); color: var(--ok-ink); }
 .booked svg { flex: none; width: 16px; height: 16px; }
+.booked.off { background: var(--surface-2); color: var(--text-2); }
+.book-note { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: var(--text-xs); line-height: 1.45; color: var(--text-2); }
+.book-note svg { width: 14px; height: 14px; margin-top: 2px; color: var(--text-1); }
+.book details { font-size: var(--text-xs); color: var(--text-2); }
+.book summary { width: fit-content; cursor: pointer; color: var(--text-1); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.book ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+
+/* Plan preview: the goal and route, three figures, the balance over time, the indicative label, the check status and two actions */
+.plan-b { display: grid; gap: 14px; }
+.plan-goal { display: grid; gap: 4px; }
+.plan-goal b { font-size: var(--text-sm); font-weight: 600; }
+.plan-route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--text-xs); color: var(--text-1); }
+.plan-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-btn); }
+.plan-figs > div { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-left: 1px solid var(--border); }
+.plan-figs > div:first-child { border-left: 0; }
+.plan-figs span, .plan-figs small { font-size: var(--text-micro); color: var(--text-2); }
+.plan-figs b { font: 600 17px/1.25 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .plan-figs { grid-template-columns: minmax(0, 1fr); }
+  .plan-figs > div { border-left: 0; border-top: 1px solid var(--border); grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px; }
+  .plan-figs > div:first-child { border-top: 0; }
+  .plan-figs b { grid-row: 1 / 3; grid-column: 2; text-align: right; }
+}
+.bal { display: grid; gap: 6px; }
+.bal-bars { display: flex; align-items: flex-end; gap: 2px; height: 40px; }
+.bal-bars i { flex: 1; min-width: 1px; border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: var(--track); }
+.bal-bars i:first-child { background: var(--ink); }
+.bal-cap { display: flex; justify-content: space-between; gap: 8px; font: 400 var(--text-micro) var(--font-mono); color: var(--text-1); font-variant-numeric: tabular-nums; }
+.plan-src { font-size: var(--text-xs); color: var(--text-2); line-height: 1.5; }
+.plan-label { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; padding: 8px 12px; border-radius: var(--radius-btn); background: var(--tint-hl);
+  box-shadow: inset 0 0 0 1px var(--rec-line); font-size: var(--text-xs); line-height: 1.45; color: var(--amber-ink-2); }
+.plan-label svg { width: 14px; height: 14px; margin-top: 2px; }
+.plan-h { display: inline-flex; align-items: center; gap: 8px; }
+.plan-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.plan-stale { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 
 /* Hand-off */
 .handoff { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; padding: 16px; }
@@ -470,6 +579,17 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .ctx { display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-left: 1px solid var(--border); }
 .ctx-top { flex: none; display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
 .ctx-top h2 { font-size: var(--text-sm); }
+.ctx-top-r { display: flex; align-items: center; gap: 6px; }
+.ctx-hide, .ctx-kbd { display: none; }
+@media (min-width: 1200px) { .ctx-hide { display: grid; } .ctx-kbd { display: inline-block; } }
+/* The header toggle: its icon says what it does, it reads pressed while the panel is open, and while closed it counts the chat's sources */
+#toggle-ctx { position: relative; }
+#toggle-ctx[aria-expanded="true"] { color: var(--text-1); background: var(--surface-2); }
+#toggle-ctx .ic-show, #toggle-ctx[aria-expanded="true"] .ic-hide { display: block; }
+#toggle-ctx .ic-hide, #toggle-ctx[aria-expanded="true"] .ic-show { display: none; }
+.ctx-count { position: absolute; top: 1px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--radius-pill);
+  background: var(--accent-a); color: var(--ink); font: 500 var(--text-eyebrow)/16px var(--font-mono); font-variant-numeric: tabular-nums; text-align: center; }
+#toggle-ctx[aria-expanded="true"] .ctx-count, .ctx-count:empty { display: none; }
 .ctx-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px 20px; }
 .ctx-sec { padding: 18px 0; border-bottom: 1px solid var(--border); }
 .ctx-sec:last-child { border-bottom: 0; }
@@ -560,6 +680,31 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 /* Only the newest answer's handoff stays ink; older ones step down to ghost so one primary leads */
 .msg-raiffy:not(.latest) .gcard .btn-dark { background: var(--surface); color: var(--text-1); border-color: var(--border-strong); }
 @media (hover: hover) and (pointer: fine) { .msg-raiffy:not(.latest) .gcard .btn-dark:hover:not(:disabled) { background: var(--surface); border-color: var(--border-hover); } }
+
+/* §12-touch:start */
+/* ── §12 Mobile: touch layer. The same core sits in every prototype, keep the copies identical; page parts follow it ── */
+@media (pointer: coarse) {
+  /* Every control reaches a 44×44 hit area through ::before, while the drawn box keeps its size */
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check) { position: relative; }
+  :where(button, [role="button"], [role="tab"], [role="switch"], a.btn, a.qbtn, a.chip, a.src, a.logo, a.back, a.link, a.t-main, summary, label.check)::before {
+    content: ""; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); }
+  /* Text fields at 16px so iOS doesn't zoom, 44px tall; sliders get a 44px box around the 4px track */
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select, textarea) { font-size: 16px; }
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="hidden"]), select) { min-height: 44px; }
+  input[type="range"] { height: 44px; }
+}
+@media (pointer: coarse) {
+  /* Drawn sizes that let neighbouring 44px hit areas sit side by side without overlapping */
+  .icon-btn, .acts .icon-btn, .top .advisor { width: 36px; height: 36px; }
+  .acts, .top-actions, .title-wrap { gap: 8px; }
+  .src, .vbtn { height: 32px; }
+  .gfoot, .vote-why { gap: 12px; }
+  /* The chip row scrolls, which clips vertically: room above and below for the hit areas */
+  .chips { padding: 6px 0; margin: -6px auto 4px; }
+  .composer textarea { min-height: 44px; }
+  .send { width: 40px; height: 40px; }
+}
+/* §12-touch:end */
 </style>
 </head>
 <body>
@@ -595,8 +740,8 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         <button type="button" class="icon-btn rename" id="rename" aria-label="Rename chat"><i data-lucide="pencil"></i></button>
       </div>
       <div class="top-actions">
-        <button type="button" class="btn btn-ghost btn-sm advisor" id="advisor-btn" aria-label="Talk to an advisor"><i data-lucide="headset"></i><span class="advisor-lbl">Talk to an advisor</span></button>
-        <button type="button" class="icon-btn" id="toggle-ctx" aria-label="Show context panel" aria-controls="ctx" aria-expanded="true"><i data-lucide="panel-right"></i></button>
+        <button type="button" class="btn btn-ghost btn-sm advisor" id="advisor-btn" aria-label="Talk to a specialist"><i data-lucide="headset"></i><span class="advisor-lbl">Talk to a specialist</span></button>
+        <button type="button" class="icon-btn" id="toggle-ctx" aria-label="Hide context panel" title="Hide context" aria-controls="ctx" aria-expanded="true"><i data-lucide="panel-right-close" class="ic-hide"></i><i data-lucide="panel-right-open" class="ic-show"></i><span class="ctx-count" id="ctx-count" aria-hidden="true"></span></button>
       </div>
     </header>
 
@@ -665,20 +810,29 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   <aside class="ctx" id="ctx" aria-labelledby="ctx-title">
     <div class="ctx-top">
       <h2 id="ctx-title">Context</h2>
-      <button type="button" class="icon-btn ctx-close" id="close-ctx" aria-label="Close context panel"><i data-lucide="x"></i></button>
+      <div class="ctx-top-r">
+        <kbd class="ctx-kbd" id="kbd-ctx">⌘\</kbd>
+        <button type="button" class="icon-btn ctx-hide" id="hide-ctx" aria-label="Hide context panel" title="Hide context" aria-controls="ctx"><i data-lucide="panel-right-close"></i></button>
+        <button type="button" class="icon-btn ctx-close" id="close-ctx" aria-label="Close context panel"><i data-lucide="x"></i></button>
+      </div>
     </div>
     <div class="ctx-body">
       <section class="ctx-sec">
         <h3>What Raiffy can see</h3>
         <p>Raiffy only uses what’s switched on here. Changes apply to your next question.</p>
+        <button type="button" class="btn btn-ghost btn-sm" id="perm-reset">Reset sample data</button>
         <ul class="perms">
-          <li class="perm"><span class="ic"><i data-lucide="wallet"></i></span><div><b id="pl-account">Current account</b><small>••4821 · balance and statement</small></div>
+          <li class="perm"><span class="ic"><i data-lucide="wallet"></i></span><div><b id="pl-account">Accounts and overdraft</b><small>••4821 · balances, limits and interest</small></div>
             <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-account" data-perm="account"></button></li>
+          <li class="perm"><span class="ic"><i data-lucide="arrow-left-right"></i></span><div><b id="pl-transactions">Transactions</b><small>What you paid and received</small></div>
+            <button type="button" class="switch" role="switch" aria-checked="false" aria-labelledby="pl-transactions" data-perm="transactions"></button></li>
+          <li class="perm"><span class="ic"><i data-lucide="piggy-bank"></i></span><div><b id="pl-savings">Savings and deposits</b><small>Savings account ••0937 · rates and maturity dates</small></div>
+            <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-savings" data-perm="savings"></button></li>
           <li class="perm"><span class="ic"><i data-lucide="file-badge"></i></span><div><b id="pl-offers">Pre-approved offers</b><small>Personal loan · 7.9% fixed</small></div>
             <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-offers" data-perm="offers"></button></li>
-          <li class="perm"><span class="ic"><i data-lucide="piggy-bank"></i></span><div><b id="pl-savings">Savings and deposits</b><small>Savings account ••0937</small></div>
-            <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-savings" data-perm="savings"></button></li>
-          <li class="perm"><span class="ic"><i data-lucide="credit-card"></i></span><div><b id="pl-cards">Card transactions</b><small>Last 12 months</small></div>
+          <li class="perm"><span class="ic"><i data-lucide="landmark"></i></span><div><b id="pl-loans">Loans</b><small>Balances, rates and repayment schedules</small></div>
+            <button type="button" class="switch" role="switch" aria-checked="true" aria-labelledby="pl-loans" data-perm="loans"></button></li>
+          <li class="perm"><span class="ic"><i data-lucide="credit-card"></i></span><div><b id="pl-cards">Cards</b><small>Limits and fees · numbers stay masked</small></div>
             <button type="button" class="switch" role="switch" aria-checked="false" aria-labelledby="pl-cards" data-perm="cards"></button></li>
         </ul>
         <p class="perm-note" id="perm-note" hidden></p>
@@ -726,9 +880,143 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     statement: { icon: 'file-text', label: 'October statement', detail: 'Current account ••4821' },
     savings:   { icon: 'piggy-bank', label: 'Savings rates as of 28 Oct', detail: 'Savings account, deposits and bonds' },
     docs:      { icon: 'list-checks', label: 'Personal loan document list', detail: 'What the bank needs before approval' },
-    public:    { icon: 'globe', label: 'Standard published rates', detail: 'Used because offer access is off' }
+    public:    { icon: 'globe', label: 'Standard published rates', detail: 'Used because offer access is off' },
+    rzbloan:   { icon: 'globe', label: 'raiffeisen.ro · Flexicredit', detail: 'Personal loan page, collected 28 Oct · reviewed 29 Oct' },
+    bcrloan:   { icon: 'globe', label: 'bcr.ro · Credit George', detail: 'Personal loan page, collected 28 Oct · reviewed 29 Oct' }
   };
-  var perms = { account: true, offers: true, savings: true, cards: false };
+
+  /* Bank comparison. Mirrors lib/compare/schemas.ts CompareTable:
+       { focus: 'costs'|'documents', products: [{ productId, name, provider?, isRaiffeisen }],
+         groups: [{ key: 'cost'|'amounts'|'commissions'|'documents', rows: [{ key, cells: Cell[] }] }],
+         deciding: rowKey|null, best: index|null, scenario: { amount, months }|null, paymentUnavailable }
+       Cell: { state: 'value', value: { type: 'exact', amount }|{ type: 'range', min, max }|{ type: 'from', min }|{ type: 'up_to', max }|{ type: 'text', text },
+               unit: 'bps'|'minor_ron'|'minor_eur'|'months'|'none', frequency?, source: { url, collectedAt }, termId, computed }
+             | { state: 'not_confirmed', reason, termId } | { state: 'not_in_sources' }
+     The figures are the reviewed catalog terms imported on 29 Oct (productTerms). Money is bani, rates basis points.
+     Both rates are ranges, so no monthly payment is calculated for the customer's 30,000 lei over 60 months.
+     The early repayment row shows both kinds of gap; it is illustrative, the catalog has no such term yet. */
+  var BANK_COMPARE = (function () {
+    var R = { url: 'https://www.raiffeisen.ro/ro/persoane-fizice/produsele-noastre/credite/credit-de-nevoi-personale-fara-ipoteca.html', collectedAt: '2026-10-28', src: 'rzbloan' };
+    var B = { url: 'https://www.bcr.ro/ro/persoane-fizice/credite/credit-george', collectedAt: '2026-10-28', src: 'bcrloan' };
+    function v(value, unit, source, frequency) { return { state: 'value', value: value, unit: unit, frequency: frequency, source: source, computed: false }; }
+    return {
+      focus: 'costs',
+      products: [{ productId: 'raiffeisen:personal-loan', name: 'Flexicredit', provider: 'Raiffeisen', isRaiffeisen: true },
+                 { productId: 'bcr:credit-george', name: 'Credit George', provider: 'BCR', isRaiffeisen: false }],
+      groups: [
+        { key: 'cost', rows: [
+          { key: 'dae', cells: [v({ type: 'exact', amount: 949 }, 'bps', R), v({ type: 'range', min: 994, max: 1641 }, 'bps', B)] },
+          { key: 'interest_rate', cells: [v({ type: 'range', min: 555, max: 1795 }, 'bps', R), v({ type: 'range', min: 629, max: 1499 }, 'bps', B)] }
+        ] },
+        { key: 'amounts', rows: [
+          { key: 'amount', cells: [v({ type: 'up_to', max: 5000000 }, 'minor_eur', R), v({ type: 'up_to', max: 25000000 }, 'minor_ron', B)] },
+          { key: 'term', cells: [v({ type: 'up_to', max: 60 }, 'months', R), v({ type: 'up_to', max: 60 }, 'months', B)] }
+        ] },
+        { key: 'commissions', rows: [
+          { key: 'origination_fee', cells: [v({ type: 'exact', amount: 20000 }, 'minor_ron', R, 'once'), v({ type: 'exact', amount: 20000 }, 'minor_ron', B, 'once')] },
+          { key: 'administration_fee', cells: [v({ type: 'exact', amount: 500 }, 'minor_ron', R, 'monthly'), v({ type: 'exact', amount: 0 }, 'minor_ron', B, 'monthly')] },
+          { key: 'early_repayment_fee', cells: [{ state: 'not_confirmed', reason: 'unreviewed', termId: null }, { state: 'not_in_sources' }] }
+        ] }
+      ],
+      deciding: 'dae', best: null, scenario: { amount: 3000000, months: 60 }, paymentUnavailable: true
+    };
+  })();
+  /* The six Smart Mobile switches (lib/bank/schemas.ts SWITCHES) */
+  var perms = { account: true, transactions: false, savings: true, offers: true, loans: true, cards: false };
+
+  /* Mock: OfferBlock (lib/pricing/schemas.ts), from the pricing tool for the "cheaper competitor" sample customer.
+     Amounts in bani, rates in basis points. Sample pricing, not a real offer. */
+  var OFFER = {
+    type: 'offer', synthetic: true, resolution: 'band',
+    quote: {
+      product: 'Personal loan', amount: 800000, months: 12, couldBeBetter: false,
+      unconditional: { id: 'unconditional', label: 'Without conditions', rateBps: 940, upfrontFee: 24900, monthly: 70110, totalPayable: 866219, daeBps: 1655, qualifies: true, requiredProducts: [] },
+      conditional: [
+        { id: 'salary_domiciled', label: 'With salary transfer', rateBps: 790, upfrontFee: 24900, monthly: 69554, totalPayable: 859545, daeBps: 1481, qualifies: true, requiredProducts: [] },
+        { id: 'deposits_20k', label: 'With 20,000 lei in savings', rateBps: 890, upfrontFee: 24900, monthly: 69924, totalPayable: 863990, daeBps: 1597, qualifies: false, requiredProducts: [] },
+        { id: 'with_insurance', label: 'With loan insurance', rateBps: 890, upfrontFee: 24900, monthly: 71424, totalPayable: 881990, daeBps: 2072, qualifies: false, requiredProducts: [{ label: 'Loan insurance', monthlyCost: 1500 }] }
+      ],
+      current: { id: 'current', label: 'Your price', rateBps: 790, upfrontFee: 24900, monthly: 69554, totalPayable: 859545, daeBps: 1481, qualifies: true, requiredProducts: [] }
+    },
+    competitor: { bank: 'Bank B', sourceLabel: 'Sample competitor offer', source: 'official_store', rateBps: 740, upfrontFee: 15000, monthly: 69369, totalPayable: 847428, daeBps: 1154 },
+    offer: { levers: [{ kind: 'feeWaiver', label: 'Origination fee waived', amount: 24900 }],
+      line: { id: 'counter', label: 'Counter-offer', rateBps: 790, upfrontFee: 0, monthly: 69554, totalPayable: 834645, daeBps: 819 }, validUntil: '2026-11-05' }
+  };
+
+  /* Mock: SpendingBlock (lib/expenses/schemas.ts) for a sample persona. Amounts in bani; the card formats them. */
+  var SPENDING = {
+    type: 'spending', synthetic: true, period: { from: '2026-09-01', to: '2026-09-30', months: 1 },
+    income: 950000, outgoings: 895199, total: 890600,
+    categories: [
+      { category: 'housing', amount: 250000, previous: 250000 }, { category: 'groceries', amount: 160000, previous: 160000 },
+      { category: 'travel', amount: 124000, previous: 0 }, { category: 'cash', amount: 80000, previous: 80000 },
+      { category: 'shopping', amount: 70000, previous: 70000 }, { category: 'subscriptions', amount: 19600, previous: 17200 }
+    ],
+    insights: [
+      { kind: 'atmFees', figures: { count: 3, fees: 1500 } },
+      { kind: 'fxCardFees', figures: { fees: 3099, spentInEuros: 124000 } },
+      { kind: 'subscriptions', figures: { count: 6, monthly: 19600, changed: 2 } }
+    ],
+    notUsed: []
+  };
+
+  var CAT = { housing: 'Housing', groceries: 'Groceries', travel: 'Travel', cash: 'Cash withdrawals', shopping: 'Shopping', subscriptions: 'Subscriptions',
+    dining: 'Eating out', transport: 'Transport', utilities: 'Utilities', health: 'Health', entertainment: 'Entertainment', fees: 'Fees' };
+  function bani(n) { return (n / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 }) + ' lei'; }
+  function change(x) {
+    if (x.previous === x.amount) return 'Same as the month before';
+    if (!x.previous) return 'New this month';
+    return (x.amount > x.previous ? 'Up' : 'Down') + ' from ' + bani(x.previous);
+  }
+  var INSIGHT = {
+    atmFees: function (f) { return ['banknote', f.count + ' withdrawals at other banks\u2019 ATMs cost ' + bani(f.fees) + ' in fees.']; },
+    fxCardFees: function (f) { return ['euro', 'Paying in euros cost about ' + bani(f.fees) + ' in conversion, on ' + bani(f.spentInEuros) + '.']; },
+    subscriptions: function (f) { return ['repeat', f.count + ' card subscriptions, ' + bani(f.monthly) + ' a month. ' + f.changed + ' started or changed price.']; },
+    overdraftCost: function (f) { return ['wallet', 'The overdraft cost ' + bani(f.interestLastMonth) + ' in interest.']; },
+    idleCash: function (f) { return ['piggy-bank', 'About ' + bani(f.idle) + ' sits above your usual monthly spending.']; }
+  };
+  function pct(bps) { return (bps / 100).toFixed(2) + '%'; }
+  function shortDate(iso) { return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }); }
+  function priceRow(l, cur) {
+    var req = l.requiredProducts && l.requiredProducts.length ? 'Includes ' + l.requiredProducts.map(function (r) { return r.label.toLowerCase() + ', ' + bani(r.monthlyCost) + '/month'; }).join(', ') : bani(l.monthly) + ' a month';
+    return '<div class="price-row' + (cur ? ' cur' : '') + '"><span class="nm">' + l.label + (l.qualifies && l.id !== 'unconditional' ? '<span class="pill">You already qualify</span>' : '') +
+      '<span class="dsc">' + req + ' \u00b7 DAE ' + pct(l.daeBps) + '</span></span><span class="rt">' + pct(l.rateBps) + '</span><span class="tt">' + bani(l.totalPayable) + '</span></div>';
+  }
+  /* Price card (pricing.md): the conditional prices next to the unconditional one with equal weight, total cost
+     against the competitor, the counter-offer as one lead figure. Yellow only as light, no pass/fail colour. */
+  function offerHTML(b, state) {
+    var q = b.quote, c = b.competitor, o = b.offer;
+    var title = { quote: 'Your price', band: 'Counter-offer', not_needed: 'Total cost compared', escalate: 'A specialist can review this', evidence_needed: 'Compared with published figures', affordability: 'Above the affordability limit' }[b.resolution];
+    var lead = o ? { l: 'Total to repay with the counter-offer', v: bani(o.line.totalPayable), n: 'Valid until ' + shortDate(o.validUntil) + ' \u00b7 indicative until the bank issues it' }
+      : { l: 'Your total to repay', v: bani(q.current.totalPayable), n: pct(q.current.rateBps) + ' fixed \u00b7 ' + bani(q.current.monthly) + ' a month' };
+    var rows = '<div class="prices">' + priceRow(q.unconditional, q.current.id === 'unconditional') + q.conditional.map(function (l) { return priceRow(l, false); }).join('') + '</div>';
+    var vs = c ? '<div class="vs" role="table" aria-label="Total cost, same amount and term">' +
+      '<span class="h" role="columnheader">Same terms</span><span class="h" role="columnheader">Raiffeisen' + (o ? '<span class="wide-only"> (counter-offer)</span>' : '') + '</span><span class="h" role="columnheader">' + c.bank + '</span>' +
+      [['Rate', function (x) { return pct(x.rateBps); }], ['Upfront fee', function (x) { return bani(x.upfrontFee); }], ['DAE', function (x) { return pct(x.daeBps); }], ['Total to repay', function (x) { return bani(x.totalPayable); }]]
+        .map(function (r) { var ours = o ? o.line : q.current; return '<span role="cell">' + r[0] + '</span><span class="v" role="cell">' + r[1](ours) + '</span><span class="v" role="cell">' + r[1](c) + '</span>'; }).join('') + '</div>' : '';
+    var levers = o ? '<div class="why">' + o.levers.map(function (l) { return '<div class="why-row tip">' + ic('badge-percent') + '<span><b style="color:var(--text-1);font-weight:500">What changed:</b> ' + l.label.toLowerCase() + (l.amount ? ', ' + bani(l.amount) + ' less' : '') + '.</span></div>'; }).join('') + '</div>' : '';
+    var pills = '<div class="src-pills"><span class="pill">Sample pricing</span>' + (c ? '<span class="pill">' + c.bank + ' \u00b7 ' + c.sourceLabel.toLowerCase() + '</span>' : '') + (o ? '<span class="pill">Counter-offer \u00b7 valid until ' + shortDate(o.validUntil) + '</span>' : '') + '</div>';
+    var acts = state ? '<p class="offer-status" role="status">' + state + '</p>'
+      : o ? '<div class="offer-acts"><button type="button" class="btn btn-dark btn-sm" data-offer="accept">' + ic('check') + 'Accept (simulated)</button><button type="button" class="btn btn-ghost btn-sm" data-offer="decline">Not now</button></div>'
+      : b.resolution === 'escalate' ? '<div class="offer-acts"><button type="button" class="btn btn-dark btn-sm" data-offer="review">' + ic('user-check') + 'Ask a specialist to review this</button></div>' : '';
+    return '<div class="gcard offer-card"><div class="gc-h"><span>' + ic('badge-percent') + title + ' \u00b7 ' + q.product + '</span><span class="pill">Sample pricing</span></div><div class="gc-b">' +
+      '<div class="offer-lead"><span class="micro">' + lead.l + '</span><span class="big">' + lead.v + '<small>' + lead.n + '</small></span></div>' +
+      rows + vs + levers + pills + acts +
+      '<p class="spend-note">Sample pricing in this preview, not a real offer. The choice is yours.' + (q.couldBeBetter ? ' Some of your information is switched off, so your price could be better.' : '') + '</p></div></div>';
+  }
+
+  function spendingHTML(b) {
+    var month = new Date(b.period.from + 'T00:00:00Z').toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
+    var top = b.categories[0] ? b.categories[0].amount : 1;
+    return '<div class="gcard"><div class="gc-h"><span>' + ic('chart-bar') + 'Where your money went \u00b7 ' + month + '</span><span class="pill">Sample data</span></div><div class="gc-b">' +
+      '<div class="spend-lead"><span class="micro">Card and regular spending</span><span class="big">' + bani(b.total) + '<small>of ' + bani(b.income) + ' in</small></span></div>' +
+      '<div class="stmt">' + b.categories.map(function (x) {
+        return '<div class="line"><span>' + CAT[x.category] + '<span class="dsc">' + change(x) + '</span><span class="share" aria-hidden="true"><i style="width:' + Math.round(x.amount / top * 100) + '%"></i></span></span><span class="amt">' + bani(x.amount) + '</span></div>';
+      }).join('') + '</div>' +
+      (b.insights.length ? '<div class="why">' + b.insights.map(function (i) { var r = INSIGHT[i.kind](i.figures); return '<div class="why-row tip">' + ic(r[0]) + '<span>' + r[1] + '</span></div>'; }).join('') + '</div>' : '') +
+      '<p class="spend-note">From a sample account, not yours: ' + month + ' statement and card payments.' + (b.notUsed.length ? ' Not used: ' + b.notUsed.join(', ') + ' (switched off).' : '') + '</p>' +
+      '</div></div>';
+  }
 
   function simCalc(P, n, rate) {
     var r = rate / 12, pm = P * r / (1 - Math.pow(1 + r, -n));
@@ -762,8 +1050,137 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   }
   function recBadge(hide) { return '<span class="rec-badge"' + (hide ? ' hidden' : '') + '>' + ic('sparkles') + 'Recommended</span>'; }
 
+  /* Repayment schedule: mirrors lib/calc/schedule.ts repaymentSchedule exactly (integer bani and basis points, each
+     instalment rounded to the ban, the last one absorbs the rounding, DAE by bisection). Moves to lib/plan at conversion. */
+  function addMonthsISO(iso, k) {
+    var p = iso.split('-').map(Number), t = new Date(Date.UTC(p[0], p[1] - 1 + k, 1));
+    t.setUTCDate(Math.min(p[2], new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate()));
+    return t.toISOString().slice(0, 10);
+  }
+  function annualPercentageRate(net, pays) {
+    function pv(x) { var s = 0; for (var i = 0; i < pays.length; i++) s += pays[i] / Math.pow(1 + x, (i + 1) / 12); return s; }
+    var lo = 0, hi = 10;
+    if (pv(lo) <= net) return 0;
+    for (var i = 0; i < 200 && hi - lo > 1e-12; i++) { var mid = (lo + hi) / 2; if (pv(mid) > net) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
+  function repaymentSchedule(x) {
+    var r = x.annualRateBps / 10000 / 12, inst = Math.round(r ? x.principal * r / (1 - Math.pow(1 + r, -x.months)) : x.principal / x.months), rows = [], bal = x.principal;
+    for (var n = 1; n <= x.months; n++) {
+      var it = Math.round(bal * r), pr = n === x.months ? bal : Math.min(bal, inst - it);
+      bal -= pr;
+      rows.push({ n: n, date: addMonthsISO(x.firstPaymentDate, n - 1), principal: pr, interest: it, fees: x.monthlyFee, payment: pr + it + x.monthlyFee, balance: bal });
+    }
+    var interest = rows.reduce(function (s, w) { return s + w.interest; }, 0), fees = x.upfrontFee + x.monthlyFee * x.months;
+    return { instalment: inst, monthly: inst + x.monthlyFee, rows: rows, totals: { principal: x.principal, interest: interest, fees: fees, payable: x.principal + interest + fees },
+      dae: annualPercentageRate(x.principal - x.upfrontFee, rows.map(function (w) { return w.payment; })) };
+  }
+
+  /* type PlanSummary, prototype form. The real schema is lib/plan/schemas.ts (built by lib/plan/build.ts): the same
+     figures in bani and bps, with keys instead of the English text below and `goal` instead of `goals`:
+     { id, version, conversationId, track: 'personal', label: 'indicative', createdAt,
+       goals: [{ summary, chosenRoute, product, amount, termMonths }],
+       terms: { annualRateBps, rateType: 'fixed', upfrontFee, monthlyFee, firstPaymentDate, source },
+       figures: { monthly, instalment, total, interest, fees, dae, commissions: [{ name, amount|null, basis: 'charged'|'none'|'if_used'|'missing', frequency?, note, source }] },
+       routes: [{ key, name, detail, monthly|null, cost|null, fits, recommended, note }], recommendation: { reasons: [], alt },
+       affordability: { income, obligations } | null, repaymentSchedule: [{ n, date, principal, interest, fees, payment, balance }],
+       assumptions: [], missing: [], sources: [{ label, detail }],
+       verification: { level: 'none'|'pending_review'|'confirmed'|'edited'|'returned', changed?, forInputs?, reviewer?, reviewedAt?, note?, requestId? },
+       handoff: { target: 'smart-mobile', product, amount, termMonths } } */
+  var PLAN_KEY = 'raiffy.demo.plans', FEE_ORIGINATION = 24900; // demo fee from the fee schedule, as in simCalc
+  function readPlans() { try { return JSON.parse(localStorage.getItem(PLAN_KEY)) || {}; } catch (e) { return {}; } }
+  function savePlan(p) { try { var all = readPlans(); all[p.id] = p; localStorage.setItem(PLAN_KEY, JSON.stringify(all)); } catch (e) {} }
+  function dateLong(iso) { var x = new Date(iso.slice(0, 10) + 'T12:00'); return x.getDate() + ' ' + MONTHS_SHORT[x.getMonth()] + ' ' + x.getFullYear(); }
+  function monthYear(iso) { var x = new Date(iso.slice(0, 10) + 'T12:00'); return MONTHS_SHORT[x.getMonth()] + ' ' + x.getFullYear(); }
+  function lei2(bani) { var s = (Math.abs(bani) / 100).toFixed(2).split('.'); return (bani < 0 ? '−' : '') + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + s[1] + ' lei'; }
+  function pctBps(bps) { return (bps / 100).toFixed(bps % 10 ? 2 : 1) + '%'; }
+
+  /* A plan for the personal loan the customer chose in the simulator. The routes it was compared with, and which one
+     Raiffy recommends, come from the same recommend() rule the simulator shows. */
+  function buildPlan(o) {
+    var created = localISO(new Date()), first = addMonthsISO(created.slice(0, 10), 1), bps = Math.round(o.rate * 10000), P = Math.round(o.amount * 100);
+    var terms = { annualRateBps: bps, rateType: 'fixed', upfrontFee: FEE_ORIGINATION, monthlyFee: 0, firstPaymentDate: first, source: perms.offers ? 'Your pre-approved offer, valid until 30 Nov' : 'Standard published rates, 28 Oct' };
+    var s = repaymentSchedule({ principal: P, months: o.term, annualRateBps: bps, upfrontFee: terms.upfrontFee, monthlyFee: 0, firstPaymentDate: first });
+    var altN = o.term > 12 ? 12 : 24, alt = repaymentSchedule({ principal: P, months: altN, annualRateBps: bps, upfrontFee: terms.upfrontFee, monthlyFee: 0, firstPaymentDate: first });
+    var sc = simCalc(o.amount, o.term, o.rate), rec = recommend(sc, o.amount, o.term), r = pctBps(bps) + ' fixed';
+    var route = 'Personal loan, ' + r;
+    return {
+      id: o.id, version: o.version, conversationId: o.conv, track: 'personal', label: 'indicative', createdAt: created,
+      goals: [{ summary: o.goal, chosenRoute: route, product: 'personal-loan', amount: P, termMonths: o.term }],
+      terms: terms,
+      figures: { monthly: s.monthly, instalment: s.instalment, total: s.totals.payable, interest: s.totals.interest, fees: s.totals.fees, dae: s.dae, commissions: [
+        { name: 'Origination fee', amount: FEE_ORIGINATION, basis: 'charged', frequency: 'once', note: 'One-off, taken when the loan is paid out', source: 'Fee schedule 2026' },
+        { name: 'Monthly administration fee', amount: 0, basis: 'none', frequency: 'monthly', note: 'None for this loan', source: 'Fee schedule 2026' },
+        { name: 'Mandatory insurance', amount: 0, basis: 'none', note: 'Not required. Optional life insurance isn’t included and would raise the DAE', source: terms.source },
+        { name: 'Early repayment fee', amount: null, basis: 'if_used', note: '0.5% of the amount you repay early, none in the last 12 months', source: 'Fee schedule 2026' }] },
+      routes: [
+        { key: 'loan', name: 'Personal loan, ' + o.term + ' months', detail: r + ' · your choice', monthly: s.monthly, cost: s.totals.interest + s.totals.fees, fits: true, recommended: rec.k === 'loan', note: 'The payment never changes.' },
+        { key: 'loan-' + altN, name: 'Personal loan, ' + altN + ' months', detail: r, monthly: alt.monthly, cost: alt.totals.interest + alt.totals.fees, fits: true, recommended: false,
+          note: altN < o.term ? 'A higher payment, but ' + lei2(s.totals.interest - alt.totals.interest) + ' less interest.' : 'A lower payment, but ' + lei2(alt.totals.interest - s.totals.interest) + ' more interest.' },
+        { key: 'od', name: 'Overdraft', detail: '11.5% variable', monthly: sc.od.ok ? Math.round(sc.od.monthly * 100) : null, cost: sc.od.ok ? Math.round(sc.od.cost * 100) : null, fits: sc.od.ok, recommended: rec.k === 'od',
+          note: sc.od.ok ? 'Repay any amount, anytime, for free. The rate can change monthly.' : o.amount > 15000 ? 'Overdraft limits go up to 15,000 lei.' : 'Overdrafts renew every 12 months, so they don’t fit ' + o.term + ' months.' }],
+      recommendation: { reasons: rec.reasons, alt: rec.alt },
+      affordability: given ? { income: Math.round(given.income * 100), obligations: Math.round(given.obligations * 100) } : null,
+      repaymentSchedule: s.rows,
+      assumptions: ['Paid out on ' + dateLong(created) + ', with the first instalment on ' + dateLong(first) + ' and then on the same day each month.',
+        'The rate stays at ' + r + ' for the whole term.', 'You repay on schedule, with no early repayments.',
+        'Interest is worked out monthly, so the bank’s official schedule can differ by a few bani.'],
+      missing: (given ? [] : ['Your income and existing payments, so affordability isn’t checked here.'])
+        .concat(perms.offers ? [] : ['Your pre-approved offer, because offer access is off. Standard published rates are used, and your own offer may be better.'])
+        .concat(['The bank’s credit assessment, which happens when you apply.']),
+      sources: [{ label: perms.offers ? SOURCES.offer.label : SOURCES.public.label, detail: perms.offers ? SOURCES.offer.detail : 'Personal loan · ' + r }, { label: SOURCES.fees.label, detail: SOURCES.fees.detail }],
+      verification: o.verification || { level: 'none' },
+      handoff: { target: 'smart-mobile', product: 'personal-loan', amount: P, termMonths: o.term }
+    };
+  }
+  /* The simulation or comparison the plan is built from: the newest one in this chat */
+  function lastSim(c) { for (var i = c.messages.length - 1; i >= 0; i--) { var x = c.messages[i]; if (x.card && (x.card.type === 'sim' || x.card.type === 'compare')) return x; } return null; }
+  function lastPlanMsg(c) { for (var i = c.messages.length - 1; i >= 0; i--) { var x = c.messages[i]; if (x.card && x.card.type === 'plan') return x; } return null; }
+
+  var given = null; // what the customer entered in the inputs card, kept for the scripted affordability reply
+
   /* Scripted replies. Each returns { thinking, paras, card, sources, chips } */
   var FLOWS = {
+    inputs: function () {
+      return {
+        thinking: ['Working out which details this answer needs…'],
+        paras: ['To check what fits your budget, I need a few figures. What is your net monthly income? How much do you already pay each month for loans and cards?'],
+        card: { type: 'inputs', pattern: 'affordability', round: 1, fields: [
+          { key: 'income', label: 'Net monthly income', question: 'What is your net monthly income?', kind: 'amount', unit: 'RON', min: 0, max: 1000000 },
+          { key: 'obligations', label: 'Monthly loan and card payments', question: 'How much do you already pay each month for loans and cards?', hint: 'Enter 0 if none', kind: 'amount', unit: 'RON', min: 0, max: 1000000 }
+        ] },
+        sources: [],
+        chips: ['Skip, show typical examples']
+      };
+    },
+    afford: function () {
+      var pay = 2000;
+      if (!given) {
+        return {
+          thinking: ['Preparing typical examples…'],
+          paras: ['Here are typical examples, not a recommendation for you. Someone earning 6,000 lei a month with no other loans would have 4,000 lei left after a 2,000 lei payment. With 1,000 lei of existing payments, they would have 3,000 lei left.',
+                  'Share your own figures any time and I’ll check them. The bank’s assessment always decides.'],
+          card: null, sources: [], chips: ['Use my own figures', 'What does the bank look at?']
+        };
+      }
+      var left = given.income - given.obligations - pay;
+      return {
+        thinking: ['Adding up your monthly payments…', 'Checking what’s left each month…'],
+        paras: ['With ' + lei(given.income) + ' a month and ' + lei(given.obligations) + ' in existing payments, a ' + lei(pay) + ' payment would leave you about ' + lei(Math.max(left, 0)) + ' a month for everything else. This is an estimate; the bank’s own assessment decides.',
+                'A longer term or a smaller amount would lower the payment, but you’d pay more interest overall.'],
+        card: null, sources: [], chips: ['What if I borrow less?', 'Compare a loan and an overdraft', 'Book an advisor']
+      };
+    },
+    bankcompare: function () {
+      return {
+        thinking: ['Reading the reviewed product terms…', 'Lining up the same rows for both banks…'],
+        paras: ['Here are Raiffeisen’s Flexicredit and BCR’s Credit George side by side, from each bank’s own page. Both publish their interest rate as a range, so I can’t work out your monthly payment for 30,000 lei over 5 years: the rate you’d get depends on the bank’s assessment.',
+                'Flexicredit has a 5 lei monthly administration fee and Credit George has none; the analysis fee is 200 lei at both.'],
+        card: { type: 'bankcompare' },
+        sources: ['rzbloan', 'bcrloan'],
+        chips: ['What does DAE include?', 'Which documents does each bank ask for?', 'Talk to a specialist']
+      };
+    },
     compare: function () {
       var own = perms.offers, rate = own ? .079 : .094, s = simCalc(8000, 12, rate), rec = recommend(s, 8000, 12);
       return {
@@ -798,6 +1215,29 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         chips: ['What if I stretch it to 24 months?', 'Book an advisor']
       };
     },
+    counter: function () {
+      return {
+        thinking: ['Reading your price for 8,000 lei over 12 months\u2026', 'Comparing total cost with Bank B\u2026'],
+        paras: ['I\u2019m Raiffeisen\u2019s assistant, so I\u2019ll be straight with you about how the offers compare. Bank B\u2019s published offer has a lower rate, 7.40%, and costs about 121 lei less in total than your price today, 7.90% with your salary transfer.',
+                'I can offer to waive the 249 lei origination fee. That brings your total to 8,346 lei, about 128 lei less than Bank B. The offer is valid until 5 Nov and stays indicative until the bank issues it. This is sample pricing in the preview.'],
+        card: { type: 'offer' }, sources: ['offer'],
+        chips: ['What if I don\u2019t move my salary?', 'Ask a specialist to review this', 'Upload the Bank B SECCI']
+      };
+    },
+    spend: function () {
+      if (!perms.transactions) return {
+        thinking: ['Checking what Raiffy can see\u2026'],
+        paras: ['Transactions are switched off in \u201cWhat Raiffy can see\u201d, so I haven\u2019t read your spending. I can still help if you tell me roughly what goes out each month.'],
+        card: null, sources: [], chips: ['Rent, food and transport, about 4,000 lei', 'Which subscriptions am I paying for?']
+      };
+      return {
+        thinking: ['Reading September\u2019s card payments\u2026', 'Grouping them by category\u2026'],
+        paras: ['In September about 8,906 lei went on card and regular payments, against 9,500 lei coming in. Housing and groceries were the largest, as in August. Travel is new: 1,240 lei in euros, which also cost about 31 lei to convert.',
+                'Three small costs you could avoid: other banks\u2019 ATMs (15 lei), currency conversion, and two subscriptions that started or went up. This is a sample account in the preview, not your own.'],
+        card: { type: 'spending' }, sources: ['statement'],
+        chips: ['Which subscriptions am I paying for?', 'How do I avoid the ATM fees?', 'Is a euro account worth it?']
+      };
+    },
     fee: function () {
       return {
         thinking: ['Reading your October statement…', 'Checking your account package…'],
@@ -818,9 +1258,9 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     },
     docs: function () {
       return {
-        thinking: ['Checking the documents already in the app…', 'Looking for advisor slots this week…'],
+        thinking: ['Checking the documents already in the app…', 'Looking for a specialist’s open times…'],
         paras: ['For a personal loan you need three documents. Two are already in the app, so only proof of address is missing.',
-                'You can also book a time with your advisor. If you agree, Andreea gets a short summary of what we’ve discussed, so you don’t start from scratch.'],
+                'You can also book a short call with a specialist to go through them. If you agree, Ana gets a summary of what we’ve discussed, so you don’t start from scratch.'],
         card: { type: 'docs' }, sources: ['docs'],
         chips: ['What counts as proof of address?', 'Can I do the meeting by video?']
       };
@@ -828,10 +1268,55 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     handoff: function () {
       return {
         thinking: ['Checking whether I can answer this reliably…'],
-        paras: ['Tax depends on your personal situation, so I’d rather not guess. A Raiffeisen advisor can confirm what applies to you, or you can check with a tax consultant.',
-                'If you book a meeting, I can pass on your question so you don’t have to explain it again.'],
+        paras: ['Tax depends on your personal situation, so I’d rather not guess. A tax consultant can confirm what applies to you.',
+                'A Raiffeisen specialist can walk you through how deposit interest is taxed in general. If you book a call, I can pass on your question so you don’t have to explain it again.'],
         card: { type: 'handoff' }, sources: [],
-        chips: ['Book an advisor', 'Compare savings options instead']
+        chips: ['Book a call with a specialist', 'Compare savings options instead']
+      };
+    },
+    /* A plan only when the customer asks for one, from the newest simulation in this chat. One plan per chat:
+       asking again makes the next version, and a check given to an earlier version shows as "Changed after the check". */
+    plan: function () {
+      var c = conv(), src = c.planSrc || lastSim(c);
+      c.planSrc = null;
+      if (!src) {
+        return { thinking: ['Looking for a simulation in this chat…'],
+          paras: ['A plan starts from an amount and a term. Tell me how much you need and for how long, and I’ll compare the options first.'],
+          card: null, sources: [], chips: ['Compare a loan and an overdraft'] };
+      }
+      var prev = lastPlanMsg(c), pv = prev && prev.verify, P = src.card.amount, n = src.card.term;
+      c.planId = c.planId || 'PS-' + (2300 + Math.floor(Math.random() * 7000));
+      var carried = pv && (pv.level === 'confirmed' || pv.level === 'edited') ? { level: pv.level, reviewer: pv.reviewer, reviewedAt: pv.reviewedAt, note: pv.note, id: pv.id, inputs: pv.inputs, changed: pv.inputs !== lei(P) + ' over ' + n + ' months' } : null;
+      var plan = buildPlan({ id: c.planId, version: prev ? prev.card.version + 1 : 1, conv: c.id, goal: c.goal || 'Borrow ' + lei(P), amount: P, term: n, rate: src.card.rate, verification: planVerification(carried) });
+      savePlan(plan);
+      var od = plan.routes[2], f = plan.figures;
+      return {
+        thinking: ['Taking the amount and term from your simulation…', 'Building the repayment schedule…', 'Listing every fee, including the ones that are none…'],
+        paras: [(prev ? 'Here’s version ' + plan.version + ' of your plan: ' : 'Here’s your plan: ') + lei(P) + ' over ' + n + ' months with the personal loan comes to about ' + lei2(f.monthly) + ' a month and ' + lei2(f.total) + ' in total.' +
+            (od.recommended ? ' On cost alone I’d still pick the overdraft, which is about ' + lei2(plan.routes[0].cost - od.cost) + ' cheaper. The plan follows the loan you chose, and you can switch at any time.' : ''),
+          'It’s an indicative simulation, not an offer. Open it for the full schedule and every fee, ask a specialist to check it, or take it to Smart Mobile when you’re ready to apply.'],
+        card: { type: 'plan', id: plan.id, version: plan.version, amount: P, term: n, rate: src.card.rate, src: src, carried: carried },
+        sources: [perms.offers ? 'offer' : 'public', 'fees'],
+        chips: ['Can I repay the loan early?', 'Book a call with a specialist', 'What happens when I apply?']
+      };
+    },
+    apply: function () {
+      return {
+        thinking: ['Checking how the application works in Smart Mobile…'],
+        paras: ['You apply in Smart Mobile, not in Raiffy. “Apply in Smart Mobile” on your plan opens the loan application with your amount, term and product already filled in.',
+          'The bank then makes its own credit assessment and sends you the official offer (the SECCI) and the contract. You have a 15-day reflection period, and you sign there with an SMS code. Raiffy never asks for codes or signatures.'],
+        card: null, sources: [],
+        chips: ['Book a call with a specialist', 'Which documents do I need?']
+      };
+    },
+    // Investment recommendations need a licensed adviser, so Raiffy doesn't offer a specialist call for them
+    invest: function () {
+      return {
+        thinking: ['Checking whether this is something I can help with…'],
+        paras: ['Choosing investments depends on your goals, how long you can leave the money and how much risk you can take, so it needs a licensed investment adviser. Raiffy and the bank’s specialists don’t recommend investments.',
+                'I can show you savings options with a fixed rate in the meantime.'],
+        card: { type: 'adviser' }, sources: [],
+        chips: ['Show savings options instead', 'What’s the difference between a deposit and a savings account?']
       };
     },
     fallback: function () {
@@ -848,12 +1333,21 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   function route(text, file) {
     var t = text.toLowerCase();
     if (/tax|impozit|legal|inherit|lawyer/.test(t)) return 'handoff';
+    if (/skip|typical example/.test(t)) return 'afford';
+    if (/what happens when i apply|after i apply|how do i apply/.test(t)) return 'apply';
+    if (/\bplan\b/.test(t)) return 'plan';
+    // Affordability needs income and existing payments: ask for them unless the message already gives them
+    if (/afford|permit|can i borrow|how much can i/.test(t) && !/salary|income|earn|venit/.test(t)) return 'inputs';
+    if (/(offers? less|is cheaper|better (price|rate|offer)|match (their|the)|negotia|counter.?offer|can you do better)/.test(t)) return 'counter';
+    if (/\b(bcr|ing|bt|brd|banca transilvania)\b|another bank|other banks?/.test(t) && !/document|acte|\bid\b|proof/.test(t)) return 'bankcompare';
     if (/early|repay|ramburs/.test(t)) return 'early';
     if (/(24|36|48|60)\s*month|stretch|longer|simulat/.test(t)) return 'sim';
     if (/overdraft|loan|borrow|credit|împrumut/.test(t)) return 'compare';
+    if (/where does my money go|where did my money go|my spending|subscriptions/.test(t)) return 'spend';
     if (/fee|charge|comision|paid|atm|statement/.test(t) || (file && !t)) return 'fee';
+    if (/\binvest|\bstocks?\b|\bshares\b|\betfs?\b|mutual fund|investment fund|unit.?linked|crypto|bitcoin/.test(t)) return 'invest';
     if (/sav|deposit|emergency|economi|bond|interest/.test(t)) return 'savings';
-    if (/advisor|meeting|document|appointment|book|proof|video/.test(t)) return 'docs';
+    if (/advisor|specialist|meeting|document|appointment|book|proof|video/.test(t)) return 'docs';
     return 'fallback';
   }
 
@@ -865,7 +1359,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     ];
   }
   var convs = [
-    { id: 'c1', title: 'Loan or overdraft for 8,000 lei', group: 'Today', time: '18:42', icon: 'scale',
+    { id: 'c1', title: 'Loan or overdraft for 8,000 lei', group: 'Today', time: '18:42', icon: 'scale', goal: 'Fix up the kitchen',
       messages: seed('compare', 'I need 8,000 lei for about a year to fix up the kitchen. Is an overdraft or a personal loan better?')
         .concat(seed('sim', 'What if I stretch it to 24 months?')) },
     { id: 'c2', title: 'Why I paid a 5 lei ATM fee', group: 'Today', time: '09:15', icon: 'receipt',
@@ -888,13 +1382,97 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   /* ───────────── Cards ───────────── */
   var PIN_META = {
     compare: function (c) { return { icon: 'scale', title: 'Loan vs overdraft', meta: lei(c.amount) + ' · ' + c.term + ' months' }; },
+    bankcompare: function () { return { icon: 'scale', title: 'Flexicredit vs Credit George', meta: 'terms as of 28 Oct' }; },
     sim: function (c) { return { icon: 'calculator', title: 'Repayment simulation', meta: lei(c.amount) + ' · ' + c.term + ' months' }; },
     savings: function () { return { icon: 'piggy-bank', title: 'Savings options', meta: '15,000 lei · rates 28 Oct' }; },
+    offer: function () { return { icon: 'badge-percent', title: 'Counter-offer', meta: 'valid until 5 Nov \u00b7 sample' }; },
+    spending: function () { return { icon: 'chart-bar', title: 'Where your money went', meta: 'September · sample data' }; },
     fee: function () { return { icon: 'receipt', title: 'ATM fee explained', meta: '5 lei · 22 Oct' }; },
-    docs: function () { return { icon: 'list-checks', title: 'Loan meeting checklist', meta: '2 of 3 documents' }; }
+    docs: function () { return { icon: 'list-checks', title: 'Loan meeting checklist', meta: '2 of 3 documents' }; },
+    plan: function (c) { return { icon: 'file-text', title: 'Your plan · v' + c.version, meta: lei(c.amount) + ' · ' + c.term + ' months' }; }
   };
 
+  /* Inputs request block. Mirrors lib/agent/inputs.ts InputField:
+     { key, label, question, hint?, kind: 'amount'|'months'|'percent'|'choice'|'options', unit?: 'RON'|'months'|'%', min?, max?, options?: [{ value, label }] } */
+  function inputHTML(f) {
+    var id = 'inp-' + f.key;
+    if (f.kind === 'choice') {
+      return '<fieldset class="inp" data-key="' + f.key + '"><legend>' + f.label + '</legend><div class="inp-opts">' +
+        f.options.map(function (o) { return '<button type="button" aria-pressed="false" data-value="' + o.value + '">' + o.label + '</button>'; }).join('') + '</div></fieldset>';
+    }
+    var unit = f.unit === 'RON' ? 'lei' : f.unit === 'months' ? 'months' : '%';
+    return '<div class="inp" data-key="' + f.key + '"><label for="' + id + '">' + f.label + '</label>' +
+      '<div class="inp-box"><input id="' + id + '" inputmode="decimal" autocomplete="off" required' + (f.hint ? ' aria-describedby="' + id + '-h"' : '') + '><span>' + unit + '</span></div>' +
+      (f.hint ? '<small id="' + id + '-h">' + f.hint + '</small>' : '') + '</div>';
+  }
+
+  /* One cell of lib/compare's table, formatted for English. Money and rates come as integers, as in lib/. */
+  var ROW_LABELS = { total_cost: 'Total cost', monthly_payment: 'Monthly payment', dae: 'DAE in the bank’s example', interest_rate: 'Interest rate',
+    amount: 'Amount', term: 'Repayment term', origination_fee: 'Analysis fee', administration_fee: 'Administration fee',
+    early_repayment_fee: 'Early repayment fee', insurance: 'Insurance', documents_always: 'Always asked', documents_sometimes: 'Sometimes asked',
+    documents_online: 'Needed to apply online' };
+  var GROUP_LABELS = { cost: 'Cost', amounts: 'Amounts', commissions: 'Commissions', documents: 'Documents' };
+  var FREQ = { once: ' once', monthly: ' a month', yearly: ' a year' };
+  function pct(bps) { return (bps / 100).toLocaleString('en-GB', { maximumFractionDigits: 2 }) + '%'; }
+  function unitFmt(n, unit) {
+    if (unit === 'bps') return pct(n);
+    if (unit === 'minor_ron') return fmt(n / 100) + ' lei';
+    if (unit === 'minor_eur') return fmt(n / 100) + ' euro';
+    if (unit === 'months') return n + ' months';
+    return String(n);
+  }
+  function cellFmt(cell) {
+    var v = cell.value, u = cell.unit, none = v.type === 'exact' && u === 'minor_ron' && v.amount === 0, s;
+    if (v.type === 'exact') s = none ? 'None' : unitFmt(v.amount, u);
+    else if (v.type === 'range') s = u === 'bps' ? pct(v.min).replace('%', '') + '–' + pct(v.max) : unitFmt(v.min, u) + ' – ' + unitFmt(v.max, u);
+    else if (v.type === 'from') s = 'from ' + unitFmt(v.min, u);
+    else if (v.type === 'up_to') s = 'up to ' + unitFmt(v.max, u) + (u === 'minor_eur' ? ', in lei' : '');
+    else s = v.text;
+    return s + (cell.frequency && !none ? FREQ[cell.frequency] : '');
+  }
+  function bankCompareHTML(T) {
+    var srcN = {}, n = 0;
+    function cite(cell) {
+      if (!cell.source) return '';
+      var k = cell.source.src || cell.source.url;
+      if (!srcN[k]) srcN[k] = ++n;
+      var s = SOURCES[cell.source.src];
+      return '<span class="cite" title="' + (s ? s.label : cell.source.url) + '">' + srcN[k] + '</span>';
+    }
+    function cellHTML(cell, i, lead) {
+      // The row is lit only when one option is cheaper on it; otherwise only its label is bold
+      var cls = [lead && T.best !== null && 'on', T.best === i && 'win'].filter(Boolean).join(' ');
+      var body = cell.state === 'value' ? cellFmt(cell) + cite(cell) + (cell.computed ? '<span class="calc">Calculated for your amount and term</span>' : '')
+        : cell.state === 'not_confirmed' ? '<span class="nc" title="The catalog has this term, but it isn’t confirmed yet">Not confirmed</span>'
+        : '<span class="na">Not in the sources</span>';
+      return '<div role="cell"' + (cls ? ' class="' + cls + '"' : '') + '>' + body + '</div>';
+    }
+    var head = '<div class="th" role="columnheader"></div>' + T.products.map(function (p) {
+      return '<div class="th" role="columnheader">' + p.name + (p.provider ? '<small>' + p.provider + '</small>' : '') + '</div>';
+    }).join('');
+    var body = T.groups.map(function (g) {
+      return '<div class="cg" role="rowheader">' + GROUP_LABELS[g.key] + '</div>' + g.rows.map(function (r) {
+        var lead = r.key === T.deciding;
+        return '<div class="rk' + (lead ? ' lead' + (T.best !== null ? ' on' : '') : '') + '" role="rowheader">' + ROW_LABELS[r.key] + '</div>' + r.cells.map(function (c, i) { return cellHTML(c, i, lead); }).join('');
+      }).join('');
+    }).join('');
+    var notes = [];
+    if (T.paymentUnavailable && T.scenario) notes.push('No monthly payment for ' + lei(T.scenario.amount / 100) + ' over ' + T.scenario.months + ' months: both banks publish a range, and your rate depends on the bank’s assessment.');
+    if (T.deciding === 'dae' && T.best === null) notes.push('Each DAE is for that bank’s own example, so they aren’t compared directly.');
+    notes.push('Dated public figures from each bank’s page, not a personal offer. The choice is yours.');
+    var title = T.products.map(function (p) { return p.name; }).join(' vs ');
+    return '<div class="gcard"><div class="gc-h"><span>' + ic('scale') + title + '</span><span class="micro">' + T.products.length + ' options · 28 Oct</span></div>' +
+      '<div class="tbl-wrap"><div class="cmp" role="table" aria-label="' + title + '">' + head + body + '</div></div>' +
+      '<div class="gc-note">' + notes.join(' ') + '</div></div>';
+  }
+
   function cardHTML(c) {
+    if (c.type === 'inputs') {
+      return '<div class="gcard"><div class="gc-h"><span>' + ic('list-checks') + 'A few details</span><span class="micro">' + c.fields.length + (c.fields.length === 1 ? ' question' : ' questions') + '</span></div>' +
+        '<form class="gc-b inputs-form" novalidate>' + c.fields.map(inputHTML).join('') +
+        '<div class="inputs-foot"><p>Or answer in your own words below.</p><button type="submit" class="btn btn-dark">Continue</button></div></form></div>';
+    }
+    if (c.type === 'bankcompare') return bankCompareHTML(BANK_COMPARE);
     if (c.type === 'compare') {
       var s = simCalc(c.amount, c.term, c.rate), r = (c.rate * 100).toFixed(1) + '%', rec = recommend(s, c.amount, c.term);
       var L = rec.k === 'loan' ? ' rc' : '', O = rec.k === 'od' ? ' rc' : '';
@@ -924,7 +1502,29 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         '<div class="opt" data-k="od"><div class="opt-h">' + recBadge(true) + 'Overdraft<span class="micro">11.5% variable</span></div><div class="big"></div>' +
         '<div class="kv"><span>Total cost</span><b></b></div><div class="costbar"><span></span></div><p class="opt-note" hidden></p></div>' +
         '</div><p class="sim-say"><span class="ava-raiffy" aria-hidden="true">' + ic('compass') + '</span><span class="say" aria-live="polite"></span></p></div>' +
-        '<div class="gc-note plan-check"><span>Ready to decide? A specialist can check the plan before you apply.</span><button type="button" class="vbtn" data-act="plan">' + ic('file-check') + 'Check my plan</button></div></div>';
+        '<div class="gc-note plan-check"><span>Ready to decide? Turn the loan into a plan you can keep, have checked and take to Smart Mobile.</span><button type="button" class="vbtn" data-act="mkplan">' + ic('file-plus') + 'Build my plan</button></div></div>';
+    }
+    if (c.type === 'plan') {
+      var pl = readPlans()[c.id];
+      if (!pl || pl.version !== c.version) pl = null;
+      if (!pl) return '<div class="gcard"><div class="gc-b"><p class="plan-src">This version of the plan isn’t saved on this device any more.</p></div></div>';
+      var g = pl.goals[0], f = pl.figures, rows = pl.repaymentSchedule, last = rows[rows.length - 1], step = Math.max(1, Math.ceil(rows.length / 30));
+      var bars = [g.amount].concat(rows.map(function (w) { return w.balance; })).filter(function (_, i) { return i % step === 0; });
+      var recd = pl.routes[0].recommended;
+      return '<div class="gcard plan-card" data-plan="' + esc(pl.id) + '"><div class="gc-h"><span>' + ic('file-text') + 'Your plan</span><span class="plan-h"><span class="plan-badge"></span><span class="micro">' + esc(pl.id) + ' · v' + pl.version + '</span></span></div>' +
+        '<div class="gc-b plan-b">' +
+        '<div class="plan-goal"><span class="eyebrow">Goal</span><b>' + esc(g.summary) + '</b><span class="plan-route">' + esc(g.chosenRoute) + ' · ' + lei(g.amount / 100) + ' over ' + g.termMonths + ' months' + (recd ? recBadge() : '<span class="pill">Your choice</span>') + '</span></div>' +
+        '<div class="plan-figs">' +
+        '<div><span>Monthly payment</span><b>' + lei2(f.monthly) + '</b><small>Estimate</small></div>' +
+        '<div><span>Total payable</span><b>' + lei2(f.total) + '</b><small>With the ' + lei(f.commissions[0].amount / 100) + ' fee</small></div>' +
+        '<div><span>DAE</span><b>' + (f.dae * 100).toFixed(2) + '%</b><small>Estimate · no insurance</small></div></div>' +
+        '<div class="bal"><div class="bal-bars" aria-hidden="true">' + bars.map(function (b) { return '<i style="height:' + Math.max(2, Math.round(b / g.amount * 100)) + '%"></i>'; }).join('') + '</div>' +
+        '<div class="bal-cap"><span>' + lei(g.amount / 100) + ' to repay</span><span>Paid off · ' + monthYear(last.date) + '</span></div></div>' +
+        '<p class="plan-src">Rate: ' + esc(pl.terms.source) + '. Fees: ' + esc(f.commissions[0].source) + '.</p>' +
+        '<p class="plan-label">' + ic('info') + '<span>Indicative simulation, not a firm credit offer. The bank issues the official offer and contract in Smart Mobile.</span></p>' +
+        '<div class="plan-stale vstat changed" hidden></div></div>' +
+        '<div class="gc-note plan-acts"><a class="btn btn-dark btn-sm" href="plan.html#' + esc(pl.id) + '" target="_blank" rel="noopener">' + ic('file-text') + 'Open plan</a>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="plan">' + ic('user-check') + 'Ask a specialist to check it</button></div></div>';
     }
     if (c.type === 'savings') {
       var ACCESS = { 4: 'Instant', 3: 'Anytime', 2: 'Market sale', 1: 'At maturity' };
@@ -940,6 +1540,8 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         row('landmark', 'Government bonds · 1 year', 'Early sale at market price', '6.2%', 2) +
         '</div><p class="legend">Access: how easily you can take the money out</p></div></div>';
     }
+    if (c.type === 'spending') return spendingHTML(SPENDING);
+    if (c.type === 'offer') return offerHTML(OFFER);
     if (c.type === 'fee') {
       return '<div class="gcard"><div class="gc-h"><span>' + ic('receipt') + 'October statement</span><span class="micro">••4821</span></div><div class="gc-b">' +
         '<div class="stmt"><div class="line dim"><span>Lidl Pipera<span class="dsc">Card payment · 24 Oct</span></span><span class="amt">−186.40</span></div>' +
@@ -956,17 +1558,19 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         '<div class="ck"><span class="bx ok">' + ic('check') + '</span><span>Proof of income<small>From your employer, issued 21 Oct</small></span><span class="micro">Done</span></div>' +
         '<div class="ck ck-addr"><span class="bx"></span><span>Proof of address<small>Utility bill from the last 3 months</small></span><button type="button" class="btn btn-ghost up">' + ic('upload') + 'Upload</button></div>' +
         '</div></div>' +
-        '<div class="book"><div class="adv"><span class="ava" aria-hidden="true">AM</span><div><b>Andreea M., personal advisor</b><span class="micro">Floreasca branch · or video call</span></div></div>' +
-        '<div class="slots" role="group" aria-label="Choose a time">' + ['Mon 09:00', 'Tue 10:30', 'Wed 15:00', 'Thu 12:00'].map(function (t) { return '<button type="button" aria-pressed="false">' + t + '</button>'; }).join('') + '</div>' +
-        '<label class="check"><input type="checkbox" class="share"><span><b>Share Raiffy’s summary with Andreea</b><br>Only this conversation, only for this meeting.</span></label>' +
-        '<div class="book-row"><button type="button" class="btn btn-dark btn-sm do-book" disabled>' + ic('calendar-check') + 'Book meeting</button><span class="micro">Pick a time first</span></div>' +
-        '</div></div></div>';
+        '<div class="book">' + bookHTML() + '</div></div></div>';
     }
     if (c.type === 'handoff') {
-      return '<div class="gcard handoff"><span class="ic">' + ic('headset') + '</span><div><h3>This needs a human advisor</h3>' +
-        '<p>Tax on deposit interest depends on your income and residency. An advisor can answer for your situation.</p>' +
-        '<div class="book-row"><button type="button" class="btn btn-dark btn-sm" data-ask="Book an advisor meeting">' + ic('calendar') + 'Book an advisor</button>' +
+      return '<div class="gcard handoff"><span class="ic">' + ic('headset') + '</span><div><h3>This needs a person</h3>' +
+        '<p>Tax on deposit interest depends on your income and residency. A specialist can explain the general rule; a tax consultant can answer for your situation.</p>' +
+        '<div class="book-row"><button type="button" class="btn btn-dark btn-sm" data-ask="Book a call with a specialist">' + ic('calendar') + 'Book a specialist</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-ask="Compare savings options instead">Not now</button></div></div></div>';
+    }
+    if (c.type === 'adviser') {
+      return '<div class="gcard handoff"><span class="ic">' + ic('landmark') + '</span><div><h3>This needs a licensed adviser</h3>' +
+        '<p>Investment recommendations are regulated, so they come from a licensed adviser at a branch, not from a specialist call booked here.</p>' +
+        '<div class="book-row"><button type="button" class="btn btn-ghost btn-sm" data-ask="Show savings options instead">Show savings options instead</button>' +
+        '<span class="micro">Booking a branch adviser isn’t connected in this demo.</span></div></div></div>';
     }
     return '';
   }
@@ -1047,12 +1651,13 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       card._msg = m;
       body.appendChild(card);
       if (m.card.type === 'sim') updateSim(card);
+      if (m.card.type === 'plan') syncPlanCard(card, m);
     }
     if (!m.stopped) {
       var f = document.createElement('div');
       f.className = 'gfoot' + (enter ? ' enter' : '');
       f.innerHTML = (m.sources || []).map(function (k) { var s = SOURCES[k]; return '<button type="button" class="src" data-src="' + k + '">' + ic(s.icon) + s.label + '</button>'; }).join('') +
-        (m.verify ? '' : '<button type="button" class="vbtn" data-act="verify">' + ic('user-check') + 'Ask a specialist</button>') +
+        (m.verify || (m.card && m.card.type === 'plan') ? '' : '<button type="button" class="vbtn" data-act="verify">' + ic('user-check') + 'Ask a specialist</button>') +
         '<div class="acts">' +
         '<button type="button" class="icon-btn" data-act="copy" aria-label="Copy answer">' + ic('copy') + '</button>' +
         '<button type="button" class="icon-btn" data-act="up" aria-pressed="false" aria-label="Helpful">' + ic('thumbs-up') + '</button>' +
@@ -1075,6 +1680,56 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
      localStorage in this demo, and the specialist's decision comes back the same way. */
   var REQ_KEY = 'raiffy.demo.requests', VER_KEY = 'raiffy.demo.verdicts', reqN = 0;
   function readJSON(k, def) { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } }
+
+  /* Booking a call with a specialist (an operator). The console publishes open slots and status changes through
+     localStorage in this demo; a customer has at most one booked call, and the booking is theirs to cancel. */
+  var BOOK_KEY = 'raiffy.demo.bookings', SLOT_KEY = 'raiffy.demo.slots', BSTAT_KEY = 'raiffy.demo.bookingStatus', BOOKED = null;
+  var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function localISO(x) { return new Date(x - x.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); }
+  // Slot data comes from storage another page wrote, so it is escaped before it reaches markup
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function slotsData() {
+    var s = readJSON(SLOT_KEY, null);
+    if (s && s.operator && Array.isArray(s.slots) && s.slots.length) return s;
+    return { operator: { name: 'Ana M.', title: 'Credit specialist', initials: 'AM' }, minutes: 30, slots: ['2026-10-29T10:00', '2026-10-29T10:30', '2026-10-30T09:00', '2026-10-30T09:30'] };
+  }
+  function slotLabel(iso) { var x = new Date(iso); return WEEKDAYS[x.getDay()] + ' ' + x.getDate() + ' ' + MONTHS_SHORT[x.getMonth()] + ', ' + iso.slice(11, 16); }
+  function saveBooking(b) {
+    try {
+      var all = readJSON(BOOK_KEY, []).filter(function (x) { return x.id !== b.id; });
+      all.push(b); localStorage.setItem(BOOK_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+  function bookHTML(cancelledBy) {
+    var S = slotsData(), op = S.operator;
+    if (BOOKED) {
+      return '<div class="booked">' + ic('calendar-check') + '<span><b>Booked: ' + slotLabel(BOOKED.start) + '</b> with ' + esc(op.name) + ', ' +
+        (BOOKED.channel === 'phone' ? 'a phone call from the bank’s number' : 'a video call in the app') + '. ' +
+        (BOOKED.share ? esc(op.name) + ' can read Raiffy’s summary from 15 minutes before.' : 'No summary shared.') +
+        ' Confirm in the app the day before, or the time is released.</span></div>' +
+        '<p class="book-note">' + ic('shield-check') + '<span>You have one call booked. To pick another time, cancel this one first.</span></p>' +
+        '<div class="book-row"><button type="button" class="btn btn-ghost btn-sm do-cancel-book">' + ic('calendar-x') + 'Cancel call</button></div>';
+    }
+    return (cancelledBy ? '<div class="booked off">' + ic('calendar-x') + '<span>' + esc(cancelledBy) + ' Pick another time below.</span></div>' : '') +
+      '<div class="adv"><span class="ava" aria-hidden="true">' + esc(op.initials) + '</span><div><b>' + esc(op.name) + ', ' + esc(op.title.toLowerCase()) + '</b><span class="micro">' + S.minutes + '-minute call · video or phone</span></div></div>' +
+      '<div class="slots" role="group" aria-label="Choose a time">' + S.slots.map(function (s) { return '<button type="button" aria-pressed="false" data-start="' + esc(s) + '">' + slotLabel(s) + '</button>'; }).join('') + '</div>' +
+      '<div class="slots" role="group" aria-label="Call type"><button type="button" aria-pressed="true" data-ch="video">Video</button><button type="button" aria-pressed="false" data-ch="phone">Phone</button></div>' +
+      '<label class="check"><input type="checkbox" class="share"><span><b>Share Raiffy’s summary with ' + esc(op.name) + '</b><br>Only this conversation, only around this call.</span></label>' +
+      '<details><summary>See what’s sent</summary><ul><li>Your questions and Raiffy’s answers in this chat</li><li>Which documents are ready, not the documents themselves</li><li>Never your balance, card numbers, IBAN or CNP</li></ul></details>' +
+      '<p class="book-note">' + ic('info') + '<span>' + esc(op.name) + ' goes through the information with you. It isn’t financial advice or a credit decision.</span></p>' +
+      '<p class="book-note">' + ic('shield-check') + '<span>We confirm only in the app. ' + esc(op.name) + ' will never ask for codes, card details or a transfer.</span></p>' +
+      '<div class="book-row"><button type="button" class="btn btn-dark btn-sm do-book" disabled>' + ic('calendar-check') + 'Book call</button><span class="micro">Pick a time first</span></div>';
+  }
+  window.addEventListener('storage', function (e) {
+    if (e.key !== BSTAT_KEY || !BOOKED) return;
+    var st = readJSON(BSTAT_KEY, {})[BOOKED.id];
+    if (!st || st.status !== 'cancelled') return;
+    var by = slotsData().operator.name + ' cancelled your call on ' + slotLabel(BOOKED.start) + (st.reason ? ': ' + st.reason.replace(/^[^:]*: /, '') : '') + '.';
+    BOOKED.status = 'cancelled'; saveBooking(BOOKED); BOOKED = null;
+    document.querySelectorAll('.book').forEach(function (b) { b.innerHTML = bookHTML(by); });
+    icons(); announce(by);
+  });
+
   function verifyHTML(m) {
     var v = m.verify;
     if (m.vdraft) {
@@ -1103,15 +1758,71 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   function refreshVerify(m) {
     var el = msgNode(m); if (!el) return;
     var vz = el.querySelector('.vzone'); if (vz) vz.innerHTML = verifyHTML(m);
+    var pc = m.card && m.card.type === 'plan' && el.querySelector('.plan-card');
+    if (pc) { syncPlanCard(pc, m); storePlanVerification(m); }
     syncVBtns(el, m);
     icons();
   }
+
+  /* Plans: the card shows the check status as a read-only label, and the saved plan carries the same status so
+     plan.html and the console show it too. A check sent from plan.html reaches the chat through the saved plan. */
+  function planVerification(v) {
+    if (!v) return { level: 'none' };
+    return { level: v.level, changed: !!v.changed, forInputs: v.inputs || '', reviewer: v.reviewer || null, reviewedAt: v.reviewedAt || '', note: v.note || '', requestId: v.id || '' };
+  }
+  function planBadge(v) {
+    if (!v) return '<span class="pill">Not checked</span>';
+    if (v.level === 'pending_review') return '<span class="pill" style="--c:var(--amber-ink)">Being checked</span>';
+    if (v.changed) return '<span class="pill" style="--c:var(--amber-ink)">Changed after check</span>';
+    if (v.level === 'confirmed' || v.level === 'edited') return '<span class="pill" style="--c:var(--ok)">Confirmed by ' + esc(v.reviewer && v.reviewer.name) + '</span>';
+    if (v.level === 'returned') return '<span class="pill" style="--c:var(--amber-ink)">Sent back</span>';
+    return '<span class="pill">Not checked</span>';
+  }
+  function storePlanVerification(m) {
+    var all = readPlans(), p = all[m.card.id];
+    if (!p || p.version !== m.card.version) return;
+    var v = planVerification(m.verify);
+    if (JSON.stringify(v) === JSON.stringify(p.verification)) return;
+    p.verification = v; savePlan(p);
+  }
+  /* A newer version below, or a simulation that moved since: the plan says so instead of changing under the customer */
+  function syncPlanCard(card, m) {
+    var b = card.querySelector('.plan-badge'); if (b) b.innerHTML = planBadge(m.verify);
+    var st = card.querySelector('.plan-stale'); if (!st) return;
+    var newest = lastPlanMsg(conv()), src = m.card.src, msg = '';
+    if (newest && newest !== m) msg = '<span>Version ' + newest.card.version + ' of this plan is further down.</span>';
+    else if (src && (src.card.amount !== m.card.amount || src.card.term !== m.card.term))
+      msg = '<span>Your simulation now shows ' + lei(src.card.amount) + ' over ' + src.card.term + ' months.</span><button type="button" class="btn btn-ghost btn-sm" data-act="mkplan">' + ic('refresh-cw') + 'Update plan</button>';
+    st.hidden = !msg; st.innerHTML = msg;
+  }
+  function syncPlans() {
+    thread.querySelectorAll('.plan-card').forEach(function (pc) { var el = pc.closest('.msg'); if (el && el._msg) syncPlanCard(pc, el._msg); });
+    icons();
+  }
+  window.addEventListener('storage', function (e) {
+    if (e.key !== PLAN_KEY) return;
+    var all = readPlans();
+    convs.forEach(function (c) {
+      c.messages.forEach(function (m) {
+        if (!m.card || m.card.type !== 'plan') return;
+        var p = all[m.card.id]; if (!p || p.version !== m.card.version) return;
+        var v = p.verification;
+        if (!v || JSON.stringify(v) === JSON.stringify(planVerification(m.verify))) return;
+        m.verify = v.level === 'none' ? null : { level: v.level, kind: 'plan', id: v.requestId, changed: v.changed, inputs: v.forInputs, reviewer: v.reviewer, reviewedAt: v.reviewedAt, note: v.note };
+        m.vdraft = null;
+        refreshVerify(m);
+      });
+    });
+  });
   function sendVerify(m, note) {
     var c = conv(), kind = m.vdraft, idx = c.messages.indexOf(m), q = '';
     for (var i = idx - 1; i >= 0; i--) if (c.messages[i].role === 'user' && c.messages[i].text) { q = c.messages[i].text; break; }
     var req = { id: uid('vr'), n: Date.now() % 100000, kind: kind, at: Date.now(), conv: c.id, title: c.title, question: q || c.title, paras: m.paras, flow: m.flow, note: note,
       sources: (m.sources || []).map(function (k) { return SOURCES[k].label; }) };
-    if (m.card && (m.card.type === 'sim' || m.card.type === 'compare')) {
+    if (m.card && m.card.type === 'plan') {
+      var pl = readPlans()[m.card.id];
+      req.card = { amount: m.card.amount, term: m.card.term, rate: m.card.rate, planId: m.card.id, version: m.card.version, goal: pl ? pl.goals[0].summary : c.title };
+    } else if (m.card && (m.card.type === 'sim' || m.card.type === 'compare')) {
       var s = simCalc(m.card.amount, m.card.term, m.card.rate);
       req.snap = { amount: m.card.amount, term: m.card.term, rate: m.card.rate, loanMonthly: s.loan.monthly, loanCost: s.loan.cost, odMonthly: s.od.monthly, odCost: s.od.cost, odOk: s.od.ok };
       req.card = { amount: m.card.amount, term: m.card.term, rate: m.card.rate };
@@ -1229,7 +1940,8 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     el.innerHTML = '';
     list.forEach(function (t) { var b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.dataset.ask = t; el.appendChild(b); });
     el.hidden = !list.length;
-    input.placeholder = list.length ? 'Ask a follow-up, or press Tab for a suggestion' : PH;
+    // Tab means nothing on a touch screen
+    input.placeholder = !list.length ? PH : matchMedia('(pointer: coarse)').matches ? 'Ask a follow-up' : 'Ask a follow-up, or press Tab for a suggestion';
     markTab(0);
   }
   function markTab(n) {
@@ -1283,7 +1995,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   }
   function follow() { if (stick) scroller.scrollTop = scroller.scrollHeight; else $('jump').hidden = false; }
 
-  function send(text, file) {
+  function send(text, file, flow) {
     var c = conv();
     if (!c.messages.length) {
       c.title = text ? text.replace(/\s+/g, ' ').trim() : 'Statement question';
@@ -1297,7 +2009,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     setChips([]);
     stick = true; follow();
     renderSidebar(); renderHeader();
-    stream(c, route(text, file));
+    stream(c, flow || route(text, file));
   }
 
   function stream(c, flow) {
@@ -1347,10 +2059,12 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       var gm = { role: 'raiffy', flow: flow, thinking: plan.thinking.slice(0, i), paras: done, card: stopped ? null : plan.card, sources: stopped ? [] : plan.sources, stopped: stopped };
       if (stopped && p && p._text && done.indexOf(p._text) < 0 && pi < plan.paras.length) gm.paras = done.concat(p._text + '…');
       if (stopped && !gm.paras.length) gm.paras = [];
+      if (gm.card && gm.card.carried) gm.verify = gm.card.carried;
       c.messages.push(gm);
       var fresh = renderMsg(gm, true);
       fresh.classList.remove('enter');
       if (el.parentNode) el.parentNode.replaceChild(fresh, el);
+      if (gm.card && gm.card.type === 'plan') syncPlans();
       icons(); follow();
       job = null; setBusy(false);
       setChips(stopped ? [] : plan.chips);
@@ -1371,8 +2085,30 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     $('jump').hidden = true; input.focus();
   });
 
+  // Inputs card: values go back as a readable message; the scripted reply reads them from `given`
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('.inputs-form');
+    if (!form) return;
+    e.preventDefault();
+    if (job || form.dataset.done) return;
+    var values = {}, parts = [], missing = null;
+    form.querySelectorAll('.inp').forEach(function (f) {
+      var key = f.dataset.key, label = f.querySelector('label, legend').textContent, pressed = f.querySelector('[aria-pressed="true"]');
+      var raw = pressed ? pressed.dataset.value : f.querySelector('input').value.trim();
+      var v = pressed ? raw : Number(raw.replace(/[\s.,](?=\d{3}\b)/g, '').replace(',', '.'));
+      if (raw === '' || (!pressed && !(v >= 0))) { if (!missing) missing = f; return; }
+      values[key] = v; parts.push(label + ': ' + (pressed ? pressed.textContent : lei(v)));
+    });
+    if (missing) { missing.querySelector('input, button').focus(); return; }
+    given = values; form.dataset.done = '1';
+    form.querySelectorAll('input, button').forEach(function (x) { x.disabled = true; });
+    send(parts.join(' · '), null, 'afford');
+  });
+
   document.addEventListener('click', function (e) {
     var t = e.target;
+    var opt = t.closest('.inp-opts button');
+    if (opt) { opt.parentNode.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b === opt); }); return; }
     var ask = t.closest('[data-ask], .starter');
     if (ask) { if (job) return; send(ask.dataset.ask || ask.dataset.prompt, null); input.focus(); return; }
 
@@ -1381,12 +2117,30 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       var card = term.closest('.sim');
       card.querySelectorAll('.terms button').forEach(function (b) { b.setAttribute('aria-pressed', b === term); });
       var v = updateSim(card); card._msg.card.amount = v.amount; card._msg.card.term = v.term;
-      checkedChanged(card._msg);
+      checkedChanged(card._msg); syncPlans();
+      return;
+    }
+    // Price card: simulated outcomes and the customer's consent to a specialist review
+    var ob = t.closest('[data-offer]');
+    if (ob) {
+      var oc = ob.closest('.offer-card'), how = ob.dataset.offer;
+      var said = { accept: 'Accepted (simulated). In the app this would open the official application, where nothing is final until you sign.',
+        decline: 'Noted. The offer stays valid until 5 Nov if you change your mind.',
+        review: 'Sent for review. A specialist will reply in this chat; nothing changes until they do.' }[how];
+      oc.outerHTML = offerHTML(OFFER, said).replace('class="gcard offer-card"', 'class="gcard offer-card" data-done="' + how + '"');
+      icons(); announce(said);
       return;
     }
     var act = t.closest('[data-act]');
     if (act) {
       var msgEl = act.closest('.msg'), m = msgEl._msg, a = act.dataset.act;
+      if (a === 'mkplan') {
+        if (job) return;
+        var sm = m.card.type === 'plan' ? m.card.src : m;
+        conv().planSrc = sm;
+        send((m.card.type === 'plan' ? 'Update my plan: ' : 'Build a plan with the personal loan: ') + lei(sm.card.amount) + ' over ' + sm.card.term + ' months', null, 'plan');
+        return;
+      }
       if (a === 'verify' || a === 'plan') {
         if (m.verify && m.verify.level === 'pending_review') { announce('A specialist is already checking this.'); return; }
         m.vid = m.vid || uid('v'); m.vdraft = a === 'plan' ? 'plan' : 'answer'; m.verify = null;
@@ -1405,6 +2159,19 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
         msgEl.querySelectorAll('[data-act="up"],[data-act="down"]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
         act.setAttribute('aria-pressed', on);
         if (on) announce(a === 'up' ? 'Thanks for the feedback.' : 'Thanks. This helps Raiffy improve.');
+        var why = msgEl.querySelector('.vote-why');
+        if (why) why.remove();
+        if (on && a === 'down') {
+          why = document.createElement('div');
+          why.className = 'vote-why'; why.setAttribute('role', 'group'); why.setAttribute('aria-label', 'What was wrong?');
+          why.innerHTML = '<span>What was wrong?</span>' + [['wrong', 'Wrong'], ['unclear', 'Unclear'], ['missing', 'Missing information'], ['other', 'Something else']].map(function (r) {
+            return '<button type="button" class="vbtn" data-act="why" data-why="' + r[0] + '" aria-pressed="false">' + r[1] + '</button>';
+          }).join('');
+          msgEl.querySelector('.gfoot').after(why);
+        }
+      } else if (a === 'why') {
+        act.parentNode.querySelectorAll('[data-act="why"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === act)); });
+        announce('Thanks. Noted.');
       } else if (a === 'pin') {
         if (m.pinned) { pins = pins.filter(function (p) { return p.id !== m.pinned; }); m.pinned = null; act.setAttribute('aria-pressed', 'false'); announce('Unpinned.'); }
         else { var meta = PIN_META[m.card.type](m.card); meta.id = uid('p'); meta.conv = active; pins.unshift(meta); m.pinned = meta.id; act.setAttribute('aria-pressed', 'true'); announce('Pinned to context.'); }
@@ -1438,17 +2205,30 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     var slot = t.closest('.slots button');
     if (slot) {
       var bk = slot.closest('.book');
-      bk.querySelectorAll('.slots button').forEach(function (b) { b.setAttribute('aria-pressed', b === slot); });
-      bk.querySelector('.do-book').disabled = false;
-      bk.querySelector('.book-row .micro').textContent = slot.textContent + ' with Andreea M.';
+      slot.parentNode.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b === slot); });
+      var picked = bk.querySelector('[data-start][aria-pressed="true"]');
+      if (picked) {
+        bk.querySelector('.do-book').disabled = false;
+        bk.querySelector('.book-row .micro').textContent = slotLabel(picked.dataset.start) + ' with ' + slotsData().operator.name;
+      }
       return;
     }
     var book = t.closest('.do-book');
     if (book) {
-      var bx = book.closest('.book'), when = bx.querySelector('.slots [aria-pressed="true"]').textContent, share = bx.querySelector('.share').checked;
-      bx.innerHTML = '<div class="booked">' + ic('calendar-check') + '<span><b>Booked: ' + when + '</b> with Andreea M., Floreasca branch. ' +
-        (share ? 'Raiffy’s summary will be shared before the meeting.' : 'No summary shared.') + '</span></div>';
-      icons(); announce('Meeting booked for ' + when + '.');
+      var bx = book.closest('.book'), start = bx.querySelector('[data-start][aria-pressed="true"]').dataset.start;
+      var ch = bx.querySelector('[data-ch][aria-pressed="true"]'), share = bx.querySelector('.share').checked;
+      BOOKED = { id: 'BK-' + (2000 + Math.floor(Math.random() * 8000)), start: start, channel: ch ? ch.dataset.ch : 'video', share: share, status: 'booked',
+        topic: 'Documents for a personal loan', bookedAt: localISO(new Date()),
+        summary: share ? 'The customer is preparing a personal loan application. Two of three documents are in the app; proof of address is missing. They want to go through the documents before applying.' : '' };
+      saveBooking(BOOKED);
+      document.querySelectorAll('.book').forEach(function (b) { b.innerHTML = bookHTML(); });
+      icons(); announce('Call booked for ' + slotLabel(start) + '.');
+      return;
+    }
+    if (t.closest('.do-cancel-book') && BOOKED) {
+      BOOKED.status = 'cancelled'; saveBooking(BOOKED); BOOKED = null;
+      document.querySelectorAll('.book').forEach(function (b) { b.innerHTML = bookHTML(); });
+      icons(); announce('Call cancelled. You can pick another time.');
       return;
     }
   });
@@ -1457,7 +2237,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     if (!e.target.classList.contains('sim-amt')) return;
     var card = e.target.closest('.sim'), v = updateSim(card);
     card._msg.card.amount = v.amount; card._msg.card.term = v.term;
-    checkedChanged(card._msg);
+    checkedChanged(card._msg); syncPlans();
   });
   /* A confirmation holds only for the inputs it was given: moving the slider after it shows "Changed after the check" */
   function checkedChanged(m) {
@@ -1523,6 +2303,11 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   $('advisor-btn').addEventListener('click', function () { if (!job) send('Book an advisor meeting', null); });
 
   /* Permissions */
+  /* Back to the sample customer an admin assigned, every switch off (convex/accounts.ts resetSample) */
+  document.getElementById('perm-reset').addEventListener('click', function () {
+    document.querySelectorAll('[data-perm]').forEach(function (sw) { sw.setAttribute('aria-checked', 'false'); perms[sw.dataset.perm] = false; });
+    var n = document.getElementById('perm-note'); n.hidden = false; n.textContent = 'Back to your assigned sample customer, with everything switched off.';
+  });
   document.querySelectorAll('[data-perm]').forEach(function (sw) {
     sw.addEventListener('click', function () {
       var k = sw.dataset.perm, on = sw.getAttribute('aria-checked') !== 'true';
@@ -1561,14 +2346,28 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   }
   function syncCtxBtn() {
     var open = narrowCtx.matches ? app.classList.contains('ctx-open') : !app.classList.contains('ctx-closed');
-    $('toggle-ctx').setAttribute('aria-expanded', open);
-    $('toggle-ctx').setAttribute('aria-label', open ? 'Hide context panel' : 'Show context panel');
+    var n = $('srcs').children.length, b = $('toggle-ctx');
+    b.setAttribute('aria-expanded', open);
+    b.setAttribute('aria-label', (open ? 'Hide context panel' : 'Show context panel') + (!open && n ? ', ' + n + (n === 1 ? ' source' : ' sources') : ''));
+    b.title = (open ? 'Hide context' : 'Show context') + (mac ? ' (⌘\\)' : ' (Ctrl \\)');
+    $('ctx-count').textContent = n || '';
   }
+  /* Wide screens: the panel opens or closes in place, and the choice is remembered on this device */
+  function setCtxClosed(closed) {
+    app.classList.toggle('ctx-closed', closed);
+    try { localStorage.setItem('raiffy.ctx', closed ? 'closed' : 'open'); } catch (e) {}
+    syncCtxBtn();
+  }
+  function toggleCtx(from) {
+    if (!narrowCtx.matches) setCtxClosed(!app.classList.contains('ctx-closed'));
+    else if (app.classList.contains('ctx-open')) closeDrawers();
+    else openDrawer('ctx', from);
+  }
+  try { if (localStorage.getItem('raiffy.ctx') === 'closed') { app.classList.add('no-anim', 'ctx-closed'); requestAnimationFrame(function () { requestAnimationFrame(function () { app.classList.remove('no-anim'); }); }); } } catch (e) {}
+  new MutationObserver(syncCtxBtn).observe($('srcs'), { childList: true });
   $('open-side').addEventListener('click', function () { openDrawer('side'); });
-  $('toggle-ctx').addEventListener('click', function () {
-    if (narrowCtx.matches) openDrawer('ctx');
-    else { app.classList.toggle('ctx-closed'); syncCtxBtn(); }
-  });
+  $('toggle-ctx').addEventListener('click', function (e) { toggleCtx(e.currentTarget); });
+  $('hide-ctx').addEventListener('click', function () { setCtxClosed(true); $('toggle-ctx').focus(); });
   $('close-ctx').addEventListener('click', closeDrawers);
   $('scrim').addEventListener('click', closeDrawers);
   function onResize() { closeDrawers(); syncCtxBtn(); }
@@ -1578,6 +2377,8 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   /* Keyboard */
   var mac = /Mac|iPhone|iPad/.test(navigator.platform);
   $('kbd-k').textContent = mac ? '⌘K' : 'Ctrl K';
+  $('kbd-ctx').textContent = mac ? '⌘\\' : 'Ctrl \\';
+  syncCtxBtn();
   document.addEventListener('keydown', function (e) {
     var mod = mac ? e.metaKey : e.ctrlKey;
     if (mod && e.key.toLowerCase() === 'k') {
@@ -1585,6 +2386,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       if (narrowSide.matches) openDrawer('side');
       setTimeout(function () { $('search').focus(); $('search').select(); }, narrowSide.matches ? 40 : 0);
     }
+    if (mod && e.key === '\\') { e.preventDefault(); toggleCtx(); }
     var typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
     if (!typing && !mod && !e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); newChat(); }
     if (e.key === 'Escape') {

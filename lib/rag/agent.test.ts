@@ -85,6 +85,113 @@ describe("runAgent", () => {
     expect(String(requests[0]!.messages[0]!.content)).toMatch(/AI assistant/);
   });
 
+  it("carries checked cards from the presentation tool and adds their sources, only on an answered turn", async () => {
+    const url = "https://www.raiffeisen.ro/dep.html";
+    const cards = {
+      tool: { name: "show_cards", description: "cards", input_schema: { type: "object" as const } },
+      check: (raw: unknown, hits: readonly { url: string; text: string }[]) =>
+        hits.some(h => h.url === url && h.text.includes("4.70")) ? { ok: true as const, cards: [raw], urls: [url], note: "Shown." } : { ok: false as const, error: "unsupported" },
+    };
+    const script = () => [
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit 3 luni", limit: 5 })]),
+      message("tool_use", [toolUse("c1", { cards: [{ type: "keyFacts" }] }, "show_cards")]),
+      message("end_turn", [cited("Here is the 3-month deposit at a glance.", 0)]),
+    ];
+    const { deps, requests } = fakeDeps(script(), [[hit("dep", "3 luni: dobândă 4.70% pe an")]]);
+    const answer = await runAgent({ ...input, cards }, deps);
+    expect(answer.cards).toEqual([{ cards: [{ type: "keyFacts" }] }]);
+    expect(answer.sources.map(s => s.url)).toEqual([url]);
+    expect(requests[0]!.tools.map(t => t.name)).toEqual([SEARCH_TOOL_NAME, "show_cards"]);
+    expect(JSON.stringify(requests[2]!.messages.at(-1)!.content)).toContain("Shown.");
+    expect(ragAnswerSchema.safeParse(answer).success).toBe(true);
+
+    // Cards never outlive a failed answer
+    const bad = fakeDeps([...script().slice(0, 2), message("end_turn", [cited("It pays 9.99%.", 0)]), message("end_turn", [cited("It pays 9.99%.", 0)])],
+      [[hit("dep", "3 luni: dobândă 4.70% pe an")]]);
+    const failed = await runAgent({ ...input, cards }, bad.deps);
+    expect(failed.status).toBe("failed_checks");
+    expect(failed.cards).toBeUndefined();
+  });
+
+  it("asks the fallback for cards when the model showed none, with the cited segments and the passage text", async () => {
+    const url = "https://www.raiffeisen.ro/dep.html";
+    const seen: { segments: string[]; hitText: string[] }[] = [];
+    const cards = {
+      tool: { name: "show_cards", description: "cards", input_schema: { type: "object" as const } },
+      check: () => ({ ok: false as const, error: "unused" }),
+      fallback: (segments: readonly { text: string }[], hits: readonly { text: string }[]) => {
+        seen.push({ segments: segments.map(s => s.text), hitText: hits.map(h => h.text) });
+        return { cards: [{ type: "keyFacts" }], urls: [url] };
+      },
+    };
+    const script = () => [
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit 3 luni", limit: 5 })]),
+      message("end_turn", [cited("The 3-month deposit pays 4.70% a year.", 0)]),
+    ];
+    const answer = await runAgent({ ...input, cards }, fakeDeps(script(), [[hit("dep", "3 luni: dobândă 4.70% pe an")]]).deps);
+    expect(answer.cards).toEqual([{ type: "keyFacts" }]);
+    expect(seen).toEqual([{ segments: ["The 3-month deposit pays 4.70% a year."], hitText: ["3 luni: dobândă 4.70% pe an"] }]);
+
+    // Never on a failed answer
+    seen.length = 0;
+    const failed = await runAgent({ ...input, cards }, fakeDeps([script()[0]!, message("end_turn", [cited("It pays 9.99%.", 0)]), message("end_turn", [cited("It pays 9.99%.", 0)])],
+      [[hit("dep", "3 luni: dobândă 4.70% pe an")]]).deps);
+    expect(failed.cards).toBeUndefined();
+    expect(seen).toEqual([]);
+  });
+
+  it("runs host tools whose results are citable, so a cited calculation passes the number check and an invented one doesn't", async () => {
+    const calc = { chunkId: "calc:1", label: "Raiffy calculation", url: "https://www.raiffeisen.ro/loan.html",
+      text: ["Loan monthly payment: 961.21 lei.", "Loan total payable: 57,962.60 lei."].join("\n"), collectedAt: "2026-10-28T07:45:27+00:00", sectionType: "representative_example" as const, score: 1 };
+    const hostTools = [{ tool: { name: "calculate_scenario", description: "calc", input_schema: { type: "object" as const } },
+      run: async () => ({ citables: [calc], note: "Not calculated: overdraft rate: unreviewed." }) }];
+    const script = (answer: string) => [
+      message("tool_use", [toolUse("c1", { calculation: "loan_cost" }, "calculate_scenario")]),
+      message("end_turn", [cited(answer, 0)]),
+    ];
+    const good = fakeDeps(script("You'd pay 961.21 lei a month."));
+    const answer = await runAgent({ ...input, hostTools }, good.deps);
+    expect(answer.status).toBe("answered");
+    expect(answer.sources.map(s => s.chunkIds)).toEqual([["calc:1"]]);
+    expect(good.requests[0]!.tools.map(t => t.name)).toEqual([SEARCH_TOOL_NAME, "calculate_scenario"]);
+    // The API rejects a tool result that mixes search_result blocks with text: the rows go alone, the note follows
+    const sent = good.requests[1]!.messages;
+    const result = (sent.at(-2)!.content as { content: { type: string }[] }[])[0]!.content;
+    expect(result.map((b) => b.type)).toEqual(["search_result"]);
+    expect(sent.at(-1)).toMatchObject({ role: "system" });
+    expect(String(sent.at(-1)!.content)).toContain("calculate_scenario: Not calculated");
+
+    const bad = fakeDeps([...script("You'd pay 950 lei a month."), message("end_turn", [cited("You'd pay 950 lei a month.", 0)])]);
+    expect((await runAgent({ ...input, hostTools }, bad.deps)).status).toBe("failed_checks");
+
+    const failing = [{ ...hostTools[0]!, run: async () => ({ error: "Invalid input: loan references are required" }) }];
+    const err = fakeDeps([message("tool_use", [toolUse("c1", {}, "calculate_scenario")]), message("end_turn", [{ type: "text", text: "I couldn't calculate it." }])]);
+    await runAgent({ ...input, hostTools: failing }, err.deps);
+    expect(JSON.stringify(err.requests[1]!.messages.at(-1)!.content)).toContain('"is_error":true');
+  });
+
+  it("runs preloaded catalog calls before the first model turn, as the model's own earlier call, and lets the answer cite them", async () => {
+    const row = { chunkId: "term:ing-personal-rate", label: "ING Personal: interest rate", url: "https://ing.ro/persoane-fizice/credite/ing-personal",
+      text: "ING Personal (ing). Fixed interest rate: 7.25% a year.", collectedAt: "2026-10-28T07:45:27+00:00", sectionType: "interest_rates" as const, score: 1 };
+    const inputs: unknown[] = [];
+    const hostTools = [{ tool: { name: "query_catalog", description: "catalog", input_schema: { type: "object" as const } },
+      run: async (input: unknown) => { inputs.push(input); return { citables: [row] }; } }];
+    const run = fakeDeps([message("end_turn", [cited("ING Personal has a fixed rate of 7.25% a year.", 0)])]);
+    const answer = await runAgent({ ...input, hostTools, preload: [{ tool: "query_catalog", input: { find: "terms", banks: ["ing"] } }] }, run.deps);
+    expect(answer.status).toBe("answered");
+    expect(answer.sources.map(s => s.chunkIds)).toEqual([["term:ing-personal-rate"]]);
+    expect(inputs).toEqual([{ find: "terms", banks: ["ing"] }]);
+    const [, call, result] = run.requests[0]!.messages;
+    expect(JSON.stringify(call!.content)).toContain('"name":"query_catalog"');
+    expect(JSON.stringify(result!.content)).toContain('"type":"search_result"');
+
+    // Nothing preloaded when the tool isn't offered or finds nothing
+    const empty = fakeDeps([message("end_turn", [{ type: "text", text: "Which product do you mean?" }])]);
+    await runAgent({ ...input, hostTools: [{ ...hostTools[0]!, run: async () => ({ citables: [] }) }], preload: [{ tool: "query_catalog", input: {} }] }, empty.deps);
+    await runAgent({ ...input, preload: [{ tool: "query_catalog", input: {} }] }, fakeDeps([message("end_turn", [{ type: "text", text: "Which product do you mean?" }])]).deps);
+    expect(empty.requests[0]!.messages).toHaveLength(1);
+  });
+
   it("retries once when the answer states a number the fragments don't contain", async () => {
     const { deps, requests } = fakeDeps(
       [
@@ -107,12 +214,12 @@ describe("runAgent", () => {
     const result = '{"inputs":{"netMonthlyIncome":4500,"loanAmount":50000,"termMonths":60},"maxNewInstalment":1800,"maxFittingAnnualRatePercent":35.8}';
     const calls: unknown[] = [];
     const { deps, requests } = fakeDeps([
-      message("tool_use", [toolUse("c1", { calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }, "calculate_scenario")]),
+      message("tool_use", [toolUse("c1", { calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }, "check_affordability")]),
       message("end_turn", [{ type: "text", text: "Up to 1,800 lei of your 4,500 lei can go to instalments, so 50,000 lei fits at any rate up to 35.8%." }]),
     ]);
     const answer = await runAgent({ ...input, withholdFinancialFigures: true },
       { ...deps, calculate: async (data) => { calls.push(data); return { status: "ok", content: result }; } });
-    expect(requests[0]!.tools.map((t) => t.name)).toEqual([SEARCH_TOOL_NAME, "calculate_scenario"]);
+    expect(requests[0]!.tools.map((t) => t.name)).toEqual([SEARCH_TOOL_NAME, "check_affordability"]);
     expect(calls).toEqual([{ calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }]);
     expect(answer).toMatchObject({ status: "answered", checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 } });
     expect(fakeDeps([]).deps.calculate).toBeUndefined();

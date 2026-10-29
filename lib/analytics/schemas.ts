@@ -16,6 +16,7 @@ export const DATA_SOURCES = [
   "ageResidency",
   "idStatus", // identity verification status
   "contractEvents", // applied, signed, withdrawn, repaid
+  "transactions", // income and spending from account statements
 ] as const;
 export const dataSourceSchema = z.enum(DATA_SOURCES);
 export type DataSource = z.infer<typeof dataSourceSchema>;
@@ -78,6 +79,9 @@ export const outcomeEventSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("moneySaved"), lei: z.number().min(0) }),
 ]);
 export type OutcomeEvent = z.infer<typeof outcomeEventSchema>;
+
+/** The smallest group of distinct customers any analytics count may show (the `analytics-min` parameter). */
+export const ANALYTICS_MIN_GROUP = 10;
 
 export const analyticsFilterSchema = z.object({
   from: z.iso.date(),
