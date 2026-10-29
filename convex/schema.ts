@@ -8,6 +8,7 @@ import { PRODUCT_KINDS } from "../lib/catalog/products";
 import { COMMISSION_KEYS } from "../lib/plan/schemas";
 import { ABOUT_LABELS, AFTER, FEEDBACK_REASONS, SENTIMENT_LABELS } from "../lib/analytics/sentiment";
 import { DATA_SOURCES, INTENTS } from "../lib/analytics/schemas";
+import { HANDOFF_REASONS } from "../lib/agent/handoff";
 
 
 /** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
@@ -400,4 +401,26 @@ export default defineSchema({
     note: v.optional(v.string()),
     at: v.number(),
   }).index("by_at", ["at"]).index("by_target", ["targetUserId", "at"]),
+  /** Adviser requests the customer sent from an answer, with the screened messages they agreed to share. */
+  handoffRequests: defineTable({
+    ownerKey: v.string(),
+    track,
+    organizationKey: v.union(v.null(), v.string()),
+    threadId: v.id("ragThreads"),
+    messageId: v.id("ragMessages"),
+    reason: v.union(...HANDOFF_REASONS.map((reason) => v.literal(reason))),
+    reference: v.string(),
+    summary: v.array(v.string()),
+    status: v.literal("requested"),
+    createdAt: v.number(),
+  }).index("by_message", ["messageId"]).index("by_owner", ["ownerKey", "createdAt"]),
+  /** Regulatory parameters for indicative checks, each with its source; imported from catalog/regulatory-limits.jsonl. */
+  regulatoryLimits: defineTable({
+    key: v.string(),
+    value: v.number(),
+    sourceLabel: v.string(),
+    sourceUrl: v.string(),
+    validFrom: v.string(),
+    status: v.union(v.literal("pending_review"), v.literal("approved")),
+  }).index("by_key", ["key"]),
 });

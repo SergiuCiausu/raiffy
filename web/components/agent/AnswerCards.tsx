@@ -13,7 +13,8 @@ import { CARD_TYPES, type AnswerCardBlock, type CardFact, type CardRecommendatio
  * ever light. Every figure keeps the number of its source chip.
  */
 
-export const isAnswerCard = (b: UiBlock): b is AnswerCardBlock => (CARD_TYPES as readonly string[]).includes(b.type);
+// The routes block reshaped from the answer text carries a "state"; the chat shows that list in the text itself.
+export const isAnswerCard = (b: UiBlock): b is AnswerCardBlock => (CARD_TYPES as readonly string[]).includes(b.type) && !("state" in b);
 
 type Cite = (url?: string) => ReactNode;
 type Sub = (urls: (string | undefined)[]) => string | undefined;

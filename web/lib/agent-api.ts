@@ -32,6 +32,38 @@ export type Answer = {
   ui?: { flags: { aiDisclosure: true; suppressOffers: boolean }; blocks?: UiBlock[]; actions: UiAction[] };
 };
 
+export type HandoffReason = "customer_request" | "offer_review" | "complaint" | "missing_evidence" | "hardship" | "fraud";
+export type HandoffAction = { kind: "handoff"; label: string; reason: HandoffReason };
+export type HandoffRequest = { reference: string; status: "requested"; createdAt: number };
+
+/** Adviser requests (convex/handoff.ts). The customer sees `preview`, exactly what the adviser gets, before sending. */
+export const handoffApi = {
+  forMessage: makeFunctionReference<"query", { messageId: MessageId }, { preview: string[]; request: HandoffRequest | null }>("handoff:forMessage"),
+  request: makeFunctionReference<"mutation", { messageId: MessageId; reason: HandoffReason }, HandoffRequest>("handoff:request"),
+};
+
+/** One route card, reshaped by the backend composer from the checked answer's route list (lib/agent/routes.ts). */
+export type RouteCard = { title: string; recommended: boolean; summary: string; mainRisk?: string; why?: string; sourceIds: string[] };
+/** `start`/`end` locate the route list in the joined segment text; the cards replace it on screen. */
+export type RoutesBlock = { type: "routes"; state: "partial"; start: number; end: number; routes: RouteCard[] };
+export type MemoryKind = "goal" | "preference" | "constraint" | "stated_financial";
+/** Memories Claude proposed this turn; each waits for the customer's Remember or Not now (convex/memory.ts). */
+export type MemoryBlock = { type: "memory"; proposals: { id: string; kind: MemoryKind; text: string; customerQuote: string }[] };
+
+
+export type MemoryView = { id: string; kind: MemoryKind; text: string; statedAt: number; updatedAt: number; expiresAt: number };
+export type ProposalView = { id: string; operation: "remember" | "update"; kind: MemoryKind; text: string; customerQuote: string; createdAt: number; expiresAt: number };
+type MemoryChange = { status: "proposed" | "saved" | "rejected" | "forgotten"; id: string };
+
+/** The customer's own memory store. Every call is scoped to the signed-in identity on the server. */
+export const memoryApi = {
+  listMine: makeFunctionReference<"query", { track: Track }, { memories: MemoryView[]; proposals: ProposalView[] }>("memory:listMine"),
+  confirm: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:confirm"),
+  reject: makeFunctionReference<"mutation", { track: Track; proposalId: string }, MemoryChange>("memory:reject"),
+  forgetOne: makeFunctionReference<"mutation", { track: Track; memoryId: string }, MemoryChange>("memory:forgetOne"),
+  forgetAll: makeFunctionReference<"mutation", { track: Track }, { memoriesDeleted: number; proposalsDeleted: number }>("memory:forgetAll"),
+};
+
 /** Mirrors lib/agent/inputs.ts InputField: one missing required input Raiffy asks for. */
 export type InputField = {
   key: string; label: string; question: string; hint?: string;
@@ -96,14 +128,17 @@ export type UiBlock =
   | AnswerCardBlock
   | SpendingBlock
   | OfferBlock
-  | CompareBlock;
+  | CompareBlock
+  | RoutesBlock
+  | MemoryBlock;
 /** Account sources (`raiffy:account/...`) aren't web pages: show them as chips without a link. */
 export const isWebSource = (url: string) => /^https?:/i.test(url);
 export const CARD_TYPES: readonly AnswerCardBlock["type"][] = ["comparison", "routes", "keyFacts", "checklist", "handoff", "simulation"];
 export type UiAction =
   | { kind: "followup"; label: string; prompt: string }
   | { kind: "choose"; label: string; prompt: string; inquiry: string }
-  | { kind: "skip_inputs"; label: string; prompt: string };
+  | { kind: "skip_inputs"; label: string; prompt: string }
+  | HandoffAction;
 /** Structured part of a customer reply; the server accepts it only for what Raiffy offered in this thread. */
 export type Reply =
   | { kind: "choose"; inquiry: string }

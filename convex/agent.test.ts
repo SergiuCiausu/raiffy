@@ -14,14 +14,14 @@ vi.mock("./knowledge", () => ({ searchKnowledge: searchMock }));
 /** Number of inquiry labels Jev chooses from; split distributions below are built from it. */
 const LABELS = Object.keys(INQUIRIES).length;
 
-function classification() {
-  const choice = (labels: Record<string, string>, selected: string) => {
-    const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
-    return { type: "choice", choice: selected, confidence: 0.95,
-      probabilities: Object.fromEntries(keys.map(k => [k, k === selected ? top : (1-top)/(keys.length-1)])) };
-  };
+const choice = (labels: Record<string, string>, selected: string) => {
+  const keys = Object.keys(labels); const top = 0.95 * (1 - 1/keys.length) + 1/keys.length;
+  return { type: "choice", choice: selected, confidence: 0.95,
+    probabilities: Object.fromEntries(keys.map(k => [k, k === selected ? top : (1-top)/(keys.length-1)])) };
+};
+function classification(inquiry = "product_explanation", scope = "detail") {
   return { model: "jev-1.14.0", answers: {
-    inquiry: choice(INQUIRIES, "product_explanation"), scope: choice(SCOPES, "detail"), complexity: choice(COMPLEXITIES, "simple"),
+    inquiry: choice(INQUIRIES, inquiry), scope: choice(SCOPES, scope), complexity: choice(COMPLEXITIES, "simple"),
     audience: choice(AUDIENCES, "unclear"), memory_operation: choice(MEMORY_OPERATIONS, "none"), memory_candidate: choice(MEMORY_CANDIDATES, "none"),
     ...Object.fromEntries(["memory_durable", "special_category", "multi_goal", "crisis", "fraud", "hardship", "aml_evasion", "prompt_injection"].map(k => [k, { type: "noul", noul: 0.01 }])),
   }, usage: { input_tokens: 100, output_tokens: 20 } };
@@ -36,6 +36,9 @@ const modules = {
   "./advice.ts": () => import("./advice"),
   "./accounts.ts": () => import("./accounts"),
   "./pricing.ts": () => import("./pricing"),
+  "./regulatoryLimits.ts": () => import("./regulatoryLimits"),
+  "./memory.ts": () => import("./memory"),
+  "./conversations.ts": () => import("./conversations"),
 };
 const fresh = () => convexTest(schema, modules);
 const identity = (subject = "alice", org_id?: string) => ({ subject, issuer: "https://clerk.test", tokenIdentifier: `https://clerk.test|${subject}`, ...(org_id ? { org_id } : {}) });
@@ -79,6 +82,25 @@ describe("UI to Jev to RAG pipeline", () => {
     expect(searchMock).not.toHaveBeenCalled();
   });
 
+  it("retries Jev once after a malformed reply, but not after a timeout", async () => {
+    jevMock.mockResolvedValueOnce({ status: "unavailable", reason: "invalid_response" });
+    const retried = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(jevMock).toHaveBeenCalledTimes(2);
+    expect(retried.answer.routing.reason).not.toBe("invalid_response");
+    jevMock.mockReset().mockResolvedValue({ status: "unavailable", reason: "timeout" });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(jevMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the customer's own figures in the final catalog check", async () => {
+    const question = "I am 20 and want 10,000 EUR. Can I get a personal loan?";
+    runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "At 20 you don't meet the minimum age yet, so 10,000 EUR isn't available today." });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question });
+    expect(result.answer.text).toContain("10,000 EUR");
+    expect(result.answer.verification.financialTermsSupported).toBe(true);
+    expect(runAgentMock.mock.calls[0]![0].customerStatements).toEqual([question]);
+  });
+
   it("shows financial figures from a checked answer as fetched (demo)", async () => {
     runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "The interest rate is 5.5%." });
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
@@ -99,7 +121,8 @@ describe("UI to Jev to RAG pipeline", () => {
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(result.answer.ui.mode).toBe("hardship");
     expect(result.answer.ui.flags.suppressOffers).toBe(true);
-    expect(result.answer.ui.actions).toEqual([]);
+    // No sales follow-ups; only the human callback the hardship flow calls for.
+    expect(result.answer.ui.actions).toEqual([{ kind: "handoff", label: "Talk to an adviser", reason: "hardship" }]);
     expect(runAgentMock).not.toHaveBeenCalled();
   });
 
@@ -193,6 +216,65 @@ describe("UI to Jev to RAG pipeline", () => {
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "Which current account is cheaper, yours or ING's?" });
     expect(result.answer.routing).toMatchObject({ inquiry: "product_comparison", basis: "fallback", fallbackUsed: true });
     expect(runAgentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the affordability check on the customer's figures and the stored limits, and keeps its figures in the answer", async () => {
+    jevMock.mockResolvedValue({ status: "classified", classification: classification("affordability") });
+    const t = fresh();
+    await t.run(async (ctx) => {
+      for (const [key, value] of [["dti_max_share_ron", 0.4], ["dti_max_share_fx", 0.2], ["consumer_loan_max_months", 60]] as const) {
+        await ctx.db.insert("regulatoryLimits", { key, value, sourceLabel: "Test limits", sourceUrl: "https://example.test", validFrom: "2026-01-01", status: "pending_review" });
+      }
+    });
+    runAgentMock.mockImplementation(async (_input, deps) => {
+      const ok = await deps.calculate({ calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 });
+      expect(JSON.parse(ok.content).results.maxNewMonthlyInstalment).toBe(1800);
+      expect((await deps.calculate({ calculation: "loan_affordability", netMonthlyIncome: 9000, loanAmount: 50000, termMonths: 60 })).status).toBe("unavailable");
+      return { ...answer, status: "answered", text: "Up to 1,800 lei a month can go to instalments." };
+    });
+    const result = await t.withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "My salary is 4500 lei and I have no other loans. Can I borrow 50000 lei over 60 months?" });
+    expect(result.answer.verification.financialTermsSupported).toBe(true);
+    expect(result.answer.text).toContain("1,800 lei");
+  });
+
+  it("records the message, queues Claude's memory proposal for consent and brings saved memories into later chats", async () => {
+    vi.stubEnv("CONVEX_CLOUD_URL", "http://127.0.0.1:3210");
+    vi.stubEnv("RAIFFY_MEMORY_WRITES_ENABLED", "true");
+    vi.stubEnv("RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL", "http://127.0.0.1:3210");
+    const stated = classification("purchase_goal", "solution");
+    Object.assign(stated.answers, { memory_candidate: choice(MEMORY_CANDIDATES, "goal"), memory_durable: { type: "noul", noul: 0.9 } });
+    jevMock.mockResolvedValue({ status: "classified", classification: stated });
+    const alice = fresh().withIdentity(identity());
+    const question = "I want to buy a used car next year for about 30,000 lei.";
+    runAgentMock.mockImplementation(async (input, deps) => {
+      expect(input.customerContext).toBeUndefined();
+      expect(await deps.proposeMemory({ kind: "goal", text: "buy a used car next year", customerQuote: question })).toMatchObject({ status: "proposed" });
+      expect((await deps.proposeMemory({ kind: "goal", text: "buy a boat", customerQuote: "I want to buy a boat." })).status).toBe("unavailable");
+      return answer;
+    });
+    const first = await alice.action(anyApi.agent.ask, { ...args, question });
+    const block = first.answer.ui.blocks.find((b: { type: string }) => b.type === "memory");
+    expect(block.proposals).toEqual([{ id: expect.any(String), kind: "goal", text: "buy a used car next year", customerQuote: question }]);
+    await alice.mutation(anyApi.memory.confirm, { track: "personal", proposalId: block.proposals[0].id });
+
+    runAgentMock.mockImplementation(async (input) => { expect(input.customerContext).toContain("buy a used car next year"); return answer; });
+    await alice.action(anyApi.agent.ask, { ...args, question: "Which loan would suit me for a 30,000 lei car?" });
+    expect(runAgentMock).toHaveBeenCalledTimes(2);
+
+    const inspect = classification(); inspect.answers.memory_operation = choice(MEMORY_OPERATIONS, "inspect");
+    jevMock.mockResolvedValue({ status: "classified", classification: inspect });
+    const listed = await alice.action(anyApi.agent.ask, { ...args, question: "What do you remember about me?" });
+    expect(listed.answer.text).toContain("buy a used car next year");
+    expect(runAgentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps memory proposals off where writes aren't enabled for this deployment", async () => {
+    const stated = classification("purchase_goal", "solution");
+    Object.assign(stated.answers, { memory_candidate: choice(MEMORY_CANDIDATES, "goal"), memory_durable: { type: "noul", noul: 0.9 } });
+    jevMock.mockResolvedValue({ status: "classified", classification: stated });
+    runAgentMock.mockImplementation(async (_input, deps) => { expect(deps.proposeMemory).toBeUndefined(); return answer; });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question: "I want to buy a used car next year." });
+    expect(result.answer.ui.blocks.some((b: { type: string }) => b.type === "memory")).toBe(false);
   });
 
   it("enforces a per-owner request limit before provider spend", async () => {

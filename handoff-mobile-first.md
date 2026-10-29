@@ -4,15 +4,10 @@
 
 ## Git state (read this first)
 
-- The branch `starter-vignette-motion` is pushed, and **PR #9** (https://github.com/SergiuCiausu/raiffy/pull/9) is open into `main`. Nothing is on `main` yet.
-- PR #9 **conflicts with `main`** in 18 files, about 50 places. Nearly all of it is agent and RAG logic, where this branch's agent work and main's PR #8 demo fixes changed the same functions:
-  - `convex/agent.ts`, `convex/agent.test.ts`, `convex/schema.ts`
-  - `lib/rag/{agent,answer,prompt}.ts`, `lib/agent/{route,composer,prompt}.ts`, `lib/agent/agent.test.ts`
-  - `evals/agent-routing.json`
-  - `web/components/agent/AgentChat.tsx`, `web/lib/agent-api.ts`, `web/styles/agent.css`
-  - `progress.md`, `web/README.md`, `.gitignore`, `web/pnpm-workspace.yaml`
-
-  The user chose to resolve these in the PR rather than pick a side. Don't force either version. Resolve them with whoever owns the agent work, then run `pnpm test`, `pnpm typecheck` and `pnpm convex:typecheck` (root) and `pnpm test` (`web/`).
+- The branch `starter-vignette-motion` is pushed, and **PR #9** (https://github.com/SergiuCiausu/raiffy/pull/9) is open into `main`.
+- `origin/main` is **merged into the branch** (29 Oct). All 18 conflicted files are resolved: the branch's agent pipeline is the base, and main's PR #8 features are ported in. What was kept, ported or left out is in the top entry of `progress.md`.
+- `convex/_generated/` is now committed, following main, and was regenerated for the merged code with `convex codegen`.
+- Checks after the merge: root 694 tests, `pnpm typecheck`, `pnpm convex:typecheck`; `web/` 60 tests, `tsc` and lint. All pass.
 - **Left out on purpose:** `.gstack/*.log`/`.jsonl` (browse tool logs) and the root `cancel-ask.png` and `chat-cancelled.png`. Main's PR #8 removed tracked clutter like this.
 - The mobile-first work itself doesn't touch the conflicted agent files, except that `web/styles/agent.css` still needs its Phase 2 pass. Do that pass after the merge.
 

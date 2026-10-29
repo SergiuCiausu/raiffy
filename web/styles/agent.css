@@ -263,3 +263,41 @@
 .pg-chat .book-topic .input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .pg-chat .booking-panel { display: grid; gap: 8px; padding-bottom: 16px; }
 .pg-chat .booking-close { justify-self: start; }
+
+/* Answer formatting: bold stays ink, the list markers come through as bullets in the text itself. */
+.pg-chat .answer strong { font-weight: 600; color: var(--text-1); }
+
+/* Route cards from the answer text (components/agent/RouteCards.tsx): the demo's .opts grid, flowing to as many columns as fit. */
+.pg-chat .text-routes { list-style: none; margin: 0; padding: 0; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
+.pg-chat .text-routes[data-count="4"] { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.pg-chat .text-routes .opt { align-content: start; }
+.pg-chat .opt-sum { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); text-wrap: pretty; }
+.pg-chat .kv-stack { display: grid; gap: 2px; }
+.pg-chat .kv-stack b { font-size: 13px; line-height: 1.45; font-weight: 400; }
+.pg-chat .opt-src { display: flex; flex-wrap: wrap; gap: 4px; }
+.pg-chat .opt-src .cite { margin-left: 0; }
+
+/* Memory (components/agent/Memory.tsx): Raiffy's proposals under an answer, and the saved list in Context. */
+.pg-chat .mem-list, .pg-chat .mem-saved { list-style: none; margin: 0; padding: 0; display: grid; }
+.pg-chat .mem-item { display: grid; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.pg-chat .mem-item:first-child { border-top: 0; }
+.pg-chat .mem-body { display: grid; gap: 3px; min-width: 0; }
+.pg-chat .mem-kind { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.pg-chat .mem-body b { font-size: 14px; font-weight: 500; color: var(--text-1); overflow-wrap: anywhere; }
+.pg-chat .mem-body p { margin: 0; font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
+.pg-chat .mem-body small { font-size: 13px; line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.pg-chat .mem-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 320px; }
+.pg-chat .mem-status { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.pg-chat .mem-status svg { width: 14px; height: 14px; color: var(--color-check); stroke-width: 2.4; }
+.pg-chat .mem-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 10px 0; border-top: 1px solid var(--border); }
+.pg-chat .mem-row:first-child { border-top: 0; }
+.pg-chat .mem-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.pg-chat .mem-forget-all { margin-top: 10px; width: 100%; }
+
+/* Adviser handoff (components/agent/Handoff.tsx): the button under an answer, the preview and the sent status. */
+.pg-chat .handoff-btn { margin-top: 12px; }
+.pg-chat .handoff-card { margin-top: 12px; }
+.pg-chat .handoff-card .gc-h svg { width: 14px; height: 14px; }
+.pg-chat .handoff-note { margin: 0; padding: 0 14px 12px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.pg-chat .handoff-acts { padding: 0 14px 14px; }
+.pg-chat .handoff-card .mem-status { padding: 0 14px 12px; }

@@ -14,7 +14,7 @@ import { askFallbackModel } from "./fallbackModel";
 import { NO_TRACE, rounded, trace, type Trace } from "./trace";
 import { replyValidator } from "./schema";
 import { planAgentRoute, type RouteOptions, type RoutePlan } from "../lib/agent/route";
-import { composeAnswer, routeResponse } from "../lib/agent/composer";
+import { composeAnswer, memoryResponse, routeResponse, type MemoryBlock } from "../lib/agent/composer";
 import { AGENT_POLICY } from "../lib/agent/config";
 import { answerGuide } from "../lib/agent/guides";
 import { checkCards, showCardsTool, SHOW_CARDS_TOOL_NAME, type AnswerCard } from "../lib/agent/blocks";
@@ -39,7 +39,15 @@ import { buildInputsBrief, customerAllowedFigures, extractInputs, gateInputs, in
   NEED_BY_REPLIES, type InputsBrief, type ResolvedInputs, type Values } from "../lib/agent/inputs";
 import { buildRecentContext, conversationValues, nextState, readState, type ConversationState } from "../lib/agent/state";
 import { unavailableResult } from "../lib/rag/knowledge";
+import { answerScopeNote } from "../lib/rag/prompt";
+import { runCalculator } from "../lib/agent/calculator";
+import type { CalculateScenarioInput, ProposeMemoryInput } from "../lib/agent/prompt";
+import { memoryEnvironment } from "./memoryAuth";
+import { customerMemoryWritesEnabled } from "../lib/agent/memory-store";
+import { memoryContextNote, type ContextMemory } from "../lib/agent/memory";
+import type { MemoryProposalResult } from "../lib/rag/agent";
 import { namedBanks } from "../lib/rag/query";
+import { handoffActionFor } from "../lib/agent/handoff";
 
 const HISTORY_TURNS = 10;
 
@@ -242,18 +250,33 @@ export const run = action({
       t.step("state.loaded", { inquiry: state.inquiry ?? null, pending: state.pending ? { inquiry: state.pending.inquiry, keys: state.pending.keys, round: state.pending.round } : null,
         offered: state.offered, knownInputs: Object.keys(state.inputs ?? {}), reply: reply?.kind ?? "none", contextChars: recentContext.length });
       step = "jev";
-      const classified = await t.time("jev.classify", () => requestJev({ message: question, recentContext }, jevOptions), (c) => c.status === "classified" ? {
+      const classify = () => requestJev({ message: question, recentContext }, jevOptions);
+      const classifiedFirst = await t.time("jev.classify", classify, (c) => c.status === "classified" ? {
         status: c.status, model: c.classification.model ?? undefined,
         inquiry: rounded(Object.fromEntries(Object.entries(c.classification.answers.inquiry.probabilities).sort(([, a], [, b]) => b - a).slice(0, 3))),
         risks: rounded(Object.fromEntries(Object.entries(c.classification.answers).filter(([, a]) => a?.type === "noul").map(([k, a]) => [k, a?.type === "noul" ? a.noul : null]))),
       } : { status: c.status, reason: c.reason, enabled: jevOptions.enabled, hasKey: !!jevOptions.apiKey });
+      // One retry for a malformed or failed reply: without a classification the customer gets no answer at all.
+      // Timeouts aren't retried, so the worst case stays within two transport deadlines.
+      const retryJev = classifiedFirst.status === "unavailable" && (classifiedFirst.reason === "invalid_response" || classifiedFirst.reason === "provider_error");
+      const classified = retryJev ? await t.time("jev.retry", classify, (c) => ({ status: c.status })) : classifiedFirst;
+      // Memory: what this customer confirmed earlier, and (where writes are on) this message as the only source
+      // a new proposal may quote. Screening decides whether the message may be a source at all.
+      step = "memory";
+      const track = input.thread.track;
+      const writes = customerMemoryWritesEnabled(memoryEnvironment());
+      const memories: ContextMemory[] = await ctx.runQuery(internal.memory.forAgent, { track }).catch(() => []);
+      // The customer's own statements: their figures may be repeated in the answer, and the affordability check may use them.
+      const customerTexts = [question, ...input.history.filter(turn => turn.role === "user").map(turn => turn.text), ...memories.map(m => m.text)];
+      const source = writes ? await ctx.runMutation(internal.conversations.recordCustomerMessage, { track, text: question }).catch(() => null) : null;
+      t.step("memory.loaded", { memories: memories.length, writes, eligible: source?.memoryEligible ?? null });
       step = "route";
       // Income and existing payments from the sample account, only with the account switch on (below what the customer says)
       // Statements give income and every debt payment; with only the loans switch on, Raiffeisen loan payments still count.
-      const account = input.thread.track === "personal" ? { ...holdingInputs(await holdingsFor(ctx, "personal", ["loans"])),
+      const account = track === "personal" ? { ...holdingInputs(await holdingsFor(ctx, "personal", ["loans"])),
         ...accountInputs(await expenseSummaryFor(ctx, "personal", "last_three_complete_months")) } : {};
       if (Object.keys(account).length) t.step("account.inputs", { keys: Object.keys(account) });
-      const turn = await routeTurn({ question, recentContext, state, reply, classified, track: input.thread.track, jevOptions, account, t });
+      const turn = await routeTurn({ question, recentContext, state, reply, classified, track, jevOptions, account, memoryEligible: !!source?.memoryEligible, t });
       const { plan, resolved, ask } = turn;
       // Labels only, for the Console's Sentiment page; never blocks or changes the answer.
       const feeling = classified.status === "classified" ? classified.classification.answers : null;
@@ -265,12 +288,21 @@ export const run = action({
       }
       let answer: RagAnswer;
       const used: ToolUse[] = [];
-      if (!plan.model || !["answer", "orchestrator"].includes(plan.handler)) {
+      const proposals: MemoryBlock["proposals"] = [];
+      const operation = plan.reason === "explicit_memory_request" ? plan.memoryOperation : null;
+      if (operation === "inspect" || operation === "forget") {
+        answer = memoryResponse(operation, memories, writes);
+        t.step("answer.memory", { operation, memories: memories.length });
+      } else if (operation && writes && !source?.memoryEligible) {
+        answer = memoryResponse("ineligible", memories, writes);
+        t.step("answer.memory", { operation: "ineligible" });
+      } else if (!plan.model || !["answer", "orchestrator"].includes(plan.handler)) {
         answer = routeResponse(plan, { inputs: ask ?? undefined });
         t.step("answer.scripted", { handler: plan.handler, reason: plan.reason ?? null, why: plan.model ? "handler has no model" : "no model for this route" });
       } else {
         step = "generate";
-        answer = await generate(ctx, question, input.history, plan, messageId, turn.brief, resolved ? customerAllowedFigures(question, resolved) : [], t, used);
+        answer = await generate(ctx, question, input.history, plan, messageId, turn.brief, resolved ? customerAllowedFigures(question, resolved) : [], t, used,
+          { memories, proposals, customerTexts, ...(source?.memoryEligible ? { sourceMessageId: source.messageId } : {}) });
       }
       step = "check";
       // Demo: prices are shown as fetched. Every figure must still appear in a cited passage from this turn's search
@@ -290,7 +322,7 @@ export const run = action({
       const followups = "needsTiming" in answer && answer.needsTiming ? NEED_BY_REPLIES : turn.brief ? [...turn.brief.optional.filter(o => o.value === null).slice(0, 2).map(o => `Add my ${o.label.toLowerCase()}`),
         "Which official documents should I read?"] : undefined;
       step = "save";
-      const envelope = composeAnswer(messageId, plan, answer, { inputs: ask ?? undefined, followups });
+      const envelope = composeAnswer(messageId, plan, answer, { inputs: ask ?? undefined, followups, proposals });
       await ctx.runMutation(internal.agent.saveState, { threadId: input.thread._id, state: nextState(state, {
         inquiry: plan.inquiry, scope: plan.scope, resolved: resolved ?? undefined,
         asked: ask && plan.inquiry ? { inquiry: plan.inquiry, keys: ask.fields.map(f => f.key), round: ask.round } : null,
@@ -298,7 +330,7 @@ export const run = action({
       }) });
       await ctx.runMutation(internal.agent.complete, { messageId, answer: { ...answer,
         routing: { handler: plan.handler, inquiry: plan.inquiry, confidence: plan.confidence, classifierModel: plan.classifierModel,
-          collections: plan.collections, unavailable: plan.unavailable, reason: classified.status === "unavailable" ? classified.reason : plan.reason,
+          collections: plan.collections, tools: plan.tools, unavailable: plan.unavailable, reason: classified.status === "unavailable" ? classified.reason : plan.reason,
           basis: plan.routingBasis, candidates: plan.candidates, fallbackUsed: turn.fallbackUsed,
           // Which inputs were known and from where, without their values.
           inputs: resolved ? { known: Object.fromEntries(Object.entries(resolved.known).map(([k, x]) => [k, x!.source])), missingRequired: resolved.missingRequired } : null },
@@ -306,6 +338,9 @@ export const run = action({
           .filter(([, a]) => a?.type === "choice").map(([key, a]) => [key, a?.type === "choice" ? a.confidence : null])) : {},
         // The full inquiry distribution, for calibrating per-label thresholds.
         inquiryProbabilities: classified.status === "classified" ? classified.classification.answers.inquiry.probabilities : {},
+        // Yes/no probabilities (risks, durability, special category): they gate tools, so they stay visible.
+        classifierSignals: classified.status === "classified" ? Object.fromEntries(Object.entries(classified.classification.answers)
+          .flatMap(([key, a]) => a?.type === "noul" ? [[key, a.noul]] : [])) : {},
         verification, ui: envelope } });
       // Counts only, for the Console's Analytics page; never blocks the answer.
       await ctx.runMutation(internal.analytics.record, { messageId, inquiry: plan.inquiry ?? null, handler: plan.handler, status: verification.status, attempts, tools: used })
@@ -322,6 +357,8 @@ export const run = action({
   },
 });
 
+/** Memory for one turn: confirmed memories, proposals queued so far, the customer's own texts and the message a proposal may quote. */
+type MemoryTurn = { memories: ContextMemory[]; proposals: MemoryBlock["proposals"]; customerTexts: readonly string[]; sourceMessageId?: Id<"messages"> };
 type JevOptions = { enabled: boolean; apiKey?: string };
 type Turn = { plan: RoutePlan; resolved: ResolvedInputs | null; ask: { fields: ReturnType<typeof inputFields>; round: number } | null; brief: InputsBrief | null; fallbackUsed: boolean };
 
@@ -330,10 +367,11 @@ type Turn = { plan: RoutePlan; resolved: ResolvedInputs | null; ask: { fields: R
  * question or a tapped choice, then the small fallback model only if Jev could not decide, then the inputs gate.
  */
 async function routeTurn(args: { question: string; recentContext: string; state: ConversationState; reply?: Reply;
-  classified: Awaited<ReturnType<typeof requestJev>>; track: "personal" | "business"; jevOptions: JevOptions; account?: Values; t?: Trace }): Promise<Turn> {
+  classified: Awaited<ReturnType<typeof requestJev>>; track: "personal" | "business"; jevOptions: JevOptions; account?: Values; memoryEligible?: boolean; t?: Trace }): Promise<Turn> {
   const { question, recentContext, state, reply, classified } = args;
   const t = args.t ?? NO_TRACE;
-  const context = { track: args.track, availableTools: ["search_knowledge" as const, "query_catalog" as const, "get_product_terms" as const, "calculate_scenario" as const, "get_expense_summary" as const, "get_holdings" as const, "get_approved_offers" as const, "negotiate_offer" as const],
+  const context = { track: args.track, availableTools: ["search_knowledge" as const, "query_catalog" as const, "get_product_terms" as const, "calculate_scenario" as const, "get_expense_summary" as const, "get_holdings" as const, "get_approved_offers" as const, "negotiate_offer" as const, "check_affordability" as const,
+    ...(args.memoryEligible ? ["propose_memory_change" as const] : [])],
     availableCollections: ["bank_product_docs" as const, "competitor_docs" as const, "banking_help" as const], requestedBanks: namedBanks(question),
     intentHints: bankingIntent(question) };
   const raw = classified.status === "classified" ? classified.classification : {};
@@ -426,7 +464,7 @@ function statedOf(brief: InputsBrief | null): StatedInputs {
 type ToolUse = { name: string; kinds?: string[] };
 
 async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[], plan: RoutePlan, messageId: Id<"ragMessages">, brief: InputsBrief | null,
-  figures: string[] = [], t: Trace = NO_TRACE, used: ToolUse[] = []): Promise<RagAnswer & { needsTiming?: true }> {
+  figures: string[] = [], t: Trace = NO_TRACE, used: ToolUse[] = [], memory: MemoryTurn = { memories: [], proposals: [], customerTexts: [] }): Promise<RagAnswer & { needsTiming?: true }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !plan.model) { t.step("model.unavailable", { hasKey: !!apiKey, model: plan.model?.id ?? null }); return routeResponse({ ...plan, handler: "unavailable" }); }
   t.step("model.start", { model: plan.model.id, effort: plan.model.effort, collections: plan.collections, chunkBudget: plan.limits.publicChunks, brief: brief !== null });
@@ -436,8 +474,12 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   let calls = 0;
   const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 45_000 });
   const seen = new Set<string>();
-  const comparedCollections = plan.collections.includes("bank_product_docs") && plan.collections.includes("competitor_docs")
-    ? ["bank_product_docs", "competitor_docs"] : [];
+  // Evidence space is kept for the second collection Claude should search: a bank the customer named,
+  // or the product pages' FAQs for a single product. Unused reservations would starve the other searches.
+  const second = namedBanks(question).some(bank => bank !== "raiffeisen") ? "competitor_docs"
+    : plan.scope !== "solution" && plan.scope !== "compare" ? "banking_help" : null;
+  const pairedCollections = second && plan.collections.includes("bank_product_docs") && plan.collections.includes(second)
+    ? ["bank_product_docs", second] : [];
   const searchedCollections = new Set<string>();
   // A routes card built by compare_routes replaces any routes card Claude makes, so the recommendation is never
   // model-written (lib/advice/copy.ts withHostRoutesCard).
@@ -563,7 +605,19 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
   const prefetch = plan.tools.includes("query_catalog")
     ? prefetchQuery({ inquiry: plan.inquiry, productKind: typeof productKind === "string" ? productKind : null, banks: namedBanks(question) }) : null;
   if (prefetch) t.step("catalog.prefetch", { find: prefetch.find, productKind: prefetch.productKind ?? null, banks: prefetch.banks ?? [] });
+  // Several routes need several searches, so no single search may take the whole evidence budget.
+  const perSearch = plan.scope === "solution" ? 2 : plan.scope === "compare" ? 3 : plan.limits.publicChunks;
+  // The indicative debt-service check (lib/agent/calculator.ts) and memory proposals the customer confirms in the app.
+  const affordability = plan.tools.includes("check_affordability");
+  const proposing = plan.tools.includes("propose_memory_change") && memory.sourceMessageId !== undefined;
+  const memoryNotes = [
+    affordability ? "Affordability: when the customer asks whether they can afford or qualify for a loan and has given their net monthly income, the amount and the term, call check_affordability (loan_affordability) with only the figures they wrote; it needs no product rate and is never a credit decision. If a figure is missing, ask for it." : "",
+    proposing ? "When the customer states something lasting about themselves (a goal, a preference, a constraint, or a figure about their own finances such as their net income or the instalments they already pay), propose each with propose_memory_change, alongside your answer. The customer confirms each one in the app, so never say it is saved." : "",
+    handoffActionFor(plan, "normal") ? "The app shows a Book an adviser button under this answer: point to it when a person can take the decision further, but never say an appointment is booked or that an adviser has been told." : "",
+  ].filter(Boolean).join(" ");
+  const unavailable = memory.memories.length ? plan.unavailable.filter(id => id !== "user_memory") : plan.unavailable;
   const answer = await runAgent({ question, track: plan.track, history, model: plan.model.id, allowedCollections: plan.collections, customerFigures: figures, cards, hostTools,
+    customerContext: memoryContextNote(memory.memories), customerStatements: memory.customerTexts,
     preload: prefetch ? [{ tool: QUERY_CATALOG_TOOL.name, input: prefetch }] : [] }, {
     createMessage: async ({ system, tools, messages }) => {
       const state = await ctx.runQuery(internal.agent.request, { messageId });
@@ -571,8 +625,9 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       calls += 1;
       return t.time(`model.call#${calls}`, () => client.beta.messages.create({ model: plan.model!.id, max_tokens: 8000,
         output_config: { effort: plan.model!.effort }, system: [...system, { type: "text", text:
-          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable: plan.unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog or saved memory are connected${plan.tools.includes("negotiate_offer") ? "; Raiffeisen prices and counter-offers come only from get_approved_offers and negotiate_offer (sample pricing)" : ", and no approved offers are connected"}${plan.tools.includes("get_expense_summary") ? "; account data comes only from get_expense_summary, and in this preview it is sample data, which you must say" : ", and no account data is connected"}. Quote rates, fees, monetary amounts and credit limits exactly as they appear in this turn's search results, each with its citation, and say they are dated public figures, not a personal offer. If a figure isn't in the results, say it wasn't found; never estimate it. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` },
+          `Trusted route: ${JSON.stringify({ inquiry: plan.inquiry, scope: plan.scope, collections: plan.collections, unavailable })}. Only these collections are authorized. For a bank comparison, search both bank_product_docs and competitor_docs before answering, and compare exactly the named options. No calculators, reviewed product-terms catalog or saved memory are connected${plan.tools.includes("negotiate_offer") ? "; Raiffeisen prices and counter-offers come only from get_approved_offers and negotiate_offer (sample pricing)" : ", and no approved offers are connected"}${plan.tools.includes("get_expense_summary") ? "; account data comes only from get_expense_summary, and in this preview it is sample data, which you must say" : ", and no account data is connected"}. Quote rates, fees, monetary amounts and credit limits exactly as they appear in this turn's search results, each with its citation, and say they are dated public figures, not a personal offer. If a figure isn't in the results, say it wasn't found; never estimate it. Never invent missing tool results or approve a discount. For negotiation, offer adviser review without claiming an appointment was booked.` },
           ...(guide ? [{ type: "text" as const, text: guide }] : []),
+          ...(memoryNotes ? [{ type: "text" as const, text: memoryNotes }] : []),
           ...(hostTools.length ? [{ type: "text" as const, text: `Catalog and calculator: ${catalog.length ? `the catalog has these products (ID: name, bank): ${catalog.slice(0, 60).map(p => `${p.productId}: ${p.product}, ${p.bank}`).join("; ")}.` : "the catalog has no products for this track yet."}${plan.tools.includes("query_catalog") ? " The structured catalog comes before the documents: call query_catalog first when the question is about which products exist or about their rates, fees, limits or terms, and search documents for explanations and for whatever it lists as a gap. A catalog row overrides a passage that disagrees with it. A row marked not reviewed is a dated public figure: say so." : ""} For an exact rate, fee or limit, call get_product_terms with the product IDs. For a loan's or an overdraft's monthly payment, total cost or DAE, call calculate_scenario with the term IDs it returned; never work a figure out yourself. Quote catalog and calculation figures exactly as written and cite them. A calculation on an example amount must be labelled as an example. A stress test is not the rate.${plan.scope === "solution" && plan.tools.includes("calculate_scenario") ? " For a goal the customer wants to reach (a renovation, a purchase), call compare_routes once with the loan's term IDs (and the overdraft's, when the catalog has one) and the customer's timing: it shows the routes card with Raiffy's recommendation itself. Don't make a routes card, don't recommend a different route, and if it asks for an input, ask the customer for it in one short question." : ""}${comparing ? " When the customer compares named products, call compare_products once with their catalog product IDs (exactly the products they named) and focus \"documents\" only for a documents question: the chat shows its comparison card with fixed rows, so don't make a comparison card for products it covered." : ""} When a term is unavailable, say the exact figure isn't confirmed and use the dated public sources as before.` }] : []),
           ...(plan.tools.includes("negotiate_offer") ? [{ type: "text" as const, text: `Pricing and negotiation (sample pricing in this preview, say so once): products ${PRICING_RULES.map(r => `${r.productId} (${r.product})`).join(", ")}; competitor offers in the store ${COMPETITOR_OFFERS.map(c => `${c.id} (${c.bank}, ${c.product})`).join(", ")}. Be upfront that you are Raiffeisen's assistant and will be straight about how the offers compare. Call get_approved_offers for the customer's price and negotiate_offer when they compare with another bank or ask for a better price; pass a store offerId only when it is that bank's offer, otherwise claimedBank. Present exactly the outcome: total cost first; a counter-offer only as returned, with its validity; for a specialist review, say the customer can ask for it on the card and never promise, hint at or estimate a price. Prices are indicative until the bank issues an offer. In a comparison, compare exactly the options the customer named: a counter-offer is the same Raiffeisen product at a better price, never an extra option. The chat shows the price card from the same result, so explain rather than list every line.` }] : []),
           ...(plan.tools.includes("get_holdings") ? [{ type: "text" as const, text: "The customer's products: when the answer depends on what they already hold at Raiffeisen (a loan's balance, rate or fixed-rate end, a deposit's maturity, a card's fee or limit, a pre-approved offer, or whether they can sign digitally), call get_holdings with the kinds you need. It is a sample customer in this preview: say so once. Cite each product's figures from its own result; if a kind is switched off, say it wasn't read and never assume they have none." }] : []),
@@ -590,13 +645,13 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
         return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
       }
       const remaining = plan.limits.publicChunks - seen.size;
-      const reserved = comparedCollections.filter(c => c !== raw.collection && !searchedCollections.has(c)).length * 2;
+      const reserved = pairedCollections.filter(c => c !== raw.collection && !searchedCollections.has(c)).length * 2;
       const available = remaining - reserved;
       if (available <= 0) {
         t.step("search.denied", { collection: raw.collection, why: "chunk budget used", remaining, reserved });
         return unavailableResult(raw.collection, "collection_not_connected", raw.limit);
       }
-      const safe = { ...raw, query: screenChat(raw.query).text, limit: Math.min(raw.limit, available) };
+      const safe = { ...raw, query: screenChat(raw.query).text, limit: Math.min(raw.limit, available, perSearch) };
       t.step("search.call", { collection: safe.collection, limit: safe.limit, asked: raw.limit, budgetLeft: remaining, focus: (safe as { focus?: string }).focus, query: t.text(safe.query) });
       const result = await searchKnowledge(ctx, plan.track, safe, Date.now(), t);
       searchedCollections.add(raw.collection);
@@ -607,6 +662,22 @@ async function generate(ctx: ActionCtx, question: string, history: HistoryTurn[]
       await ctx.runMutation(internal.agent.progress, { messageId, step: { query: safe.query, focus: safe.collection, results: passages.length } });
       return { ...result, passages, coverage: { ...result.coverage, returned: passages.length } };
     },
+    ...(affordability ? { calculate: async (data: CalculateScenarioInput) => {
+      used.push({ name: "check_affordability" });
+      const result = runCalculator(data, memory.customerTexts, await ctx.runQuery(internal.regulatoryLimits.affordabilityLimits, {}));
+      t.step("affordability.done", { status: result.status });
+      return result;
+    } } : {}),
+    // The host attaches this message as the source; the store checks the quote, screens it and waits for consent.
+    ...(proposing ? { proposeMemory: async (data: ProposeMemoryInput): Promise<MemoryProposalResult> => {
+      try {
+        const result = await ctx.runMutation(internal.memory.propose, { track: plan.track, operation: "remember", ...data, sourceMessageId: memory.sourceMessageId! });
+        if (!memory.proposals.some(p => p.id === result.id)) memory.proposals.push({ id: result.id, ...data });
+        return { status: "proposed", id: result.id };
+      } catch (error) {
+        return { status: "unavailable", reason: error instanceof ConvexError ? String(error.data) : "the proposal could not be checked" };
+      }
+    } } : {}),
   });
   // Code-built cards (spending, price), only when the answer cites the result they come from.
   if (answer.status !== "answered") return answer;

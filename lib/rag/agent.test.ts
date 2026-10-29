@@ -1,7 +1,7 @@
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { describe, expect, it } from "vitest";
 import { type AgentDeps, type ModelRequest, runAgent } from "./agent";
-import { MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
+import { answerScopeNote, MAX_SEARCHES, SEARCH_TOOL_NAME } from "./prompt";
 import { ragAnswerSchema } from "./answer";
 import { buildKnowledgeResult, isPublicCollection, unavailableResult } from "./knowledge";
 import type { SearchHit } from "./schemas";
@@ -204,7 +204,89 @@ describe("runAgent", () => {
     const answer = await runAgent(input, deps);
     expect(answer.status).toBe("answered");
     expect(answer.checks.attempts).toBe(2);
-    expect(String(requests[2]!.messages.at(-1)!.content)).toContain("5.10");
+    const note = String(requests[2]!.messages.at(-1)!.content);
+    expect(note).toContain("5.10");
+    expect(note).toMatch(/not from the customer/);
+    expect(note).toMatch(/don't mention the check/);
+  });
+
+  it("offers the calculator only when the caller provides it, and grounds the answer in its result", async () => {
+    const result = '{"inputs":{"netMonthlyIncome":4500,"loanAmount":50000,"termMonths":60},"maxNewInstalment":1800,"maxFittingAnnualRatePercent":35.8}';
+    const calls: unknown[] = [];
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("c1", { calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }, "check_affordability")]),
+      message("end_turn", [{ type: "text", text: "Up to 1,800 lei of your 4,500 lei can go to instalments, so 50,000 lei fits at any rate up to 35.8%." }]),
+    ]);
+    const answer = await runAgent({ ...input, withholdFinancialFigures: true },
+      { ...deps, calculate: async (data) => { calls.push(data); return { status: "ok", content: result }; } });
+    expect(requests[0]!.tools.map((t) => t.name)).toEqual([SEARCH_TOOL_NAME, "check_affordability"]);
+    expect(calls).toEqual([{ calculation: "loan_affordability", netMonthlyIncome: 4500, loanAmount: 50000, termMonths: 60 }]);
+    expect(answer).toMatchObject({ status: "answered", checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 } });
+    expect(fakeDeps([]).deps.calculate).toBeUndefined();
+  });
+
+  it("adds the customer's memories as a system note and offers the proposal tool only when the caller provides it", async () => {
+    const proposed: unknown[] = [];
+    const { deps, requests } = fakeDeps([
+      message("tool_use", [toolUse("p1", { kind: "goal", text: "buy a used car", customerQuote: "I want to buy a used car." }, "propose_memory_change")]),
+      message("end_turn", [{ type: "text", text: "Noted, here are your routes." }]),
+    ]);
+    const answer = await runAgent({ ...input, allowedCollections: [], customerContext: "What this customer asked Raiffy to remember: …" },
+      { ...deps, proposeMemory: async (data) => { proposed.push(data); return { status: "proposed", id: "proposal-1" }; } });
+    expect(requests[0]!.tools.map((t) => t.name)).toEqual(["propose_memory_change"]);
+    expect(requests[0]!.system.at(-1)).toEqual({ type: "text", text: "What this customer asked Raiffy to remember: …" });
+    expect(proposed).toEqual([{ kind: "goal", text: "buy a used car", customerQuote: "I want to buy a used car." }]);
+    expect(String(JSON.stringify(requests[1]!.messages.at(-1)))).toMatch(/not saved yet/);
+    expect(answer.text).toBe("Noted, here are your routes.");
+  });
+
+  it("asks once for a rewrite without prices when financial figures are withheld", async () => {
+    const script = () => [
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "depozit", limit: 5 })]),
+      message("end_turn", [cited("It pays 4.70% a year.", 0)]),
+      message("end_turn", [cited("It is a fixed-term deposit that renews automatically.", 0)]),
+    ];
+    const withheld = fakeDeps(script(), [[hit("dep", "dobândă 4.70% pe an, reînnoire automată")]]);
+    const answer = await runAgent({ ...input, withholdFinancialFigures: true }, withheld.deps);
+    expect(answer).toMatchObject({ status: "answered", text: "It is a fixed-term deposit that renews automatically." });
+    expect(answer.checks.attempts).toBe(2);
+    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/rewrite the answer without those/);
+    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/Keep the figures the customer gave you/);
+    const quoted = await runAgent(input, fakeDeps(script(), [[hit("dep", "dobândă 4.70% pe an")]]).deps);
+    expect(quoted).toMatchObject({ text: "It pays 4.70% a year.", checks: { attempts: 1 } });
+  });
+
+  it("keeps the customer's own figures without a retry, but still withholds document prices", async () => {
+    const question = "I am 20 and want to borrow 10,000 EUR. Can I get a personal loan?";
+    const own = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "credit nevoi personale varsta", limit: 5 })]),
+      message("end_turn", [
+        cited("Applicants must be at least 21 years old.", 0),
+        { type: "text", text: " At 20 you don't meet that condition yet, so the 10,000 EUR loan isn't available to you today." },
+      ]),
+    ], [[hit("age", "Vârsta minimă: 21 de ani")]]);
+    const answer = await runAgent({ ...input, question, withholdFinancialFigures: true, customerStatements: [question] }, own.deps);
+    expect(answer).toMatchObject({ status: "answered", checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 } });
+    expect(answer.text).toContain("At 20 you don't meet that condition");
+    expect(answer.text).toContain("10,000 EUR");
+
+    // Without the customer's statements the same draft is sent back for a rewrite.
+    const noStatements = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "credit", limit: 5 })]),
+      message("end_turn", [cited("At 20 you can't borrow 10,000 EUR yet.", 0)]),
+      message("end_turn", [cited("You don't meet the age condition yet.", 0)]),
+    ], [[hit("age", "Vârsta minimă: 21 de ani")]]);
+    expect((await runAgent({ ...input, question, withholdFinancialFigures: true }, noStatements.deps)).checks.attempts).toBe(2);
+
+    // A document price is still withheld even when the customer's own figures are allowed.
+    const price = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "dobanda", limit: 5 })]),
+      message("end_turn", [cited("For your 10,000 EUR the rate is 7.9% a year.", 0)]),
+      message("end_turn", [cited("For your 10,000 EUR loan, check the current rate on the product page.", 0)]),
+    ], [[hit("rate", "dobândă 7.9% pe an")]]);
+    const priced = await runAgent({ ...input, question, withholdFinancialFigures: true, customerStatements: [question] }, price.deps);
+    expect(priced.checks.attempts).toBe(2);
+    expect(priced.text).toContain("10,000 EUR");
   });
 
   it("reports failed checks when the retry is still ungrounded", async () => {
@@ -346,5 +428,20 @@ describe("runAgent", () => {
     const sent = requests[0]!.messages;
     expect(sent.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
     expect(String(sent[2]!.content)).not.toMatch(/AI assistant/);
+  });
+});
+
+describe("answer scope notes", () => {
+  it("asks for three routes including not borrowing when the customer describes a goal", () => {
+    const note = answerScopeNote("solution");
+    expect(note).toMatch(/at least three routes/);
+    expect(note).toMatch(/not borrowing/);
+    expect(note).toMatch(/one short search per route/);
+  });
+
+  it("keeps a comparison to the named options and a detail answer to one product family", () => {
+    expect(answerScopeNote("compare")).toMatch(/exactly those/);
+    expect(answerScopeNote("detail")).toMatch(/name each variant/);
+    expect(answerScopeNote(null)).toMatch(/at least three routes/);
   });
 });

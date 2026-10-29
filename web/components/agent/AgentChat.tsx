@@ -9,7 +9,7 @@ import {
   MessageCircleIcon, PanelRightCloseIcon, PanelRightOpenIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserIcon, XIcon,
 } from "lucide-react";
-import { agentApi, isWebSource, type Answer, type InputField, type Message, type Reply, type Source, type ThreadId, type ThreadSummary, type Track, type UiAction, type UiBlock, VOTE_REASONS, type VoteReason } from "@/lib/agent-api";
+import { agentApi, memoryApi, isWebSource, type Answer, type MemoryBlock, type InputField, type Message, type Reply, type Source, type ThreadId, type ThreadSummary, type Track, type UiAction, type UiBlock, VOTE_REASONS, type VoteReason } from "@/lib/agent-api";
 import { errorInfo, logChatError } from "@/lib/chat-log";
 import { AnswerCards } from "@/components/agent/AnswerCards";
 import { AccessPanel } from "@/components/agent/AccessPanel";
@@ -19,6 +19,8 @@ import { OfferCard, isOffer } from "@/components/agent/OfferCard";
 import { CompareTable, isCompare } from "@/components/agent/CompareTable";
 import { StarterVignette, type StarterVignetteKind } from "@/components/agent/StarterVignettes";
 import { listTitle, parseAnswer, segmentCites, splitItem, withoutShown, type Block, type Line, type List, type Run } from "@/lib/markup";
+import { MemoryPanel, MemoryProposals } from "./Memory";
+import { AdviserHandoff } from "./Handoff";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
 
 /*
@@ -113,6 +115,11 @@ export function AgentChat() {
 
   const thread = threads?.find((t) => t._id === threadId);
   const activeTrack = thread?.track ?? track;
+  // Memory is personal for now: business memories need an organization scope the chat doesn't carry yet.
+  const memoryState = useQuery(memoryApi.listMine, activeTrack === "personal" ? { track: activeTrack } : "skip");
+  const memoryView = memoryState && {
+    pendingIds: new Set(memoryState.proposals.map((p) => p.id)), savedTexts: new Set(memoryState.memories.map((m) => m.text)),
+  };
   const list = messages ?? [];
   const showPending = pending !== null && list.length <= pending.base;
   const streaming = list.findLast((m) => m.role === "assistant" && m.status === "streaming");
@@ -356,7 +363,7 @@ export function AgentChat() {
             <div className="thread" id="thread" role="log" aria-label="Conversation with Raiffy" hidden={empty}>
               {list.map((m, i) => (m.role === "user"
                 ? <UserBubble key={m._id} text={m.text} />
-                : <AssistantMessage key={m._id} m={m} threadId={threadId} onGrow={follow} vote={votes[m._id]} why={whys[m._id]}
+                : <AssistantMessage key={m._id} m={m} threadId={threadId} onGrow={follow} vote={votes[m._id]} why={whys[m._id]} track={activeTrack} memory={memoryView}
                     onFollowUp={(prompt, reply) => void send(prompt, reply)}
                     latest={i === list.length - 1}
                     onVote={(v) => {
@@ -475,6 +482,7 @@ export function AgentChat() {
               </ul>
               <p className="empty-note" hidden={sources.length > 0}>Every number Raiffy gives you will show its source here.</p>
             </section>
+            {activeTrack === "personal" && <MemoryPanel track={activeTrack} memories={memoryState?.memories} />}
             <section className="ctx-sec">
               <div className="promise"><ShieldCheckIcon /><span>Raiffy uses dated public sources from Raiffeisen, ING and BCR, and only the sample account data you switch on above. It cannot move money or approve credit.</span></div>
             </section>
@@ -503,6 +511,7 @@ type AssistantProps = {
   why?: VoteReason; onWhy: (reason: VoteReason) => void;
   onRetry: () => void; retryDisabled: boolean; onFollowUp: (prompt: string, reply?: Reply) => void; latest: boolean;
   threadId: ThreadId | null;
+  track: Track; memory?: { pendingIds: ReadonlySet<string>; savedTexts: ReadonlySet<string> };
 };
 
 /** Pressing a reply: a follow-up is plain text; a choice or "skip" also tells the server which offer was taken. */
@@ -510,7 +519,9 @@ function replyFor(a: UiAction): Reply | undefined {
   return a.kind === "choose" ? { kind: "choose", inquiry: a.inquiry } : a.kind === "skip_inputs" ? { kind: "skip_inputs" } : undefined;
 }
 
-function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest }: AssistantProps) {
+function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory }: AssistantProps) {
+  const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
+  const handoff = m.answer?.ui?.actions.find((a) => a.kind === "handoff");
   const steps = m.answer?.searches ?? m.steps ?? [];
   const streaming = m.status === "streaming";
   // Sources and actions rise in only for a reply this tab watched arrive, not for history being reopened
@@ -526,6 +537,8 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
 
         <div className="raiffy-text">
           {!streaming && (m.answer ? <AnswerText answer={m.answer} animate={arrivedLive} onGrow={onGrow} /> : m.text && <p className="answer">{m.text}</p>)}
+          {!streaming && memoryBlock && <MemoryProposals block={memoryBlock} track={track} pendingIds={memory?.pendingIds} savedTexts={memory?.savedTexts} />}
+          {!streaming && handoff && <AdviserHandoff messageId={m._id} label={handoff.label} reason={handoff.reason} />}
           {streaming && <p className="sr-only">Raiffy is answering…</p>}
           {m.status === "stopped" && <p className="stopped">You stopped this reply.</p>}
           {m.status === "failed" && (
@@ -571,7 +584,7 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
                 </a>
                 : <span key={s.id} className="src local" title={s.title}><span className="src-n">{i + 1}</span><span className="src-t">{s.title}</span></span>
             ))}
-            {m.answer?.ui?.actions.map(a => <button key={a.prompt} className="qbtn" disabled={retryDisabled || (a.kind !== "followup" && !latest)}
+            {m.answer?.ui?.actions.map(a => a.kind !== "handoff" && <button key={a.prompt} className="qbtn" disabled={retryDisabled || (a.kind !== "followup" && !latest)}
               onClick={() => onFollowUp(a.prompt, replyFor(a))}>{a.label}</button>)}
             <div className="acts">
               <button type="button" className="icon-btn" aria-label="Copy answer" onClick={onCopy}><CopyIcon /></button>
@@ -673,7 +686,8 @@ function cardNames(blocks: UiBlock[]): string[] {
     switch (b.type) {
       case "keyFacts": return b.facts.map((f) => f.label);
       case "checklist": return b.items.map((it) => it.text);
-      case "routes": return b.routes.map((r) => r.name);
+      // The routes block reshaped from the answer text ("state" set) shows nothing the text doesn't.
+      case "routes": return "state" in b ? [] : b.routes.map((r) => r.name);
       case "comparison": return b.options.map((o) => o.name);
       case "spending": return b.categories.map((c) => categoryLabel(c.category));
       case "offer": return [b.quote.unconditional.label, ...b.quote.conditional.map((l) => l.label)];

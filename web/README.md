@@ -22,7 +22,7 @@ The cloud test uses a synthetic Clerk account, checks a sourced answer, follow-u
 
 Operator booking exists only as HTML prototypes (`console.html#calendar` and the booking card in `chat.html`, linked through `raiffy.demo.*` localStorage keys). `/chat` has no booking yet.
 
-The current capability registry exposes public document search. Account summaries, reviewed catalog tools, calculators, approved pricing and persistent memory are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
+The current capability registry exposes public document search and one indicative calculator, `check_affordability` (`loan_affordability`): a debt-service check on figures the customer stated, using the limits in Convex `regulatoryLimits` (imported from `catalog/regulatory-limits.jsonl`, still pending review). It needs no product rate and is never a credit decision. Customer memory works only where the deployment owner turned it on (`RAIFFY_MEMORY_WRITES_ENABLED` plus `RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL` pinned to that deployment, currently only the local backend): Claude proposes the customer's own words, the customer confirms each one under the answer, saved memories reach later chats and the calculator, and the Context panel lists and deletes them. Account summaries, reviewed catalog tools, other calculators and approved pricing are explicitly unavailable; the agent cannot approve a counter-offer or invent their output. The privacy screen uses patterns and still needs broader acceptance before real sensitive customer data.
 
 | Route | Prototype |
 |---|---|

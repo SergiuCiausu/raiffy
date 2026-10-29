@@ -11,7 +11,7 @@ node_modules
 
 # Convex: local deployment data and generated code
 .convex/
-convex/_generated/
+# convex/_generated/ is committed (Convex recommends it) so a fresh clone or container can test without a deployment
 
 # RAG build artifacts
 *.import.jsonl
@@ -26,3 +26,10 @@ raiffeisen-rag-package/data/pdf_extracts/
 
 # Local agent handoff notes
 .handoff/
+
+# Clutter that should never reach a PR
+*.zip
+.DS_Store
+._*
+.claude/worktrees/
+*.log

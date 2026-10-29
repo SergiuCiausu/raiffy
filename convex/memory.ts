@@ -2,7 +2,7 @@ import { z } from "zod";
 import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireMemoryScope } from "./memoryAuth";
 import { memoryChangeResult, memoryKind, memoryTrack, memoryView, proposalView } from "./memoryValidators";
 import { memoryRecordSchema } from "../lib/agent/memory";
@@ -12,6 +12,8 @@ import {
 } from "../lib/agent/memory-store";
 
 const MAX_MEMORIES = 100;
+/** Memories the agent sees per turn; the customer's full list lives in the memory panel. */
+const MAX_CONTEXT_MEMORIES = 20;
 const BATCH_SIZE = 100;
 
 function unavailable(): never { throw new ConvexError("memory_unavailable"); }
@@ -136,6 +138,22 @@ export const listMine = query({
       proposals: proposals.filter((p) => p.expiresAt > now && p.createdAt <= now)
         .map((p) => ({ id: p._id, operation: p.operation, kind: p.kind, text: p.text, customerQuote: p.customerQuote, createdAt: p.createdAt, expiresAt: p.expiresAt })),
     });
+  },
+});
+
+/**
+ * The signed-in customer's saved memories for the agent's context: newest first, bounded, minimal fields. Reading
+ * needs no write gate, so a customer keeps seeing (and can delete) what was saved even after writes are turned off.
+ */
+export const forAgent = internalQuery({
+  args: { track: memoryTrack },
+  returns: v.array(v.object({ kind: memoryKind, text: v.string(), statedAt: v.number() })),
+  handler: async (ctx, { track }) => {
+    const scope = await requireMemoryScope(ctx, track).catch(() => null);
+    if (!scope) return [];
+    const now = Date.now();
+    const rows = await ctx.db.query("userMemories").withIndex("by_scope_status", (q) => q.eq("ownerKey", scope.ownerKey).eq("track", scope.track).eq("organizationKey", scope.organizationKey).eq("status", "active")).order("desc").take(MAX_CONTEXT_MEMORIES);
+    return rows.filter((m) => m.expiresAt > now && m.statedAt <= now).map((m) => ({ kind: m.kind, text: m.text, statedAt: m.statedAt }));
   },
 });
 

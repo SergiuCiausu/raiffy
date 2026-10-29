@@ -83,7 +83,11 @@ export function scoreMemoryCandidate(answers: JevResponse["answers"], policy: Ag
   return score >= policy.thresholds.memoryCandidate ? { kind, score } : null;
 }
 
-/** Write gate stays disabled until auth, PII screening, consent and deletion are implemented together. */
+/**
+ * Defaults for production: writes stay off. Signed-in customers can save memories only on a deployment where the owner
+ * set RAIFFY_MEMORY_WRITES_ENABLED and pinned its URL (lib/agent/memory-store.ts), with consent per memory, screening,
+ * expiry and deletion in force.
+ */
 export const MEMORY_POLICY = {
   persistenceEnabled: false,
   candidates: "explicit_request_or_jev_classifier",
@@ -100,3 +104,21 @@ export const MEMORY_POLICY = {
   corrections: "supersede_and_remove_old_embedding",
   deletion: "delete_record_embedding_and_user_caches",
 } as const;
+
+export const contextMemorySchema = z.object({ kind: z.enum(MEMORY_KINDS), text: z.string().min(1).max(500), statedAt: z.number().int().nonnegative() }).strict();
+export type ContextMemory = z.infer<typeof contextMemorySchema>;
+
+/**
+ * The system note that tells Claude what this customer confirmed for memory. Stated figures stay the customer's
+ * dated claims: they reach answers only as calculator inputs, never as facts Claude repeats on its own.
+ */
+export function memoryContextNote(raw: readonly ContextMemory[]): string | undefined {
+  const memories = z.array(contextMemorySchema).parse(raw);
+  if (!memories.length) return undefined;
+  const lines = memories.map((m) => `- ${m.kind}, stated ${new Date(m.statedAt).toISOString().slice(0, 10)}: ${m.text}`);
+  return [
+    "What this customer asked Raiffy to remember in earlier chats (their own statements, with the date they made them; not verified):",
+    ...lines,
+    "Use them to tailor routes, questions and next steps to this customer, and say so when you rely on one (\"as you told me\"). A stated figure is only a calculator input: pass it to check_affordability instead of repeating it. If the current message contradicts a memory, follow the message. Leave out memories that don't help with this question, and never use them to judge creditworthiness.",
+  ].join("\n");
+}

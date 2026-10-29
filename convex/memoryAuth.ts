@@ -8,6 +8,8 @@ export function memoryEnvironment(): MemoryEnvironment {
     demoDeploymentUrl: process.env.RAIFFY_DEMO_DEPLOYMENT_URL,
     demoIdentityEnabled: process.env.RAIFFY_DEMO_IDENTITY_ENABLED === "true",
     demoPersistenceEnabled: process.env.RAIFFY_MEMORY_DEMO_PERSISTENCE_ENABLED === "true",
+    customerWritesEnabled: process.env.RAIFFY_MEMORY_WRITES_ENABLED === "true",
+    customerWritesDeploymentUrl: process.env.RAIFFY_MEMORY_WRITES_DEPLOYMENT_URL,
   };
 }
 

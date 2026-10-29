@@ -51,6 +51,14 @@ describe("buildKnowledgeResult", () => {
     expect(result.coverage).toEqual({ requested: 2, returned: 2, gaps: [] });
   });
 
+  it("spreads the slots across pages before letting one page take more than half", () => {
+    const pdf = (id: string) => hit(id, { url: "https://www.raiffeisen.ro/terms.pdf" });
+    const hits = [pdf("t1"), pdf("t2"), pdf("t3"), pdf("t4"), hit("flexi"), hit("fresh")];
+    expect(buildKnowledgeResult({ ...base, limit: 5, hits }).passages.map((p) => p.passageId)).toEqual(["t1", "t2", "flexi", "fresh", "t3"]);
+    expect(buildKnowledgeResult({ ...base, limit: 3, hits }).passages.map((p) => p.passageId)).toEqual(["t1", "flexi", "fresh"]);
+    expect(buildKnowledgeResult({ ...base, limit: 3, hits: [pdf("t1"), pdf("t2"), pdf("t3")] }).passages).toHaveLength(3);
+  });
+
   it("drops stale passages, counts them, and backfills from the extra candidates", () => {
     const old = hit("old", { scrapedAt: "2026-09-01T00:00:00+00:00" });
     const result = buildKnowledgeResult({ ...base, limit: 2, hits: [old, hit("a"), hit("b")] });

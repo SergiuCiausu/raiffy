@@ -68,5 +68,14 @@
   {"message": "I'd like to schedule a call with a specialist about my mortgage.", "inquiry": "human_contact", "scope": "detail", "risk": null, "accept": ["debt_refinancing"]},
   {"message": "Vreau o programare la o sucursală Raiffeisen.", "inquiry": "human_contact", "scope": "detail", "risk": null},
   {"message": "Aș vrea să vorbesc cu un consilier despre un credit.", "inquiry": "human_contact", "scope": "detail", "risk": null, "accept": ["purchase_goal"]},
-  {"message": "What does a financial advisor charge for investment advice?", "inquiry": "professional_advice", "scope": "detail", "risk": null}
+  {"message": "What does a financial advisor charge for investment advice?", "inquiry": "professional_advice", "scope": "detail", "risk": null},
+  { "message": "I want to save up 10k euros", "inquiry": "saving_goal", "scope": "solution", "expected": "answer_even_if_complexity_uncertain" },
+  { "message": "How do Raiffeisen term deposits work, and what conditions should I check?", "inquiry": "product_explanation", "scope": "detail", "expected": "answer_even_if_complexity_uncertain" },
+  { "message": "I earn a salary of 5000 ron monthly. What's the maximum amount of loan I can take", "inquiry": "affordability", "expected": "answer_even_if_scope_uncertain" },
+  { "message": "Hi, do you remember my age, I told my age in the last chat", "expected": "memory_not_enabled" },
+  { "message": "Sunt Ana, am 29 de Ani, lucrez pe un salariu de 4500 de lei si vreau sa iau un credit de nevoi personale pe o durata de 60 de luni de 50000 de lei, sunt eligibila?", "inquiry": "affordability", "requires": ["check_affordability"], "expected": "indicative_affordability_check_in_english" },
+  { "message": "Can I get a 50000 lei personal loan over 60 months?", "inquiry": "affordability", "expected": "ask_for_net_income_before_calculating" },
+  { "message": "Hi! I'm Ana, I'm 29 and I work as a nurse. My net salary is 4500 lei a month and I want to buy a used car next year. I prefer a fixed monthly payment.", "inquiry": "purchase_goal", "special_category": "low", "requires": ["propose_memory_change"], "expected": "propose_goal_and_preference_verbatim_for_consent" },
+  { "message": "My net salary is 4500 lei a month and I don't pay any other loans.", "requires": ["propose_memory_change"], "expected": "propose_stated_financials_verbatim_for_consent" },
+  { "message": "I'd borrow 50000 lei over 60 months for the car. Am I eligible?", "recentContext": "", "savedMemories": ["My net salary is 4500 lei a month", "I don't pay any other loans"], "inquiry": "affordability", "requires": ["check_affordability"], "expected": "calculate_from_saved_income_without_asking_again" }
 ]

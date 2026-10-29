@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { memoryProposalSchema } from "./memory";
+import { MEMORY_KINDS } from "./memory";
 import { COLLECTIONS } from "./route";
 import { catalogQuerySchema } from "../catalog/query";
 import { holdingsInputSchema } from "../bank/holdings";
@@ -49,6 +49,25 @@ export const getProductTermsInputSchema = z.object({
 }).strict();
 export type GetProductTermsInput = z.infer<typeof getProductTermsInputSchema>;
 
+export const calculateScenarioInputSchema = z.object({
+  calculation: z.enum(["loan_affordability"]),
+  netMonthlyIncome: z.number().positive(),
+  loanAmount: z.number().positive(),
+  termMonths: z.number().int().positive(),
+  existingMonthlyInstalments: z.number().nonnegative().optional(),
+  currency: z.enum(["RON", "FX"]).optional(),
+  age: z.number().int().positive().optional(),
+}).strict();
+export type CalculateScenarioInput = z.infer<typeof calculateScenarioInputSchema>;
+
+/** What the model may say about a memory; the host adds the source message, operation and ownership. */
+export const proposeMemoryInputSchema = z.object({
+  kind: z.enum(MEMORY_KINDS),
+  text: z.string().trim().min(1).max(500),
+  customerQuote: z.string().trim().min(1).max(1000),
+}).strict();
+export type ProposeMemoryInput = z.infer<typeof proposeMemoryInputSchema>;
+
 /** Contracts only. The backend must implement handlers and authorize them before enabling a tool. */
 export const AGENT_TOOLS = [
   tool("search_knowledge", "Retrieve a small set of relevant, dated passages from an allowed logical collection. Public bank documents and competitor documents explain product terms; user_memory contains only the caller's approved personal context. The host injects identity, track and organization and filters owner, active version and expiry before retrieval. It returns passage IDs, provenance, dates and coverage gaps; an unavailable collection returns unavailable, never another collection's content.", searchKnowledgeInputSchema),
@@ -69,7 +88,8 @@ export const AGENT_TOOLS = [
     calculation: z.enum(["loan_cost", "savings_plan", "budget_summary", "product_comparison"]),
     inputRefs: z.array(z.string().min(1)).min(1).max(12),
   }).strict()),
-  tool("propose_memory_change", "Propose a memory change when the customer explicitly asks to remember or correct something, or when the route plan offers this tool because the customer stated a lasting goal, preference, constraint or figure about their own finances. Supply the exact redacted quote and source message ID so the backend can verify provenance independently; the customer confirms each proposal before anything is saved. This tool queues a proposal and never writes directly to a shared document corpus; the host owns confirmation, redaction, retention and user-scoped persistence. Treat proposed, saved and unavailable as distinct outcomes and do not claim recall until saved is confirmed.", memoryProposalSchema),
+  tool("propose_memory_change", "Propose remembering something lasting the customer said about themselves: a goal, a preference, a constraint or a figure about their own finances. Use it when the customer asks you to remember something, or when the route offers this tool because they stated one. customerQuote is their exact words from their current message, and text is the part of that quote worth keeping, copied verbatim with no paraphrase or translation; the host attaches the message, checks both and blocks sensitive details. The customer confirms each proposal in the app before anything is saved, so never say it is saved or remembered. Never propose health, religion, politics, other people's details, identifiers or anything you inferred.", proposeMemoryInputSchema),
+  tool("check_affordability", "Run the indicative affordability calculator; never perform the calculation in prose. Its one calculation, loan_affordability, is an indicative check of whether a loan fits the debt-service limit on the customer's income, with no product rate. Use it when the customer asks whether they can afford or qualify for a loan and has stated their net monthly income, the amount and the term. Pass only figures the customer wrote in this conversation: the host rejects any number they didn't state and returns the inputs it used, the limit's source and the results. It is never a credit decision. Missing inputs return unavailable instead of an estimate.", calculateScenarioInputSchema),
   tool("manage_memory", "Inspect or request removal of the current customer's saved memories. The host derives identity and organization, verifies that deletion was explicitly requested, and coordinates records, embeddings and caches. An omitted memoryId with forget_all requests removal of all memories within the authorized scope, subject to the application's confirmation flow. Never select a user or organization from tool arguments, and never report deletion without a successful result.", z.object({
     operation: z.enum(["inspect", "forget_one", "forget_all"]), memoryId: z.string().min(1).optional(),
   }).strict()),

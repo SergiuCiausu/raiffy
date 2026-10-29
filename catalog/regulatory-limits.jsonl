@@ -1,0 +1,3 @@
+{"key":"dti_max_share_ron","value":0.4,"sourceLabel":"BNR Regulation 17/2012 on certain lending conditions, as amended by Regulation 6/2018: debt-service limit for RON loans","sourceUrl":"https://www.bnr.ro","validFrom":"2019-01-01","status":"pending_review"}
+{"key":"dti_max_share_fx","value":0.2,"sourceLabel":"BNR Regulation 17/2012 on certain lending conditions, as amended by Regulation 6/2018: debt-service limit for foreign-currency loans","sourceUrl":"https://www.bnr.ro","validFrom":"2019-01-01","status":"pending_review"}
+{"key":"consumer_loan_max_months","value":60,"sourceLabel":"BNR Regulation 17/2012 on certain lending conditions: maximum term of consumer loans","sourceUrl":"https://www.bnr.ro","validFrom":"2019-01-01","status":"pending_review"}

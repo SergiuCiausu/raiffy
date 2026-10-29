@@ -1,5 +1,0 @@
-[2026-10-28T15:53:10.444Z] GET file:///C:/Coding/raiffy/raiffy/chat.html?r=43 → 200 (8ms, 114393B)
-[2026-10-28T15:53:10.458Z] GET https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap → pending (?ms, ?B)
-[2026-10-28T15:53:10.458Z] GET https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js → pending (?ms, ?B)
-[2026-10-28T15:53:11.673Z] GET https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwcGFU.woff2 → pending (?ms, ?B)
-[2026-10-28T15:53:11.673Z] GET https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrcdmg.woff2 → 200 (690ms, 23670B)

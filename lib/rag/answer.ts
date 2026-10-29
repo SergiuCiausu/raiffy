@@ -150,11 +150,8 @@ export function assembleCitations(segments: readonly CitedSegment[], hits: reado
  * This is not a verifier of financial meaning, units, product identity or semantic entailment.
  * Keep the question argument for compatibility with existing callers.
  */
-/**
- * `customerFigures` are numbers the customer stated as inputs (an amount, a term, income), as the code parsed them, never
- * rates. The answer may repeat them in any segment; the question text itself never establishes a number.
- */
-export function checkNumbers(segments: readonly CitedSegment[], hits: readonly Citable[], _question: string, customerFigures: readonly string[] = []) {
+/** `trustedTexts` are calculator results: their numbers may appear in any segment, cited or not. */
+export function checkNumbers(segments: readonly CitedSegment[], hits: readonly Citable[], trustedTexts: readonly string[] = []) {
   const ungroundedNumbers: string[] = [];
   let uncitedSegmentsWithNumbers = 0;
   let invalidCitationIndexes = 0;
@@ -165,9 +162,9 @@ export function checkNumbers(segments: readonly CitedSegment[], hits: readonly C
       if (hit) citedHits.push(hit);
       else invalidCitationIndexes++;
     }
-    const allowed = [...citedHits.flatMap((hit) => [hit.text, hit.collectedAt.slice(0, 10)]), ...customerFigures];
+    const allowed = [...citedHits.flatMap((hit) => [hit.text, hit.collectedAt.slice(0, 10)]), ...trustedTexts];
     ungroundedNumbers.push(...findUngroundedNumbers(segment.text, allowed));
-    if (!citedHits.length && findUngroundedNumbers(segment.text, customerFigures).length > 0) uncitedSegmentsWithNumbers++;
+    if (!citedHits.length && findUngroundedNumbers(segment.text, trustedTexts).length > 0) uncitedSegmentsWithNumbers++;
   }
   return {
     ungroundedNumbers,

@@ -8,7 +8,7 @@ import { decideInquiry, defaultScope, inquirySchema, topInquiries } from "./conf
 import { sharesRequiredInputs } from "./inputs";
 
 export const COLLECTIONS = ["bank_product_docs", "competitor_docs", "banking_help", "user_memory"] as const;
-export const TOOLS = ["search_knowledge", "query_catalog", "get_product_terms", "get_expense_summary", "get_holdings", "get_approved_offers", "negotiate_offer", "calculate_scenario", "propose_memory_change", "manage_memory", "request_human_handoff"] as const;
+export const TOOLS = ["search_knowledge", "query_catalog", "get_product_terms", "get_expense_summary", "get_holdings", "get_approved_offers", "negotiate_offer", "calculate_scenario", "check_affordability", "propose_memory_change", "manage_memory", "request_human_handoff"] as const;
 type Collection = typeof COLLECTIONS[number];
 type Tool = typeof TOOLS[number];
 type Inquiry = keyof typeof INQUIRIES;
@@ -51,9 +51,9 @@ export const routePlanSchema = z.object({
 export type RoutePlan = z.infer<typeof routePlanSchema>;
 
 const RESOURCES: Record<Inquiry, { collections: Collection[]; tools: Tool[] }> = {
-  purchase_goal: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_product_terms", "get_expense_summary", "get_holdings", "calculate_scenario"] },
+  purchase_goal: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_product_terms", "get_expense_summary", "get_holdings", "calculate_scenario", "check_affordability"] },
   product_comparison: { collections: ["bank_product_docs", "competitor_docs", "user_memory"], tools: ["query_catalog", "get_product_terms", "calculate_scenario", "get_approved_offers", "negotiate_offer"] },
-  affordability: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_expense_summary", "get_holdings", "get_product_terms", "calculate_scenario"] },
+  affordability: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_expense_summary", "get_holdings", "get_product_terms", "calculate_scenario", "check_affordability"] },
   debt_refinancing: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_expense_summary", "get_holdings", "get_product_terms", "calculate_scenario"] },
   saving_goal: { collections: ["bank_product_docs", "user_memory"], tools: ["query_catalog", "get_expense_summary", "get_holdings", "get_product_terms", "calculate_scenario"] },
   product_explanation: { collections: ["bank_product_docs", "banking_help"], tools: ["query_catalog", "get_holdings"] },
@@ -118,11 +118,14 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
     limits: { ...plan.limits, publicChunks: scope === "solution" ? policy.retrieval.maxPublicChunksSolution : policy.retrieval.maxPublicChunks } });
   // The audience label never stops the chat or changes access: the customer is answered on their own signed-in track
   // (personal for every account today). A message that sounds like a business still gets the personal answer.
-  if (a.memory_operation.confidence < floor) return finish({ handler: "clarify", reason: "uncertain_memory_request" });
   if (a.memory_operation.choice !== "none") {
     const tool: Tool = ["forget", "inspect"].includes(a.memory_operation.choice) ? "manage_memory" : "propose_memory_change";
-    const available = context.availableTools.includes(tool);
-    return finish({ handler: available ? "memory" : "unavailable", reason: "explicit_memory_request", tools: available ? [tool] : [], unavailable: available ? [] : [tool] });
+    // Without the handler the customer hears that memory is off; with it, an uncertain request is confirmed before any change.
+    if (!context.availableTools.includes(tool)) return finish({ handler: "unavailable", reason: "explicit_memory_request", unavailable: [tool] });
+    if (a.memory_operation.confidence < floor) return finish({ handler: "clarify", reason: "uncertain_memory_request" });
+    // "Remember that…" goes to Claude with only the proposal tool; the customer still confirms in the app.
+    if (tool === "propose_memory_change") return finish({ handler: "answer", reason: "explicit_memory_request", model: policy.standardModel, tools: [tool] });
+    return finish({ handler: "memory", reason: "explicit_memory_request", tools: [tool] });
   }
   if (inquiry === "other" && !options.inquiry) {
     // "other" is a dead end only when the message asks nothing recognisable. A clear banking request ("a credit of 50k")
@@ -134,11 +137,10 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   if (inquiry === "professional_advice") return finish({ handler: "professional_referral", reason: "regulated_advice_referral" });
   if (inquiry === "human_contact") return finish({ handler: "human_contact", reason: "human_contact_requested" });
   const multi = a.multi_goal.noul;
-  if (multi > 1 - policy.thresholds.multiGoalProbability && multi < policy.thresholds.multiGoalProbability) {
-    return finish({ handler: "clarify", reason: "uncertain_goal_count" });
-  }
   const multiGoal = multi >= policy.thresholds.multiGoalProbability;
-  const complex = multiGoal || a.complexity.choice === "complex" || a.complexity.confidence < floor;
+  // An uncertain goal count gets the stronger model rather than a clarifying question.
+  const uncertainGoals = !multiGoal && multi > 1 - policy.thresholds.multiGoalProbability;
+  const complex = multiGoal || uncertainGoals || a.complexity.choice === "complex" || a.complexity.confidence < floor;
   const defaultResources = RESOURCES[inquiry];
   const competitorOnly = context.requestedBanks?.length && context.requestedBanks.every(bank => bank !== "raiffeisen");
   const resources = competitorOnly ? { ...defaultResources,
@@ -148,11 +150,16 @@ export function planAgentRoute(rawResponse: unknown, rawContext: RouteContext, r
   const requestedTools = [...new Set<Tool>([...resources.tools, ...(resources.collections.some((id) => context.availableCollections.includes(id)) ? ["search_knowledge" as const] : [])])];
   const tools = requestedTools.filter((id) => context.availableTools.includes(id));
   const unavailable = [...resources.collections.filter((id) => !collections.includes(id)), ...requestedTools.filter((id) => !tools.includes(id))];
-  // A stated goal, preference, constraint or figure adds a proposal tool to the answer; it never changes the handler.
+  // Where proposals are possible, every answer may propose a memory, and the customer confirms each one. Jev's
+  // single-choice candidate splits its probability when a message states several things (a goal, a figure and a
+  // preference), so its score ranks proposals but doesn't gate them. Special-category messages never get the tool.
   const memoryCandidate = tools.length ? scoreMemoryCandidate(a, policy) : null;
-  const canPropose = memoryCandidate !== null && context.availableTools.includes("propose_memory_change");
+  const canPropose = tools.length > 0 && a.special_category.noul < policy.thresholds.specialCategoryProbability
+    && context.availableTools.includes("propose_memory_change");
   return finish({
-    handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable", reason: multiGoal ? "multiple_goals" : "classified",
+    handler: tools.length ? (complex ? "orchestrator" : "answer") : "unavailable",
+    reason: multiGoal ? "multiple_goals" : uncertainGoals ? "uncertain_goal_count" : "classified",
+    inquiry,
     suppressOffers: inquiry === "security_complaint",
     model: !tools.length ? null : complex ? (policy.allowEscalation ? policy.escalationModel : policy.complexModel) : policy.standardModel,
     memoryCandidate,
