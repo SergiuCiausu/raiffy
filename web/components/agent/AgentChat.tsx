@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { agentApi, type Answer, type Message, type Source, type ThreadId, type ThreadSummary, type Track } from "@/lib/agent-api";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
+import { StarterVignette, type StarterVignetteKind } from "@/components/agent/StarterVignettes";
 
 /*
  * The live chat uses authenticated Convex requests and reactive progress. Checked final text reveals word by
@@ -21,18 +22,18 @@ const TRACKS: { k: Track; label: string; icon: typeof UserIcon; note: string }[]
   { k: "personal", label: "For me", icon: UserIcon, note: "Products for individuals: accounts, cards, loans, savings." },
 ];
 
-const STARTERS: Record<Track, { prompt: string; title: string; hint: string; search: string }[]> = {
+const STARTERS: Record<Track, { prompt: string; title: string; hint: string; vignette: StarterVignetteKind }[]> = {
   personal: [
-    { prompt: "How do Raiffeisen term deposits work, and what conditions should I check?", title: "How term deposits work", hint: "Conditions and product documents", search: "depozit la termen conditii" },
-    { prompt: "What documents do I need for a Raiffeisen personal loan?", title: "Prepare for a personal loan", hint: "The documents to check before applying", search: "credit nevoi personale acte" },
-    { prompt: "What is the difference between a debit card and a credit card?", title: "Understand your cards", hint: "How debit and credit cards differ", search: "card debit card credit diferente" },
-    { prompt: "Compare the documents needed for a Raiffeisen Flexicredit personal loan and a BCR George personal loan.", title: "Compare loan documents", hint: "Raiffeisen and BCR requirements", search: "Raiffeisen BCR credit documente" },
+    { prompt: "How do Raiffeisen term deposits work, and what conditions should I check?", title: "How term deposits work", hint: "Conditions and product documents", vignette: "term" },
+    { prompt: "What documents do I need for a Raiffeisen personal loan?", title: "Prepare for a personal loan", hint: "The documents to check before applying", vignette: "checklist" },
+    { prompt: "What is the difference between a debit card and a credit card?", title: "Understand your cards", hint: "How debit and credit cards differ", vignette: "cards" },
+    { prompt: "Compare the documents needed for a Raiffeisen Flexicredit personal loan and a BCR George personal loan.", title: "Compare loan documents", hint: "Raiffeisen and BCR requirements", vignette: "doctable" },
   ],
   business: [
-    { prompt: "What is the maximum overdraft my company can get?", title: "Overdraft for my company", hint: "Limits and conditions", search: "linie de credit overdraft IMM" },
-    { prompt: "What does a business current account cost per month?", title: "Business account costs", hint: "Packages and monthly fees", search: "pachet cont curent IMM" },
-    { prompt: "How can my SRL finance new equipment?", title: "Financing equipment", hint: "Investment loans and leasing", search: "credit investitii IMM" },
-    { prompt: "What documents does my company need to open an account?", title: "Opening a business account", hint: "What to prepare", search: "deschidere cont firma acte" },
+    { prompt: "What is the maximum overdraft my company can get?", title: "Overdraft for my company", hint: "Limits and conditions", vignette: "limit" },
+    { prompt: "What does a business current account cost per month?", title: "Business account costs", hint: "Packages and monthly fees", vignette: "tiers" },
+    { prompt: "How can my SRL finance new equipment?", title: "Financing equipment", hint: "Investment loans and leasing", vignette: "routes" },
+    { prompt: "What documents does my company need to open an account?", title: "Opening a business account", hint: "What to prepare", vignette: "docstack" },
   ],
 };
 
@@ -337,11 +338,9 @@ export function AgentChat() {
                 ))}
               </div>
               <div className="starters">
-                {STARTERS[track].map((s) => (
+                {STARTERS[track].map((s, i) => (
                   <button key={s.prompt} type="button" className="starter" onClick={() => { void send(s.prompt); inputEl.current?.focus(); }}>
-                    <span className="mini" aria-hidden="true"><span className="mini-frag">
-                    <span className="mini-line sel"><span><SearchIcon className="mini-ic" />{s.search}</span><span className="mono">Bank sources</span></span>
-                    </span></span>
+                    <StarterVignette kind={s.vignette} index={i} active={empty} />
                     <b>{s.title}</b><span className="q">{s.hint}</span>
                   </button>
                 ))}

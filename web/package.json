@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "sync:prototypes": "node scripts/sync-prototypes.mjs"
+    "sync:prototypes": "node scripts/sync-prototypes.mjs",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.21",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@clerk/backend": "^3.26.3",
     "@playwright/test": "^1.64.1",
+    "@remotion/cli": "4.0.535",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -32,6 +35,7 @@
     "eslint-config-next": "16.4.3",
     "parse5": "^7",
     "postcss": "^8",
+    "remotion": "4.0.535",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.5"

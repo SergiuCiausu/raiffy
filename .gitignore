@@ -23,3 +23,6 @@ __pycache__/
 raiffeisen-rag-package/data/optional/
 raiffeisen-rag-package/data/pdf_extracts/
 .gstack/
+
+# Local agent handoff notes
+.handoff/
