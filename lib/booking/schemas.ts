@@ -42,6 +42,13 @@ export const DEFAULT_HOURS: Omit<Availability, "operatorId"> = availabilitySchem
 /** The console's BOOK_RULES. Limits a later version reads from Parameters. */
 export const bookingRulesSchema = z.object({
   openPerCustomer: z.number().int().min(1).max(3),
+  /** Cancelling this many calls within `cancelWindowDays` pauses booking for `cancelPauseDays` after the last one. */
+  cancelPauseAfter: z.number().int().min(1).max(20),
+  cancelWindowDays: z.number().int().min(1).max(90),
+  cancelPauseDays: z.number().int().min(1).max(90),
+  /** Booking attempts a customer may make (refused ones count) within `attemptWindowMinutes`. */
+  attemptsPerWindow: z.number().int().min(1).max(50),
+  attemptWindowMinutes: z.number().int().min(1).max(1440),
   /** A call not confirmed this long before it starts is released. Booking inside the window counts as confirming. */
   confirmBeforeHours: z.number().int().min(1).max(72),
   noShowPauseAfter: z.number().int().min(1).max(10),
@@ -55,7 +62,8 @@ export const bookingRulesSchema = z.object({
 export type BookingRules = z.infer<typeof bookingRulesSchema>;
 
 export const DEFAULT_BOOKING_RULES: BookingRules = bookingRulesSchema.parse({
-  openPerCustomer: 1, confirmBeforeHours: 24, noShowPauseAfter: 2, pauseDays: 30,
+  openPerCustomer: 1, cancelPauseAfter: 3, cancelWindowDays: 7, cancelPauseDays: 7, attemptsPerWindow: 5, attemptWindowMinutes: 10,
+  confirmBeforeHours: 24, noShowPauseAfter: 2, pauseDays: 30,
   shareBeforeMinutes: 15, shareAfterHours: 24, joinBeforeMinutes: 10,
 });
 
@@ -72,10 +80,15 @@ export const bookingFactsSchema = z.object({
   confirmedAt: z.number().nullable(),
   /** When a no-show was recorded, for the pause. */
   outcomeAt: z.number().nullable(),
+  /** The operator's zone, needed to compare a customer's calls with different specialists. Defaults to the one being booked. */
+  timeZone: z.string().min(1).optional(),
+  /** Who cancelled and when, for the pause after repeated cancellations. */
+  cancelledBy: cancelledBySchema.optional(),
+  cancelledAt: z.number().optional(),
 });
 export type BookingFacts = z.infer<typeof bookingFactsSchema>;
 
-export const BOOKING_REFUSALS = ["slot_unavailable", "already_booked", "paused"] as const;
+export const BOOKING_REFUSALS = ["slot_unavailable", "already_booked", "same_time", "one_per_day", "paused", "paused_cancellations", "too_many_attempts"] as const;
 export type BookingRefusal = (typeof BOOKING_REFUSALS)[number];
 
 export const bookingCheckSchema = z.discriminatedUnion("ok", [

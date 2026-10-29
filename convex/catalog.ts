@@ -49,3 +49,22 @@ export const markReviewed = mutation({
     return null;
   },
 });
+
+/**
+ * An admin records whether a rate is fixed, variable or a campaign rate when the importer couldn't tell from the
+ * comparison sheet. The note says where the source states it; plans use only rates marked fixed.
+ */
+export const setRateType = mutation({
+  args: { termId: v.string(), rateType: v.union(v.literal("fixed"), v.literal("variable"), v.literal("campaign"), v.literal("promo")), note: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { termId, rateType, note }) => {
+    const caller = await requirePermission(ctx, "change.publish");
+    if (!note.trim()) throw new ConvexError("reason_required");
+    const row = await ctx.db.query("productTerms").withIndex("by_termId", (q) => q.eq("termId", termId)).unique();
+    if (!row) throw new ConvexError("term_unavailable");
+    if (row.kind !== "interest_rate") throw new ConvexError("not_a_rate");
+    await ctx.db.patch(row._id, { comparability: { ...row.comparability, rateType } });
+    await writeAudit(ctx, caller, { action: "catalog.rate_type_set", details: { termId, rateType, before: row.comparability.rateType ?? "unknown" }, note: note.trim() });
+    return null;
+  },
+});

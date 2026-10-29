@@ -11,8 +11,10 @@ import {
 /*
  * Builds a PlanSummary from the customer's inputs and catalog records. Pure: the records, the clock and the IDs
  * come in as arguments. Every figure comes from a fresh, quoted and reviewed catalog value read through the
- * product's template; anything else returns gaps instead of a plan. In particular a starting rate ("de la 5,05%"),
- * a ceiling or a range is never used as the customer's rate, and a charge the catalog doesn't confirm is never zero.
+ * product's template; anything else returns gaps instead of a plan. In particular a starting rate ("de la 5,05%") or
+ * a ceiling is never used as the customer's rate, and a charge the catalog doesn't confirm is never zero. A range is
+ * used only when the template says the bank sets each rate within it: the plan is figured at the top of the range and
+ * also shows the bottom, never one rate in between as if it were the customer's.
  */
 
 /**
@@ -21,6 +23,8 @@ import {
  */
 export const planTemplateSchema = z.object({
   rateTermId: z.string().min(1),
+  /** The product publishes a rate range and the bank sets each customer's rate within it. */
+  rateRange: z.boolean().optional(),
   commissions: z.array(z.object({
     key: commissionKeySchema,
     termId: z.string().min(1).optional(),
@@ -34,7 +38,8 @@ export const planTemplateSchema = z.object({
 });
 export type PlanTemplate = z.infer<typeof planTemplateSchema>;
 
-export const buildPlanInputSchema = z.object({
+/** What every plan needs besides its rate and fees: the customer's inputs, the clock and the IDs. */
+export const planBaseInputSchema = z.object({
   id: z.string().regex(/^PS-\d{3,8}$/),
   version: z.number().int().positive(),
   conversationId: z.string().min(1),
@@ -48,9 +53,6 @@ export const buildPlanInputSchema = z.object({
   amount: z.number().int().positive(),
   termMonths: z.number().int().min(1).max(600),
   firstPaymentDate: z.iso.date(),
-  template: planTemplateSchema,
-  /** The product's records from get_product_terms. They are checked again here. */
-  records: z.array(termRecordSchema),
   /** Other terms of the same product to show side by side. Terms outside the product's limits are left out. */
   alternativeTerms: z.array(z.number().int().min(1).max(600)).max(3).default([]),
   /** Routes worked out by their own tools (an overdraft, saving first). */
@@ -61,6 +63,13 @@ export const buildPlanInputSchema = z.object({
   affordability: z.object({ income: z.number().int().positive(), obligations: z.number().int().min(0) }).optional(),
   /** The check of the version this one replaces. A confirmation carries over as "changed after the check". */
   previousVerification: planVerificationSchema.optional(),
+});
+export type PlanBaseInput = z.infer<typeof planBaseInputSchema>;
+
+export const buildPlanInputSchema = planBaseInputSchema.extend({
+  template: planTemplateSchema,
+  /** The product's records from get_product_terms. They are checked again here. */
+  records: z.array(termRecordSchema),
 });
 export type BuildPlanInput = z.input<typeof buildPlanInputSchema>;
 
@@ -111,8 +120,9 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
   const gaps: PlanGap[] = [];
   const used: TermRecord[] = [];
 
-  // The rate: exact, fixed, in basis points
+  // The rate: exact (or a range the template allows), fixed, in basis points
   let rateBps = 0;
+  let lowBps: number | null = null;
   const rate = usable(input, input.template.rateTermId, "rate");
   if (isGap(rate)) gaps.push(rate);
   else {
@@ -120,9 +130,10 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
     const amount = exactAmount(rate);
     if (rate.kind !== "interest_rate") gap("wrong_kind");
     else if (rate.unit !== "bps") gap("wrong_unit");
-    else if (typeof amount !== "number") gap(amount);
     else if (rate.comparability.rateType !== "fixed") gap("not_fixed_rate");
-    else { rateBps = amount; used.push(rate); }
+    else if (typeof amount === "number") { rateBps = amount; used.push(rate); }
+    else if (rate.value.type === "range" && input.template.rateRange) { rateBps = rate.value.max; lowBps = rate.value.min; used.push(rate); }
+    else gap(amount);
   }
 
   // Commission lines, in the template's order
@@ -181,7 +192,6 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
     else if (!b) gaps.push({ role, termId, reason: "not_a_number" });
     else { limits[which] = b; used.push(record); }
   }
-  const within = (value: number, b: { min?: number; max?: number } | null) => !b || ((b.min ?? -Infinity) <= value && value <= (b.max ?? Infinity));
   if (limits.amount) {
     if (limits.amount.min !== undefined && input.amount < limits.amount.min) gaps.push({ role: "amount_limit", termId: input.template.amountLimitTermId, reason: "amount_below_limit" });
     if (limits.amount.max !== undefined && input.amount > limits.amount.max) gaps.push({ role: "amount_limit", termId: input.template.amountLimitTermId, reason: "amount_above_limit" });
@@ -191,18 +201,40 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
     if (limits.term.max !== undefined && input.termMonths > limits.term.max) gaps.push({ role: "term_limit", termId: input.template.termLimitTermId, reason: "term_above_limit" });
   }
 
+  if (gaps.length) return buildPlanResultSchema.parse({ status: "unavailable", gaps });
+  return assemblePlan(input, {
+    rateBps, lowBps, rateType: "fixed", rateTermId: input.template.rateTermId, upfrontFee, monthlyFee, commissions, missing,
+    termLimit: limits.term, sources: [...new Map(used.map((r) => [r.termId, source(r)])).values()],
+    product: used.find((r) => r.termId === input.template.rateTermId)!.product, figuresFrom: "catalog",
+  });
+}
+
+/** The rate, fees and limits a plan is figured from, however they were found. */
+export type ResolvedTerms = {
+  rateBps: number; lowBps: number | null; rateType: "fixed" | "assumed_constant"; rateTermId: string;
+  upfrontFee: number; monthlyFee: number; commissions: Commission[]; missing: PlanNote[];
+  termLimit: { min?: number; max?: number } | null; sources: PlanSource[]; product: string; figuresFrom: PlanSummary["figuresFrom"];
+};
+
+/** Schedules, routes, notes and the summary itself, from resolved terms. Shared by the catalog and the cited fallback. */
+export function assemblePlan(input: PlanBaseInput, t: ResolvedTerms): BuildPlanResult {
+  const { rateBps, lowBps, upfrontFee, monthlyFee, commissions } = t;
+  const missing = [...t.missing];
+  const within = (value: number, b: { min?: number; max?: number } | null) => !b || ((b.min ?? -Infinity) <= value && value <= (b.max ?? Infinity));
   // Routes side by side: the chosen term, other terms of the same product, then routes from other tools
   const scheduleFor = (months: number): Schedule => repaymentSchedule({
     principal: input.amount, months, annualRateBps: rateBps, upfrontFee, monthlyFee, firstPaymentDate: input.firstPaymentDate,
   });
-  const terms = [input.termMonths, ...input.alternativeTerms.filter((n) => n !== input.termMonths && within(n, limits.term))];
+  const terms = [input.termMonths, ...input.alternativeTerms.filter((n) => n !== input.termMonths && within(n, t.termLimit))];
   const keys = new Set([...terms.map(routeKey), ...input.otherRoutes.map((r) => r.key)]);
-  if (!keys.has(input.recommendedRoute)) gaps.push({ role: "recommendation", reason: "unknown_route" });
+  if (!keys.has(input.recommendedRoute)) return buildPlanResultSchema.parse({ status: "unavailable", gaps: [{ role: "recommendation", reason: "unknown_route" }] });
 
-  if (gaps.length) return buildPlanResultSchema.parse({ status: "unavailable", gaps });
 
   const schedules = new Map(terms.map((n) => [n, scheduleFor(n)] as const));
   const s = schedules.get(input.termMonths)!;
+  const low = lowBps === null ? null : repaymentSchedule({
+    principal: input.amount, months: input.termMonths, annualRateBps: lowBps, upfrontFee, monthlyFee, firstPaymentDate: input.firstPaymentDate,
+  });
   const routes: PlanRoute[] = [
     ...terms.map((n) => {
       const x = schedules.get(n)!;
@@ -213,7 +245,8 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
 
   const assumptions: PlanNote[] = [
     { key: "first_payment_date", params: { date: input.firstPaymentDate } },
-    { key: "fixed_rate_whole_term", params: { rateBps } },
+    t.rateType === "fixed" ? { key: "fixed_rate_whole_term", params: { rateBps } } : { key: "rate_assumed_constant", params: { rateBps } },
+    ...(lowBps === null ? [] : [{ key: "rate_within_range" as const, params: { minBps: lowBps, maxBps: rateBps } }]),
     { key: "repaid_on_schedule" },
     { key: "monthly_interest_rounding" },
     { key: "optional_insurance_excluded" },
@@ -226,14 +259,13 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
     ? { ...prev, changed: true, forVersion: prev.forVersion ?? input.version - 1 }
     : { level: "none" as const };
 
-  const sources = [...new Map(used.map((r) => [r.termId, source(r)])).values()];
-  const product = used.find((r) => r.termId === input.template.rateTermId)!.product;
 
   const plan: PlanSummary = {
-    id: input.id, version: input.version, conversationId: input.conversationId, track: input.track, label: "indicative", createdAt: input.createdAt,
-    goal: { summary: input.goal, productId: input.productId, product, amount: input.amount, termMonths: input.termMonths },
-    terms: { annualRateBps: rateBps, rateType: "fixed", rateTermId: input.template.rateTermId, upfrontFee, monthlyFee, firstPaymentDate: input.firstPaymentDate },
-    figures: { monthly: s.monthly, instalment: s.instalment, interest: s.totals.interest, fees: s.totals.fees, total: s.totals.payable, dae: s.dae, commissions },
+    id: input.id, version: input.version, conversationId: input.conversationId, track: input.track, label: "indicative", figuresFrom: t.figuresFrom, createdAt: input.createdAt,
+    goal: { summary: input.goal, productId: input.productId, product: t.product, amount: input.amount, termMonths: input.termMonths },
+    terms: { annualRateBps: rateBps, rateType: t.rateType, rateTermId: t.rateTermId, ...(lowBps === null ? {} : { rateRange: { minBps: lowBps, maxBps: rateBps } }), upfrontFee, monthlyFee, firstPaymentDate: input.firstPaymentDate },
+    figures: { monthly: s.monthly, instalment: s.instalment, interest: s.totals.interest, fees: s.totals.fees, total: s.totals.payable, dae: s.dae, commissions,
+      ...(low && lowBps !== null ? { atLowest: { annualRateBps: lowBps, monthly: low.monthly, interest: low.totals.interest, total: low.totals.payable, dae: low.dae } } : {}) },
     routes,
     affordability: input.affordability ? {
       income: input.affordability.income, obligations: input.affordability.obligations,
@@ -241,7 +273,7 @@ export function buildPlan(raw: BuildPlanInput): BuildPlanResult {
       leftEachMonth: input.affordability.income - input.affordability.obligations - s.monthly,
     } : null,
     repaymentSchedule: s.rows,
-    assumptions, missing, sources, verification,
+    assumptions, missing, sources: t.sources, verification,
     handoff: { target: input.track === "business" ? "business_lead" : "smart_mobile", productId: input.productId, amount: input.amount, termMonths: input.termMonths },
   };
   return buildPlanResultSchema.parse({ status: "ok", plan });

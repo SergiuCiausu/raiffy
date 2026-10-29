@@ -23,10 +23,10 @@ export type CustomerBooking = {
   confirmBy: number; canConfirm: boolean; canCancel: boolean;
   reminder: null | "confirm" | "starts_soon";
   joinFrom: number; joinUrl: string | null;
-  planId: string | null; sharePlan: boolean;
+  planId: string | null; sharePlan: boolean; threadId: ThreadId | null;
 };
 
-export type BookingOptions = { operators: BookableOperator[]; booking: CustomerBooking | null; pausedUntil: number | null };
+export type BookingOptions = { operators: BookableOperator[]; booking: CustomerBooking | null; pausedUntil: number | null; pauseCause: null | "missed" | "cancellations" };
 export type BookResult = { status: "booked"; bookingId: string } | { status: "refused"; reason: string; pausedUntil: number | null };
 
 export const bookingApi = {
@@ -34,6 +34,8 @@ export const bookingApi = {
   book: makeFunctionReference<"mutation", { operatorId: string; start: string; channel: Channel; topic: string; threadId?: ThreadId; sharePlan: boolean }, BookResult>("bookings:book"),
   confirm: makeFunctionReference<"mutation", { bookingId: string }, null>("bookings:confirm"),
   cancel: makeFunctionReference<"mutation", { bookingId: string }, null>("bookings:cancel"),
+  /** The customer's calls, latest start first (/chat/calls). */
+  mine: makeFunctionReference<"query", Record<string, never>, CustomerBooking[]>("bookings:mine"),
 };
 
 export type PlanListItem = { planId: string; version: number; createdAt: number; amount: number; termMonths: number; monthly: number; checked: string; messageId?: MessageId };

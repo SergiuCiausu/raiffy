@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQueries, useQuery, type RequestForQueries } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import {
-  ArrowDownIcon, ArrowUpIcon, BadgePercentIcon, PaperclipIcon, BriefcaseIcon, CalculatorIcon, ChartColumnIcon, InfoIcon, PencilIcon, PinIcon, ScaleIcon, SignpostIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon, MicIcon, Volume2Icon,
+  ArrowDownIcon, ArrowUpIcon, CalendarIcon, BadgePercentIcon, PaperclipIcon, BriefcaseIcon, CalculatorIcon, ChartColumnIcon, InfoIcon, PencilIcon, PinIcon, ScaleIcon, SignpostIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon, MicIcon, Volume2Icon,
   MessageCircleIcon, PanelRightCloseIcon, PanelRightOpenIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserCheckIcon, UserIcon, XIcon,
 } from "lucide-react";
@@ -29,6 +29,9 @@ import { SpecialistOffer } from "./Handoff";
 import { AffordabilityCard, isAffordability } from "./AffordabilityCard";
 import { AnswerCheckButton, AnswerCheckZone, canAskSpecialist } from "./AnswerCheck";
 import { SpecialistChecks, type CheckRow } from "./SpecialistChecks";
+import { YourCalls } from "@/components/booking/YourCalls";
+import { YourPlans, type PlanRow } from "./YourPlans";
+import { planCheckApi, type MyPlan } from "@/lib/plan-check-api";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
 import { useVoice } from "@/components/chat/useVoice";
 import { VoiceStatus } from "@/components/chat/VoiceStatus";
@@ -72,8 +75,11 @@ const greetingFor = (h: number) => `${h < 12 ? "Good morning" : h < 18 ? "Good a
 const stepLines = (steps: { query: string; results?: number }[]) =>
   steps.map((s) => <>Searching bank sources: <b className="q">{s.query}</b>{s.results !== undefined && <> · {s.results} {s.results === 1 ? "result" : "results"}</>}</>);
 
-/** `view="checks"` is /chat/checks: the same shell, with "Your specialist checks" in the thread's place (chat.html#checks). */
-export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
+/**
+ * `view="checks"` is /chat/checks and `view="plans"` is /chat/plans: the same shell, with "Your specialist checks" or
+ * "Your plans" in the thread's place (chat.html#checks, #plans).
+ */
+export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" | "plans" | "calls" }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
@@ -95,6 +101,17 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
     return [...of(mine.personal, "personal"), ...of(mine.business, "business")].sort((x, y) => y.createdAt - x.createdAt);
   }, [mine.personal, mine.business]);
   const openChecks = myChecks?.filter((c) => c.status === "open").length ?? 0;
+  // The customer's plans on both tracks, the same way: the sidebar counts the ones not checked yet
+  const plansMine = useQueries(useMemo((): RequestForQueries => ({
+    personal: { query: planCheckApi.mine, args: { track: "personal" } },
+    business: { query: planCheckApi.mine, args: { track: "business" } },
+  }), []));
+  const myPlans = useMemo((): PlanRow[] | undefined => {
+    if (plansMine.personal === undefined) return undefined;
+    const of = (rows: unknown, track: Track) => Array.isArray(rows) ? (rows as MyPlan[]).map((p) => ({ ...p, track })) : [];
+    return [...of(plansMine.personal, "personal"), ...of(plansMine.business, "business")].sort((x, y) => y.createdAt - x.createdAt);
+  }, [plansMine.personal, plansMine.business]);
+  const uncheckedPlans = myPlans?.filter((p) => p.state === "unchecked" || p.state === "changed").length ?? 0;
   const titles = useMemo(() => new Map((threads ?? []).map((t) => [t._id as string, t.title])), [threads]);
   // useQueries returns a server error as a value instead of throwing it into the page's error boundary, so a
   // conversation deleted while open (another tab, a re-seed, retention) brings back an empty chat, not the error page.
@@ -330,7 +347,7 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
 
   function openThread(id: ThreadId | null) {
     cancelVoice(); setVoiceDraft(false);
-    if (view === "checks") { router.push(id ? `/chat?thread=${id}` : "/chat"); return; }
+    if (view !== "chat") { router.push(id ? `/chat?thread=${id}` : "/chat"); return; }
     setThreadId(id);
     setRenaming(false);
     setPending(null);
@@ -468,7 +485,7 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   const meta = thread
     ? `${TRACKS.find((t) => t.k === thread.track)?.label ?? "Business profile"} · ${sources.length ? `${sources.length} ${sources.length === 1 ? "source" : "sources"}` : "no sources yet"}`
     : "New conversation";
-  const appClass = ["app", view === "checks" && "view-checks", drawer === "side" && "side-open", drawer === "ctx" && "ctx-open", ctxClosed && "ctx-closed", !ctxAnimate && "no-anim"].filter(Boolean).join(" ");
+  const appClass = ["app", view === "checks" && "view-checks", view === "plans" && "view-plans", view === "calls" && "view-calls", drawer === "side" && "side-open", drawer === "ctx" && "ctx-open", ctxClosed && "ctx-closed", !ctxAnimate && "no-anim"].filter(Boolean).join(" ");
   const ctxKbd = mac ? "⌘\\" : "Ctrl \\";
 
   return (
@@ -490,6 +507,13 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
           <Link className="conv checks-link" href="/chat/checks" aria-current={view === "checks"} onClick={() => { if (narrowSide) closeDrawers(); }}
             aria-label={`Your specialist checks${openChecks ? `, ${openChecks} waiting` : ""}`}>
             <UserCheckIcon /><span>Your specialist checks</span><small>{openChecks || ""}</small>
+          </Link>
+          <Link className="conv checks-link plans-link" href="/chat/plans" aria-current={view === "plans"} onClick={() => { if (narrowSide) closeDrawers(); }}
+            aria-label={`Your plans${uncheckedPlans ? `, ${uncheckedPlans} not checked` : ""}`}>
+            <FileTextIcon /><span>Your plans</span><small>{uncheckedPlans || ""}</small>
+          </Link>
+          <Link className="conv checks-link calls-link" href="/chat/calls" aria-current={view === "calls"} onClick={() => { if (narrowSide) closeDrawers(); }}>
+            <CalendarIcon /><span>Your calls</span><small />
           </Link>
           <nav className="conv-list" id="conv-list" aria-label="Conversations" aria-busy={threads === undefined}>
             {groups.map((g) => (
@@ -518,12 +542,14 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
             <button type="button" className="icon-btn menu" id="open-side" aria-label="Open chats" aria-controls="side"
               aria-expanded={drawer === "side"} onClick={(e) => openDrawer("side", e.currentTarget)}><MenuIcon /></button>
             <div className="title-wrap">
-              {renaming && thread && view !== "checks"
+              {renaming && thread && view === "chat"
                 ? <RenameField key={thread._id} title={thread.title} onDone={finishRename} />
                 : <div id="title-box">{view === "checks"
                   ? <><h1 id="title">Your specialist checks</h1><span className="meta" id="meta">Answers you sent to a person</span></>
+                  : view === "plans" ? <><h1 id="title">Your plans</h1><span className="meta" id="meta">Plans you built in your chats</span></>
+                  : view === "calls" ? <><h1 id="title">Your calls</h1><span className="meta" id="meta">Calls you booked with a specialist</span></>
                   : <><h1 id="title">{thread?.title ?? "New chat"}</h1><span className="meta" id="meta">{meta}</span></>}</div>}
-              {thread && !renaming && view !== "checks" && <button type="button" className="icon-btn rename" id="rename" ref={renameBtn} aria-label="Rename chat" onClick={() => setRenaming(true)}><PencilIcon /></button>}
+              {thread && !renaming && view === "chat" && <button type="button" className="icon-btn rename" id="rename" ref={renameBtn} aria-label="Rename chat" onClick={() => setRenaming(true)}><PencilIcon /></button>}
             </div>
             <div className="top-actions">
               <button type="button" className="btn btn-ghost btn-sm advisor" id="advisor-btn" aria-label="Talk to a specialist"
@@ -540,6 +566,8 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
           </header>
 
           {view === "checks" && <SpecialistChecks rows={myChecks} titles={titles} />}
+          {view === "plans" && <YourPlans rows={myPlans} titles={titles} />}
+          {view === "calls" && <YourCalls announce={announce} />}
 
           <div className="scroll" id="scroll" ref={scroller} onScroll={() => {
             const s = scroller.current!;

@@ -1361,7 +1361,7 @@ dialog.sheet[open] { display: flex; flex-direction: column; }
       '<p class="doc-label">' + ic('info') + 'Indicative simulation: not a firm credit offer. The bank issues the official SECCI and contract in Smart Mobile.</p>' +
       '<div><h3>Goal</h3><p style="font-size:13.5px">' + esc(g.summary) + ' · <b style="font-weight:500">' + esc(g.chosenRoute) + '</b></p></div>' +
       '<div><h3>Main features</h3><div class="doc-grid">' +
-      [['Amount', lei(g.amount)], ['Term', g.termMonths + ' months, monthly'], ['Rate', pct(ps.rate) + ' fixed'], ['Monthly payment', lei(f.monthly, 2)], ['Total payable', lei(f.total, 2)], ['DAE', pct(f.dae)]]
+      [['Amount', lei(g.amount)], ['Term', g.termMonths + ' months, monthly'], ['Rate', ps.rateRange ? pct(ps.rateRange.min) + ' – ' + pct(ps.rateRange.max) + (ps.rateType === 'fixed' ? ' fixed' : ', assumed constant') : pct(ps.rate) + ' fixed'], ['Monthly payment', lei(f.monthly, 2)], ['Total payable', lei(f.total, 2)], ['DAE', pct(f.dae)]]
         .map(function (x) { return '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('') + '</div></div>' +
       '<div><h3>All commissions</h3><div class="lines">' + f.commissions.map(function (c) {
         return '<div class="ln"><span>' + esc(c.name) + '<small>' + esc(c.note) + '</small></span><span class="amt">' + (c.amount == null ? 'if used' : c.amount ? lei(c.amount, 2) : 'None') + '</span></div>'; }).join('') + '</div></div>' +

@@ -60,6 +60,18 @@ describe("planCardView", () => {
     expect(lei2(v.monthly)).toMatch(/^\d{1,3}(,\d{3})*\.\d{2} lei$/);
   });
 
+  it("shows both ends when the bank sets the rate within a range", () => {
+    expect(planCardView(ok(buildPlan(INPUT))).range).toBeNull();
+    const records = INPUT.records.map((r) => r.kind === "interest_rate" ? { ...r, value: { type: "range" as const, min: 555, max: 1795 } } : r);
+    const v = planCardView(ok(buildPlan({ ...INPUT, records, template: { ...INPUT.template, rateRange: true } })));
+    expect(v.range).toMatchObject({ minPercent: "5.55%", maxPercent: "17.95%" });
+    expect(v.range!.monthly).toBeLessThan(v.monthly);
+  });
+
+  it("says when the figures come from the reviewed catalog", () => {
+    expect(planCardView(ok(buildPlan(INPUT)))).toMatchObject({ cited: null, fixedRate: true });
+  });
+
   it("formats bani as lei with two decimals", () => {
     expect(lei2(96_121)).toBe("961.21 lei");
     expect(lei2(1_234_567)).toBe("12,345.67 lei");

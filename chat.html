@@ -167,7 +167,12 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 .chk .vstat { max-width: none; }
 .chk-wait { font-size: var(--text-xs); line-height: 1.5; color: var(--text-2); }
 .chk-empty { padding: 20px 16px; border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); font-size: var(--text-sm); color: var(--text-2); }
-.app.view-checks .scroll, .app.view-checks .composer-wrap, .app.view-checks .rename { display: none; }
+.app.view-checks .scroll, .app.view-checks .composer-wrap, .app.view-checks .rename,
+.app.view-plans .scroll, .app.view-plans .composer-wrap, .app.view-plans .rename { display: none; }
+/* Your plans (#plans): the latest version of every plan, the ones not yet checked first */
+.plan-row-figs { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--text-xs); color: var(--text-2); }
+.plan-row-figs b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; }
+.plan-row-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .me { display: flex; align-items: center; gap: 10px; padding: 10px 6px 0; border-top: 1px solid var(--border); }
 .me .ava { background: linear-gradient(135deg, var(--ava-a), var(--ava-b)); color: var(--ava-ink); }
 .me div { flex: 1; min-width: 0; line-height: 1.3; }
@@ -766,6 +771,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       <kbd id="kbd-k">Ctrl K</kbd>
     </label>
     <button type="button" class="conv checks-link" id="checks-link" aria-current="false"><i data-lucide="user-check"></i><span>Your specialist checks</span><small id="checks-count"></small></button>
+    <button type="button" class="conv checks-link plans-link" id="plans-link" aria-current="false"><i data-lucide="file-text"></i><span>Your plans</span><small id="plans-count"></small></button>
     <nav class="conv-list" id="conv-list" aria-label="Conversations"></nav>
     <div class="me">
       <span class="ava" aria-hidden="true">AP</span>
@@ -832,6 +838,9 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
 
     <section class="checks" id="checks" hidden aria-labelledby="title">
       <div class="checks-in" id="checks-in"></div>
+    </section>
+    <section class="checks" id="plans" hidden aria-labelledby="title">
+      <div class="checks-in" id="plans-in"></div>
     </section>
 
     <div class="composer-wrap">
@@ -1569,17 +1578,27 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       if (!pl) return '<div class="gcard"><div class="gc-b"><p class="plan-src">This version of the plan isn’t saved on this device any more.</p></div></div>';
       var g = pl.goals[0], f = pl.figures, rows = pl.repaymentSchedule, last = rows[rows.length - 1], step = Math.max(1, Math.ceil(rows.length / 30));
       var bars = [g.amount].concat(rows.map(function (w) { return w.balance; })).filter(function (_, i) { return i % step === 0; });
-      var recd = pl.routes[0].recommended;
+      var recd = pl.routes[0].recommended, rr = pl.terms.rateRange, lo = rr && f.atLowest;
+      if (!lo) rr = null;
       return '<div class="gcard plan-card" data-plan="' + esc(pl.id) + '"><div class="gc-h"><span>' + ic('file-text') + 'Your plan</span><span class="plan-h"><span class="plan-badge"></span><span class="micro">' + esc(pl.id) + ' · v' + pl.version + '</span></span></div>' +
         '<div class="gc-b plan-b">' +
         '<div class="plan-goal"><span class="eyebrow">Goal</span><b>' + esc(g.summary) + '</b><span class="plan-route">' + esc(g.chosenRoute) + ' · ' + lei(g.amount / 100) + ' over ' + g.termMonths + ' months' + (recd ? recBadge() : '<span class="pill">Your choice</span>') + '</span></div>' +
-        '<div class="plan-figs">' +
+        // A published rate range (terms.rateRange, figures.atLowest): both ends, figured at the top so it never understates the cost
+        (rr ? '<div class="plan-figs">' +
+          '<div><span>Monthly payment</span><b>' + lei(lo.monthly / 100) + ' – ' + lei(f.monthly / 100) + '</b><small>At ' + pctBps(rr.minBps) + ' – ' + pctBps(rr.maxBps) + '</small></div>' +
+          '<div><span>Total payable</span><b>' + lei(lo.total / 100) + ' – ' + lei(f.total / 100) + '</b><small>With every fee</small></div>' +
+          '<div><span>DAE</span><b>' + (lo.dae * 100).toFixed(2) + '% – ' + (f.dae * 100).toFixed(2) + '%</b><small>Estimate · no insurance</small></div></div>' +
+          '<p class="plan-src">The bank sets your ' + (pl.terms.rateType === 'fixed' ? 'fixed ' : '') + 'rate between ' + pctBps(rr.minBps) + ' and ' + pctBps(rr.maxBps) + ' when it assesses your application. The balance below uses ' + pctBps(rr.maxBps) + ', so it doesn’t understate the cost.</p>'
+        : '<div class="plan-figs">' +
         '<div><span>Monthly payment</span><b>' + lei2(f.monthly) + '</b><small>Estimate</small></div>' +
         '<div><span>Total payable</span><b>' + lei2(f.total) + '</b><small>With the ' + lei(f.commissions[0].amount / 100) + ' fee</small></div>' +
-        '<div><span>DAE</span><b>' + (f.dae * 100).toFixed(2) + '%</b><small>Estimate · no insurance</small></div></div>' +
+        '<div><span>DAE</span><b>' + (f.dae * 100).toFixed(2) + '%</b><small>Estimate · no insurance</small></div></div>') +
         '<div class="bal"><div class="bal-bars" aria-hidden="true">' + bars.map(function (b) { return '<i style="height:' + Math.max(2, Math.round(b / g.amount * 100)) + '%"></i>'; }).join('') + '</div>' +
         '<div class="bal-cap"><span>' + lei(g.amount / 100) + ' to repay</span><span>Paid off · ' + monthYear(last.date) + '</span></div></div>' +
-        '<p class="plan-src">Rate: ' + esc(pl.terms.source) + '. Fees: ' + esc(f.commissions[0].source) + '.</p>' +
+        // figuresFrom 'cited_page' (the demo fallback): figures the chat cited from a public page, not the reviewed catalog
+        (pl.figuresFrom === 'cited_page'
+          ? '<p class="plan-src">Figures from ' + esc(pl.terms.source) + ' as cited in this chat on ' + esc(pl.citedOn || '') + '. The bank’s reviewed catalog doesn’t cover this loan yet.</p>'
+          : '<p class="plan-src">Rate: ' + esc(pl.terms.source) + '. Fees: ' + esc(f.commissions[0].source) + '.</p>') +
         '<p class="plan-label">' + ic('info') + '<span>Indicative simulation, not a firm credit offer. The bank issues the official offer and contract in Smart Mobile.</span></p>' +
         '<div class="plan-stale vstat changed" hidden></div></div>' +
         '<div class="gc-note plan-acts"><a class="btn btn-dark btn-sm" href="plan.html#' + esc(pl.id) + '" target="_blank" rel="noopener">' + ic('file-text') + 'Open plan</a>' +
@@ -1973,28 +1992,92 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
     $('checks-count').textContent = n || '';
     $('checks-link').setAttribute('aria-label', 'Your specialist checks' + (n ? ', ' + n + ' waiting' : ''));
     if (inChecks()) renderChecks();
+    syncPlans();
+  }
+  /* ───────────── Your plans (#plans) ─────────────
+     The latest version of each plan the customer built, from the plan cards in their chats. Not checked yet first,
+     each with "Check my plan"; then changed after a check, being checked, and checked. Becomes /chat/plans (plans:mine). */
+  function inPlans() { return location.hash === '#plans'; }
+  function planState(v) {
+    if (!v) return 'unchecked';
+    if (v.level === 'pending_review') return 'pending';
+    if ((v.level === 'confirmed' || v.level === 'edited') && v.changed) return 'changed';
+    return 'checked';
+  }
+  var PL_PILL = { unchecked: ['Not checked', 'var(--text-2)'], changed: ['Changed after the check', 'var(--amber-ink)'], pending: ['Being checked', 'var(--amber-ink)'] };
+  function allPlans() {
+    var saved = readPlans(), latest = {};
+    convs.forEach(function (c) {
+      c.messages.forEach(function (m, i) {
+        if (!m.card || m.card.type !== 'plan') return;
+        var pl = saved[m.card.id]; if (!pl || pl.version !== m.card.version) return;
+        var prev = latest[pl.id];
+        if (!prev || prev.pl.version < pl.version) latest[pl.id] = { conv: c, i: i, m: m, pl: pl, state: planState(m.verify) };
+      });
+    });
+    return Object.keys(latest).map(function (k) { return latest[k]; });
+  }
+  function planRowHTML(x) {
+    var pl = x.pl, g = pl.goals[0], f = pl.figures, v = x.m.verify;
+    var pill = x.state === 'checked' ? CK_PILL[v.level] : PL_PILL[x.state];
+    var cta = x.state === 'unchecked' ? 'Check my plan' : x.state === 'changed' ? 'Check this version' : '';
+    return '<li class="chk"><div class="chk-h"><div><b>' + esc(g.chosenRoute) + ' · ' + lei(g.amount / 100) + ' over ' + g.termMonths + ' months</b>' +
+      '<small><span class="ref">' + esc(pl.id) + ' · v' + pl.version + '</span> · ' + esc(x.conv.title) + (v && v.ref ? ' · Ref. <span class="ref">' + esc(v.ref) + '</span>' : '') + '</small></div>' +
+      '<span class="pill" style="--c:' + pill[1] + '">' + (x.state === 'checked' && v.level === 'edited' ? 'Confirmed with a note' : pill[0]) + '</span></div>' +
+      '<p class="plan-row-figs"><span>Monthly <b>' + lei2(f.monthly) + '</b></span><span>Total <b>' + lei2(f.total) + '</b></span><span>Rate and fees from the bank’s reviewed catalog</span></p>' +
+      (x.state === 'pending' ? '<p class="chk-wait">Waiting for a specialist. Their reply appears here and on the plan.</p>' : x.state === 'checked' ? verifyHTML(x.m) : '') +
+      '<div class="plan-row-acts">' + (cta ? '<button type="button" class="btn btn-dark btn-sm" data-plan-check="' + x.conv.id + ':' + x.i + '">' + ic('user-check') + cta + '</button>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-open-check="' + x.conv.id + ':' + x.i + '">' + ic('message-circle') + 'Open in the chat</button></div></li>';
+  }
+  function renderPlans() {
+    var all = allPlans(), order = ['unchecked', 'changed', 'pending', 'checked'], labels = { unchecked: 'Not checked yet', changed: 'Changed after a check', pending: 'Being checked', checked: 'Checked' };
+    $('plans-in').innerHTML = '<p>Plans you built from a simulation. A specialist can check any of them against the bank’s terms: they confirm the information, not a credit decision.</p>' +
+      (all.length ? order.map(function (st) {
+        var xs = all.filter(function (x) { return x.state === st; });
+        return xs.length ? '<span class="grp eyebrow">' + labels[st] + '</span><ul class="chk-list">' + xs.map(planRowHTML).join('') + '</ul>' : '';
+      }).join('') : '<p class="chk-empty">Plans you build appear here. Ask for a loan simulation, then press “Build my plan” under it.</p>');
+    icons();
+  }
+  function syncPlans() {
+    var n = allPlans().filter(function (x) { return x.state === 'unchecked' || x.state === 'changed'; }).length;
+    $('plans-count').textContent = n || '';
+    $('plans-link').setAttribute('aria-label', 'Your plans' + (n ? ', ' + n + ' not checked' : ''));
+    if (inPlans()) renderPlans();
   }
   function syncView() {
-    var on = inChecks();
-    if (on && job) job.stop();
+    var on = inChecks(), onPlans = inPlans();
+    if ((on || onPlans) && job) job.stop();
     app.classList.toggle('view-checks', on);
+    app.classList.toggle('view-plans', onPlans);
     $('checks').hidden = !on;
+    $('plans').hidden = !onPlans;
     $('checks-link').setAttribute('aria-current', String(on));
+    $('plans-link').setAttribute('aria-current', String(onPlans));
     renderHeader(); renderSidebar(); syncChecks();
   }
-  function leaveChecks() { if (inChecks()) { history.pushState(null, '', location.pathname + location.search); syncView(); } }
+  function leaveChecks() { if (inChecks() || inPlans()) { history.pushState(null, '', location.pathname + location.search); syncView(); } }
   window.addEventListener('hashchange', syncView);
   $('checks-link').addEventListener('click', function () {
     if (!inChecks()) location.hash = 'checks';
     if (narrowSide.matches) closeDrawers();
   });
-  $('checks-in').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-open-check]'); if (!b) return;
-    var parts = b.dataset.openCheck.split(':'), c = convs.filter(function (x) { return x.id === parts[0]; })[0];
+  function openFromList(e) {
+    var b = e.target.closest('[data-open-check], [data-plan-check]'); if (!b) return;
+    var parts = (b.dataset.openCheck || b.dataset.planCheck).split(':'), c = convs.filter(function (x) { return x.id === parts[0]; })[0];
     if (!c) return;
     leaveChecks(); openConv(c.id);
-    var el = msgNode(c.messages[+parts[1]]);
+    var m = c.messages[+parts[1]];
+    // "Check my plan" opens the request under the plan, ready for a note
+    if (b.dataset.planCheck) { m.vid = m.vid || uid('v'); m.vdraft = 'plan'; m.verify = null; refreshVerify(m); }
+    var el = msgNode(m);
     if (el) el.scrollIntoView({ block: 'center', behavior: reduce.matches ? 'auto' : 'smooth' });
+    var ta = el && el.querySelector('[data-vnote]'); if (ta) ta.focus({ preventScroll: true });
+  }
+  $('checks-in').addEventListener('click', openFromList);
+  $('plans-in').addEventListener('click', openFromList);
+  $('plans-link').addEventListener('click', function () {
+    if (!inPlans()) location.hash = 'plans';
+    if (narrowSide.matches) closeDrawers();
   });
   function renderMsg(m, enter) { var el = m.role === 'user' ? renderUser(m) : renderRaiffy(m, enter); if (enter && m.role === 'user') el.classList.add('enter'); return el; }
 
@@ -2018,6 +2101,12 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
   }
 
   function renderHeader() {
+    if (inPlans()) {
+      $('title').textContent = 'Your plans'; $('title').title = '';
+      $('meta').textContent = 'Plans you built in your chats';
+      document.title = 'Your plans · Raiffy';
+      return;
+    }
     if (inChecks()) {
       $('title').textContent = 'Your specialist checks'; $('title').title = '';
       $('meta').textContent = 'Answers you sent to a person';
@@ -2040,7 +2129,7 @@ kbd { font: 500 var(--text-eyebrow)/1 var(--font-mono); color: var(--text-3); pa
       if (!items.length) return;
       any = true;
       html += '<span class="grp eyebrow">' + g + '</span>' + items.map(function (c) {
-        return '<button type="button" class="conv" data-conv="' + c.id + '" aria-current="' + (!inChecks() && c.id === active) + '">' + ic(c.icon || 'message-circle') + '<span></span><small>' + c.time + '</small></button>';
+        return '<button type="button" class="conv" data-conv="' + c.id + '" aria-current="' + (!inChecks() && !inPlans() && c.id === active) + '">' + ic(c.icon || 'message-circle') + '<span></span><small>' + c.time + '</small></button>';
       }).join('');
     });
     var sv = saved.filter(function (s) { return !q || s.title.toLowerCase().indexOf(q) > -1; });

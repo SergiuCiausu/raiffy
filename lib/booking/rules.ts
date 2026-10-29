@@ -90,13 +90,62 @@ export function isOpen(b: BookingFacts, timeZone: string, now: number): boolean 
   return b.status === "booked" && endOf(b, timeZone) > now;
 }
 
-/** After `noShowPauseAfter` missed calls within `pauseDays`, booking pauses until `pauseDays` after the last one. */
-export function pausedUntil(customerBookings: readonly BookingFacts[], rawRules: BookingRules, now: number): number | null {
+/**
+ * Why booking is paused, if it is. After `noShowPauseAfter` missed calls within `pauseDays`, until `pauseDays` after
+ * the last one; after `cancelPauseAfter` cancellations by the customer within `cancelWindowDays`, until
+ * `cancelPauseDays` after the last one. The later pause wins.
+ */
+export function pauseOf(customerBookings: readonly BookingFacts[], rawRules: BookingRules, now: number): { until: number; cause: "missed" | "cancellations" } | null {
   const rules = bookingRulesSchema.parse(rawRules);
-  const missed = customerBookings.filter((b) => b.status === "no_show" && b.outcomeAt !== null && now - b.outcomeAt! < rules.pauseDays * 24 * HOUR)
-    .map((b) => b.outcomeAt!).sort((a, b) => b - a);
-  if (missed.length < rules.noShowPauseAfter) return null;
-  return missed[0]! + rules.pauseDays * 24 * HOUR;
+  const DAY = 24 * HOUR;
+  const recent = (at: number[], days: number) => at.filter((t) => now - t < days * DAY).sort((a, b) => b - a);
+  const missed = recent(customerBookings.filter((b) => b.status === "no_show" && b.outcomeAt !== null).map((b) => b.outcomeAt!), rules.pauseDays);
+  const cancelled = recent(customerBookings.filter((b) => b.status === "cancelled" && b.cancelledBy === "customer" && b.cancelledAt !== undefined)
+    .map((b) => b.cancelledAt!), rules.cancelWindowDays);
+  const pauses = [
+    ...(missed.length >= rules.noShowPauseAfter ? [{ until: missed[0]! + rules.pauseDays * DAY, cause: "missed" as const }] : []),
+    ...(cancelled.length >= rules.cancelPauseAfter ? [{ until: cancelled[0]! + rules.cancelPauseDays * DAY, cause: "cancellations" as const }] : []),
+  ].filter((p) => p.until > now).sort((a, b) => b.until - a.until);
+  return pauses[0] ?? null;
+}
+
+/** When booking opens again, or null when it isn't paused. */
+export function pausedUntil(customerBookings: readonly BookingFacts[], rawRules: BookingRules, now: number): number | null {
+  return pauseOf(customerBookings, rawRules, now)?.until ?? null;
+}
+
+/** Whether a customer's call (with any specialist) overlaps a slot being booked. Cancelled calls don't. */
+function overlaps(b: BookingFacts, start: number, end: number, fallbackZone: string): boolean {
+  if (b.status === "cancelled") return false;
+  const s = toInstant(b.start, b.timeZone ?? fallbackZone);
+  return start < s + b.minutes * MINUTE && end > s;
+}
+
+/**
+ * The slots this customer may take: open slots, minus any at the same time as one of their own calls with any
+ * specialist, and minus days they already have a call with this specialist. The same filter `checkBooking` applies.
+ */
+export function slotsForCustomer(availability: Availability, bookings: readonly BookingFacts[], customerBookings: readonly BookingFacts[], now: number, limit = Infinity): string[] {
+  const av = availabilitySchema.parse(availability);
+  const out: string[] = [];
+  for (const slot of upcomingSlots(av, bookings, now)) {
+    if (customerRefusal(av, customerBookings, slot) === null) out.push(slot);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function customerRefusal(av: Availability, customerBookings: readonly BookingFacts[], slot: string): "same_time" | "one_per_day" | null {
+  const start = toInstant(slot, av.timeZone);
+  if (customerBookings.some((b) => overlaps(b, start, start + av.slotMinutes * MINUTE, av.timeZone))) return "same_time";
+  if (customerBookings.some((b) => b.status !== "cancelled" && b.operatorId === av.operatorId && b.start.slice(0, 10) === slot.slice(0, 10))) return "one_per_day";
+  return null;
+}
+
+/** Whether another booking attempt is allowed, given the customer's recent attempts (epoch ms, refused ones included). */
+export function attemptAllowed(attempts: readonly number[], rawRules: BookingRules, now: number): boolean {
+  const rules = bookingRulesSchema.parse(rawRules);
+  return attempts.filter((t) => now - t < rules.attemptWindowMinutes * MINUTE).length < rules.attemptsPerWindow;
 }
 
 /**
@@ -110,11 +159,13 @@ export function checkBooking(input: {
   const av = availabilitySchema.parse(input.availability);
   const rules = bookingRulesSchema.parse(input.rules);
   const start = localDateTimeSchema.parse(input.start);
-  const paused = pausedUntil(input.customerBookings, rules, input.now);
-  if (paused !== null) return bookingCheckSchema.parse({ ok: false, reason: "paused", pausedUntil: paused });
-  if (input.customerBookings.filter((b) => isOpen(b, av.timeZone, input.now)).length >= rules.openPerCustomer) {
+  const paused = pauseOf(input.customerBookings, rules, input.now);
+  if (paused) return bookingCheckSchema.parse({ ok: false, reason: paused.cause === "missed" ? "paused" : "paused_cancellations", pausedUntil: paused.until });
+  if (input.customerBookings.filter((b) => isOpen(b, b.timeZone ?? av.timeZone, input.now)).length >= rules.openPerCustomer) {
     return bookingCheckSchema.parse({ ok: false, reason: "already_booked", pausedUntil: null });
   }
+  const own = customerRefusal(av, input.customerBookings, start);
+  if (own) return bookingCheckSchema.parse({ ok: false, reason: own, pausedUntil: null });
   if (!upcomingSlots(av, input.bookings, input.now).includes(start)) {
     return bookingCheckSchema.parse({ ok: false, reason: "slot_unavailable", pausedUntil: null });
   }

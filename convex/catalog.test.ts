@@ -92,3 +92,18 @@ describe("catalog:markReviewed", () => {
     expect(log).toMatchObject([{ actorUserId: "admin", action: "catalog.term_reviewed", details: { termId: record().termId }, note: "Checked on the page" }]);
   });
 });
+
+describe("catalog:setRateType", () => {
+  it("marks a rate fixed for admins only, with the source in the audit note", async () => {
+    const t = await seeded(record({ termId: "rate", kind: "interest_rate", unit: "bps", value: { type: "range", min: 555, max: 1795 } }), record({ termId: "fee" }));
+    const admin = t.withIdentity(identity("admin", "admin"));
+    await expect(t.withIdentity(identity("op", "operator")).mutation(anyApi.catalog.setRateType, { termId: "rate", rateType: "fixed", note: "Page" })).rejects.toThrow("forbidden");
+    await expect(admin.mutation(anyApi.catalog.setRateType, { termId: "rate", rateType: "fixed", note: " " })).rejects.toThrow("reason_required");
+    await expect(admin.mutation(anyApi.catalog.setRateType, { termId: "fee", rateType: "fixed", note: "Page" })).rejects.toThrow("not_a_rate");
+    await admin.mutation(anyApi.catalog.setRateType, { termId: "rate", rateType: "fixed", note: "Rată fixă pe toată perioada creditului" });
+    const row = await t.run((ctx) => ctx.db.query("productTerms").withIndex("by_termId", (q) => q.eq("termId", "rate")).unique());
+    expect(row!.comparability.rateType).toBe("fixed");
+    const log = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(log).toMatchObject([{ action: "catalog.rate_type_set", details: { termId: "rate", rateType: "fixed", before: "unknown" } }]);
+  });
+});

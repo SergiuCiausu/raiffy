@@ -1,7 +1,9 @@
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { anyApi } from "convex/server";
+import { internal } from "./_generated/api";
 import type { JSONValue } from "convex/values";
+import resend from "@convex-dev/resend/test";
 import schema from "./schema";
 import { toInstant } from "../lib/booking/rules";
 
@@ -9,6 +11,8 @@ const modules = {
   "./_generated/server.js": () => import("./_generated/server"),
   "./bookings.ts": () => import("./bookings"),
   "./audit.ts": () => import("./audit"),
+  "./bookingEmails.ts": () => import("./bookingEmails"),
+  "./answerCheckEmails.ts": () => import("./answerCheckEmails"),
 };
 const identity = (subject: string, role?: JSONValue, name: { givenName?: string; familyName?: string } = {}) => ({
   subject, issuer: "https://clerk.test", tokenIdentifier: `https://clerk.test|${subject}`, ...name, ...(role === undefined ? {} : { role }),
@@ -30,6 +34,7 @@ async function mirror(t: ReturnType<typeof convexTest>, clerkUserId: string, rol
 
 async function setup() {
   const t = convexTest(schema, modules);
+  resend.register(t);
   await mirror(t, "user_ana", "operator");
   await t.withIdentity(identity("user_admin", "admin")).mutation(anyApi.bookings!.setAvailability!, ANA);
   return {
@@ -43,7 +48,7 @@ const book = (start: string, over: Record<string, unknown> = {}) => ({ operatorI
 
 // Half a minute before 08:00: convex-test moves the clock 1 ms per insert, and the 10:00 slot sits exactly on the 2 h lead
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(toInstant("2026-10-29T08:00", TZ) - 30_000); });
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("availability", () => {
   it("is set by the operator or an admin, never by a customer or another operator", async () => {
@@ -229,5 +234,93 @@ describe("operator calendar", () => {
     expect(await admin.query(anyApi.bookings!.calendars!, {})).toEqual([{ operatorId: "user_ana", name: "Ana M.", title: "Credit specialist", active: true }]);
     // Someone who isn't in the staff directory yet gets an empty week to set hours up from
     expect(await bob.query(anyApi.bookings!.calendar!, {})).toMatchObject({ operator: null, availability: null, items: [], next: null });
+  });
+});
+
+describe("booking e-mails", () => {
+  const URL = "https://test-deployment.convex.cloud";
+  const on = () => {
+    vi.stubEnv("RAIFFY_EMAIL_ENABLED", "true"); vi.stubEnv("RAIFFY_EMAIL_DEPLOYMENT_URL", URL); vi.stubEnv("CONVEX_CLOUD_URL", URL);
+    vi.stubEnv("RAIFFY_EMAIL_FROM", "Raiffy <raiffy@example.com>"); vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ id: "re_test_1" }] }), { status: 200, headers: { "content-type": "application/json" } })));
+  };
+  async function booked() {
+    const s = await setup();
+    await s.t.run(async (ctx) => {
+      const ana = await ctx.db.query("users").withIndex("by_clerk_user", (q) => q.eq("clerkUserId", "user_ana")).unique();
+      await ctx.db.patch(ana!._id, { email: "ana@example.com" });
+      await ctx.db.insert("users", { clerkUserId: "user_ioana", tokenIdentifier: "https://clerk.test|user_ioana", role: "member", email: "ioana@example.com", firstSeenAt: 0, lastSeenAt: 0 });
+    });
+    const r = await s.ioana.mutation(anyApi.bookings!.book!, book("2026-11-02T14:00"));
+    await s.t.finishAllScheduledFunctions(vi.runAllTimers);
+    const row = await s.t.run((ctx) => ctx.db.query("bookings").withIndex("by_booking_id", (q) => q.eq("bookingId", r.bookingId)).unique());
+    return { ...s, row: row! };
+  }
+
+  it("records one skipped e-mail for each side where sending is off", async () => {
+    const { row } = await booked();
+    expect(row.emails).toEqual([
+      expect.objectContaining({ kind: "booked", to: "customer", outcome: "skipped", reason: "off" }),
+      expect.objectContaining({ kind: "booked", to: "operator", outcome: "skipped", reason: "off" }),
+    ]);
+  });
+
+  it("e-mails the customer and the specialist once each, to Resend's test inbox until it's live, and never stores an address", async () => {
+    on();
+    const { t, row } = await booked();
+    expect(row.emails!.map((e) => [e.to, e.outcome])).toEqual([["customer", "test"], ["operator", "test"]]);
+    expect(JSON.stringify(row)).not.toMatch(/@example\.com/);
+    // A repeated send for the same booking does nothing
+    await t.mutation(internal.bookingEmails.send, { id: row._id, to: "customer" });
+    expect((await t.run((ctx) => ctx.db.get(row._id)))!.emails).toHaveLength(2);
+  });
+
+  it("sends nothing for a refused booking", async () => {
+    const { t, ioana } = await setup();
+    expect(await ioana.mutation(anyApi.bookings!.book!, book("2026-10-31T10:00"))).toMatchObject({ status: "refused" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await t.run((ctx) => ctx.db.query("bookings").collect())).toEqual([]);
+  });
+});
+
+describe("abuse limits", () => {
+  it("allows five booking attempts in ten minutes, refused ones included, then again after the window", async () => {
+    const { ioana } = await setup();
+    for (let i = 0; i < 5; i += 1) expect(await ioana.mutation(anyApi.bookings!.book!, book("2026-10-31T10:00"))).toMatchObject({ reason: "slot_unavailable" });
+    expect(await ioana.mutation(anyApi.bookings!.book!, book("2026-11-02T14:00"))).toMatchObject({ status: "refused", reason: "too_many_attempts" });
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    expect(await ioana.mutation(anyApi.bookings!.book!, book("2026-11-02T14:00"))).toMatchObject({ status: "booked" });
+  });
+
+  it("pauses booking after three cancellations in a week, and says why", async () => {
+    const { ioana } = await setup();
+    for (const start of ["2026-11-02T10:00", "2026-11-03T10:00", "2026-11-04T10:00"]) {
+      const r = await ioana.mutation(anyApi.bookings!.book!, book(start));
+      await ioana.mutation(anyApi.bookings!.cancel!, { bookingId: r.bookingId });
+    }
+    vi.setSystemTime(Date.now() + 11 * 60_000);
+    expect(await ioana.mutation(anyApi.bookings!.book!, book("2026-11-05T10:00"))).toMatchObject({ status: "refused", reason: "paused_cancellations" });
+    expect(await ioana.query(anyApi.bookings!.options!, {})).toMatchObject({ pauseCause: "cancellations", pausedUntil: expect.any(Number) });
+  });
+
+  it("keeps the customer's personal data out of the topic the specialist sees", async () => {
+    const { t, ioana } = await setup();
+    await ioana.mutation(anyApi.bookings!.book!, book("2026-11-02T14:00", { topic: "Loan for card 4111 1111 1111 1111" }));
+    const [row] = await t.run((ctx) => ctx.db.query("bookings").collect());
+    expect(row!.topic).not.toContain("4111 1111 1111 1111");
+  });
+});
+
+describe("the customer's calls", () => {
+  it("lists only the caller's own calls, latest start first, with what they can do", async () => {
+    const { t, ioana, vlad } = await setup();
+    const first = await ioana.mutation(anyApi.bookings!.book!, book("2026-11-02T14:00"));
+    await ioana.mutation(anyApi.bookings!.cancel!, { bookingId: first.bookingId });
+    await ioana.mutation(anyApi.bookings!.book!, book("2026-11-04T10:00"));
+    await vlad.mutation(anyApi.bookings!.book!, book("2026-11-03T10:00"));
+    const mine = await ioana.query(anyApi.bookings!.mine!, {});
+    expect(mine.map((b: { start: string; state: string }) => [b.start, b.state])).toEqual([["2026-11-04T10:00", "pending"], ["2026-11-02T14:00", "cancelled"]]);
+    expect(mine[0]).toMatchObject({ canConfirm: true, canCancel: true, operatorName: "Ana M." });
+    await expect(t.query(anyApi.bookings!.mine!, {})).rejects.toThrow("authentication_required");
   });
 });

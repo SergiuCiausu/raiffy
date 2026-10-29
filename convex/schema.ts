@@ -161,6 +161,8 @@ export default defineSchema({
     track,
     productId: v.string(),
     rateTermId: v.string(),
+    /** The product publishes a rate range and the bank sets each customer's rate within it (lib/plan/build.ts). */
+    rateRange: v.optional(v.boolean()),
     commissions: v.array(v.object({
       key: v.union(...COMMISSION_KEYS.map((key) => v.literal(key))),
       termId: v.optional(v.string()),
@@ -188,7 +190,7 @@ export default defineSchema({
     createdAt: v.number(),
     /** The answer whose simulation the customer turned into this version ("Build my plan"), when it came from one. */
     messageId: v.optional(v.id("ragMessages")),
-  }).index("by_thread_version", ["threadId", "version"]).index("by_plan_version", ["planId", "version"]),
+  }).index("by_thread_version", ["threadId", "version"]).index("by_plan_version", ["planId", "version"]).index("by_owner", ["ownerKey", "createdAt"]),
 
   /**
    * Chat sentiment for the Console (lib/analytics/sentiment.ts): Jev's labels for each customer message and the thumbs
@@ -276,8 +278,23 @@ export default defineSchema({
     /** Demo: a public Jitsi room, shown only inside the join window. */
     meetingUrl: v.optional(v.string()),
     source: v.literal("chat"),
+    /** The e-mails about this booking and what became of each (convex/bookingEmails.ts). At most one per kind and recipient. */
+    emails: v.optional(v.array(v.object({
+      kind: v.literal("booked"),
+      to: v.union(v.literal("customer"), v.literal("operator")),
+      outcome: v.union(v.literal("sent"), v.literal("test"), v.literal("skipped")),
+      reason: v.optional(v.string()),
+      emailId: v.optional(v.string()),
+      at: v.number(),
+    }))),
   }).index("by_booking_id", ["bookingId"]).index("by_operator_start", ["operatorId", "start"])
     .index("by_owner", ["ownerKey"]).index("by_status_start", ["status", "start"]),
+
+  /** Each time a customer tries to book, refused or not, for the attempt limit (lib/booking/rules.ts attemptAllowed). Pruned as it's read. */
+  bookingAttempts: defineTable({
+    ownerKey: v.string(),
+    at: v.number(),
+  }).index("by_owner_at", ["ownerKey", "at"]),
 
   bookingEvents: defineTable({
     bookingId: v.string(),
@@ -440,6 +457,40 @@ export default defineSchema({
    * Answers the customer flagged for a specialist (lib/review/answerCheck.ts). `snapshot` is what the specialist sees,
    * masked and taken when the customer sent it, so later changes to the chat don't change the case.
    */
+  /**
+   * A customer asks a specialist to check one version of their plan (convex/planChecks.ts). The decision is also
+   * written into that version's `plan.verification`, which the chat card shows and the next version carries over.
+   */
+  planChecks: defineTable({
+    reference: v.string(),
+    planId: v.string(),
+    version: v.number(),
+    threadId: v.id("ragThreads"),
+    ownerKey: v.string(),
+    track,
+    organizationKey: v.union(v.null(), v.string()),
+    /** corrected: confirmed with a note for the customer; the figures are never edited. */
+    status: v.union(v.literal("open"), v.literal("confirmed"), v.literal("corrected"), v.literal("returned")),
+    /** The customer's note for the specialist, screened. */
+    note: v.union(v.null(), v.string()),
+    createdAt: v.number(),
+    decidedBy: v.optional(v.object({ name: v.string(), role: v.string() })),
+    decidedAt: v.optional(v.number()),
+    /** Shown to the customer: the specialist's note on a confirmation, or why it was sent back. */
+    customerNote: v.optional(v.string()),
+    /** Why a correction was needed, for the team (a future eval case). Never shown to the customer. */
+    reason: v.optional(v.string()),
+    /** What happened to each e-mail (convex/planCheckEmails.ts): sent, sent to Resend's test inbox, or skipped and why. Never the address. */
+    emails: v.optional(v.array(v.object({
+      kind: v.union(v.literal("received"), v.literal("decided")),
+      outcome: v.union(v.literal("sent"), v.literal("test"), v.literal("skipped")),
+      reason: v.optional(v.string()),
+      emailId: v.optional(v.string()),
+      at: v.number(),
+    }))),
+  }).index("by_plan", ["planId", "version"]).index("by_status", ["status", "createdAt"]).index("by_created", ["createdAt"])
+    .index("by_owner", ["ownerKey", "createdAt"]),
+
   answerChecks: defineTable({
     ownerKey: v.string(),
     track,

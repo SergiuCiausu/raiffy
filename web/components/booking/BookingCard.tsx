@@ -3,8 +3,9 @@
 import { useId, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { CalendarCheckIcon, CalendarXIcon, ClockIcon, HeadsetIcon, InfoIcon, ShieldCheckIcon, VideoIcon } from "lucide-react";
-import type { ThreadId } from "@/lib/agent-api";
-import { bookingApi, planListApi, type BookableOperator, type Channel, type CustomerBooking } from "@/lib/booking-api";
+import Link from "next/link";
+import { answerCheckApi, type ThreadId } from "@/lib/agent-api";
+import { bookingApi, planListApi, type BookableOperator, type BookingOptions, type Channel, type CustomerBooking } from "@/lib/booking-api";
 import { errorInfo, logChatError } from "@/lib/chat-log";
 
 /*
@@ -14,20 +15,25 @@ import { errorInfo, logChatError } from "@/lib/chat-log";
  */
 
 /** "Thu 29 Oct, 10:00" for a wall-clock start, read as written (it is already in the operator's zone). */
-function slotLabel(start: string) {
+export function slotLabel(start: string) {
   const at = Date.UTC(+start.slice(0, 4), +start.slice(5, 7) - 1, +start.slice(8, 10));
   const day = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(at);
   return `${day}, ${start.slice(11, 16)}`;
 }
-const instantLabel = (ms: number, timeZone: string) =>
+export const instantLabel = (ms: number, timeZone: string) =>
   new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
-const timeLabel = (ms: number, timeZone: string) => new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" }).format(ms);
+export const timeLabel = (ms: number, timeZone: string) => new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" }).format(ms);
 
 const REFUSED: Record<string, string> = {
   slot_unavailable: "That time was just taken. Pick another one.",
   already_booked: "You already have a call booked. Cancel it first to pick another time.",
+  same_time: "You already have a call at that time. Pick another one.",
+  one_per_day: "You already have a call with this specialist that day. Pick another day.",
   paused: "Booking is paused after two missed calls.",
+  paused_cancellations: "Booking is paused after several cancellations this week.",
+  too_many_attempts: "Too many tries in a few minutes. Wait a little, then try again.",
 };
+const PAUSED = { missed: "after two missed calls", cancellations: "after three cancellations in a week" } as const;
 
 export function BookingCard({ threadId, topic = "" }: { threadId: ThreadId | null; topic?: string }) {
   const options = useQuery(bookingApi.options, {});
@@ -57,7 +63,7 @@ export function BookingCard({ threadId, topic = "" }: { threadId: ThreadId | nul
                   onConfirm={() => run("confirm", () => confirm({ bookingId: options.booking!.bookingId }))}
                   onCancel={() => run("cancel", () => cancel({ bookingId: options.booking!.bookingId }))} />
               : <Picker operator={options.operators.find((o) => o.slots.length) ?? options.operators[0] ?? null}
-                  notice={options.booking} pausedUntil={options.pausedUntil} topic={topic} planId={plan?.planId ?? null} busy={busy}
+                  notice={options.booking} pausedUntil={options.pausedUntil} pauseCause={options.pauseCause} topic={topic} planId={plan?.planId ?? null} busy={busy}
                   onBook={(args) => run("book", async () => {
                     const r = await book({ ...args, ...(threadId ? { threadId } : {}) });
                     if (r.status === "refused") setError(REFUSED[r.reason] ?? "That time isn’t available. Pick another one.");
@@ -86,7 +92,7 @@ function Booked({ b, busy, onConfirm, onCancel }: { b: CustomerBooking; busy: bo
       {b.channel === "phone" && (
         <p className="book-note"><InfoIcon aria-hidden="true" /><span>Demo: nobody will phone you. In the real service the bank calls from its official number.</span></p>
       )}
-      <p className="book-note"><ShieldCheckIcon aria-hidden="true" /><span>You have one call booked. To pick another time, cancel this one first.</span></p>
+      <p className="book-note"><ShieldCheckIcon aria-hidden="true" /><span>You have one call booked. To pick another time, cancel this one first. <Link href="/chat/calls">See all your calls</Link></span></p>
       <div className="book-row">
         {b.canConfirm && <button type="button" className="btn btn-dark btn-sm" disabled={busy} onClick={onConfirm}><CalendarCheckIcon aria-hidden="true" />Confirm call</button>}
         {b.joinUrl && (
@@ -101,11 +107,12 @@ function Booked({ b, busy, onConfirm, onCancel }: { b: CustomerBooking; busy: bo
 
 type BookArgs = { operatorId: string; start: string; channel: Channel; topic: string; sharePlan: boolean };
 
-function Picker({ operator, notice, pausedUntil, topic, planId, busy, onBook }: {
-  operator: BookableOperator | null; notice: CustomerBooking | null; pausedUntil: number | null; topic: string; planId: string | null;
-  busy: boolean; onBook: (args: BookArgs) => void;
+function Picker({ operator, notice, pausedUntil, pauseCause, topic, planId, busy, onBook }: {
+  operator: BookableOperator | null; notice: CustomerBooking | null; pausedUntil: number | null; pauseCause: BookingOptions["pauseCause"];
+  topic: string; planId: string | null; busy: boolean; onBook: (args: BookArgs) => void;
 }) {
   const id = useId();
+  const email = useQuery(answerCheckApi.emailAvailability, {});
   const [start, setStart] = useState<string | null>(null);
   const [channel, setChannel] = useState<Channel>("video");
   const [about, setAbout] = useState(topic.slice(0, 120));
@@ -117,7 +124,7 @@ function Picker({ operator, notice, pausedUntil, topic, planId, busy, onBook }: 
       : notice.cancelledBy === "not_confirmed" ? `Your call on ${slotLabel(notice.start)} was released because it wasn’t confirmed in time.` : null);
 
   if (pausedUntil !== null) {
-    return <p className="book-note"><InfoIcon aria-hidden="true" /><span>Booking is paused until {instantLabel(pausedUntil, operator?.timeZone ?? "Europe/Bucharest")} after two missed calls. You can still reach Raiffeisen at a branch or through raiffeisen.ro.</span></p>;
+    return <p className="book-note"><InfoIcon aria-hidden="true" /><span>Booking is paused until {instantLabel(pausedUntil, operator?.timeZone ?? "Europe/Bucharest")} {PAUSED[pauseCause ?? "missed"]}. You can still reach Raiffeisen at a branch or through raiffeisen.ro.</span></p>;
   }
   if (!operator || !operator.slots.length) {
     return <p className="book-note"><InfoIcon aria-hidden="true" /><span>No specialist has open times right now. You can still reach Raiffeisen at a branch or through raiffeisen.ro.</span></p>;
@@ -152,7 +159,9 @@ function Picker({ operator, notice, pausedUntil, topic, planId, busy, onBook }: 
         </>
       )}
       <p className="book-note"><InfoIcon aria-hidden="true" /><span>{operator.name} goes through the information with you. It isn’t financial advice or a credit decision.</span></p>
-      <p className="book-note"><ShieldCheckIcon aria-hidden="true" /><span>We confirm only in the app. {operator.name} will never ask for codes, card details or a transfer.</span></p>
+      <p className="book-note"><ShieldCheckIcon aria-hidden="true" /><span>
+        {email?.enabled ? `We’ll e-mail the time and reference to ${email.testMode ? "a test inbox in this preview, not to you" : email.address}. ` : ""}
+        You confirm only in the app. {operator.name} will never ask for codes, card details or a transfer.</span></p>
       <div className="book-row">
         <button type="button" className="btn btn-dark btn-sm" disabled={!ready}
           onClick={() => start && onBook({ operatorId: operator.operatorId, start, channel, topic: about.trim(), sharePlan: share && !!planId })}>

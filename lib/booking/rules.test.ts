@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BOOKING_RULES as RULES, type Availability, type BookingFacts } from "./schemas";
 import {
-  bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, openSlotsOn, pausedUntil,
-  releaseAt, shareWindow, shortName, shouldRelease, toInstant, toLocal, upcomingSlots,
+  attemptAllowed, bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, openSlotsOn, pausedUntil,
+  pauseOf, releaseAt, shareWindow, shortName, shouldRelease, slotsForCustomer, toInstant, toLocal, upcomingSlots,
 } from "./rules";
 
 const TZ = "Europe/Bucharest";
@@ -88,6 +88,50 @@ describe("booking", () => {
       .toEqual({ ok: false, reason: "paused", pausedUntil: at("2026-10-27T10:40") + 30 * 24 * 3_600_000 });
     expect(pausedUntil(missed.slice(1), RULES, now)).toBeNull();
     expect(pausedUntil(missed, RULES, at("2026-12-01T10:00"))).toBeNull();
+  });
+});
+
+describe("abuse limits", () => {
+  const now = at("2026-10-29T08:00");
+  const TWO = { ...RULES, openPerCustomer: 2 };
+  const base = { availability: AV, bookings: [], now, rules: TWO };
+
+  it("never lets a customer hold two calls at the same time, with any specialist, and frees the time once cancelled", () => {
+    // 13:30 with another specialist in London is 15:30 in Bucharest
+    const elsewhere = bk("2026-11-02T13:30", { operatorId: "u_ion", timeZone: "Europe/London" });
+    expect(checkBooking({ ...base, customerBookings: [elsewhere], start: "2026-11-02T15:30" })).toMatchObject({ ok: false, reason: "same_time" });
+    expect(checkBooking({ ...base, customerBookings: [{ ...elsewhere, status: "cancelled" }], start: "2026-11-02T15:30" }).ok).toBe(true);
+    expect(checkBooking({ ...base, customerBookings: [elsewhere], start: "2026-11-02T16:00" }).ok).toBe(true);
+  });
+
+  it("allows one call a day with the same specialist", () => {
+    const earlier = bk("2026-11-02T09:00", { operatorId: "u_ana" });
+    expect(checkBooking({ ...base, customerBookings: [earlier], start: "2026-11-02T15:00" })).toMatchObject({ ok: false, reason: "one_per_day" });
+    expect(checkBooking({ ...base, customerBookings: [{ ...earlier, operatorId: "u_ion" }], start: "2026-11-02T15:00" }).ok).toBe(true);
+  });
+
+  it("offers the customer only slots they could book", () => {
+    const own = [bk("2026-10-29T14:00", { operatorId: "u_ion" })];
+    const offered = slotsForCustomer(AV, [], own, now, 4);
+    expect(offered).not.toContain("2026-10-29T14:00");
+    expect(offered).toEqual(upcomingSlots(AV, [], now).filter((x) => x !== "2026-10-29T14:00").slice(0, 4));
+  });
+
+  it("pauses booking for 7 days after three cancellations in a week, but not for ones the specialist made", () => {
+    const cancel = (start: string, day: string, by: "customer" | "operator" = "customer") =>
+      bk(start, { status: "cancelled", cancelledBy: by, cancelledAt: at(`${day}T09:00`) });
+    const three = [cancel("2026-11-02T10:00", "2026-10-26"), cancel("2026-11-02T11:00", "2026-10-27"), cancel("2026-11-02T14:00", "2026-10-28")];
+    expect(checkBooking({ ...base, customerBookings: three, start: "2026-10-29T14:00" }))
+      .toEqual({ ok: false, reason: "paused_cancellations", pausedUntil: at("2026-10-28T09:00") + 7 * 24 * 3_600_000 });
+    expect(pauseOf([...three.slice(0, 2), cancel("2026-11-02T14:00", "2026-10-28", "operator")], RULES, now)).toBeNull();
+    expect(pauseOf(three, RULES, at("2026-11-05T10:00"))).toBeNull();
+  });
+
+  it("allows five booking attempts in ten minutes, refused ones included", () => {
+    const tries = [0, 1, 2, 3].map((m) => now - m * 60_000);
+    expect(attemptAllowed(tries, RULES, now)).toBe(true);
+    expect(attemptAllowed([...tries, now - 5 * 60_000], RULES, now)).toBe(false);
+    expect(attemptAllowed([...tries, now - 11 * 60_000], RULES, now)).toBe(true);
   });
 });
 

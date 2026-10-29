@@ -38,8 +38,9 @@ export const planSourceSchema = z.object({
   termId: z.string().min(1),
   url: z.url(),
   collectedAt: z.string().min(1),
-  reviewBy: z.iso.date(),
-  reviewedAt: z.string().min(1),
+  /** Absent for a figure cited from a page in the chat (figuresFrom "cited_page"): nobody has reviewed it. */
+  reviewBy: z.iso.date().optional(),
+  reviewedAt: z.string().min(1).optional(),
 });
 export type PlanSource = z.infer<typeof planSourceSchema>;
 
@@ -59,8 +60,8 @@ export const planRouteSchema = z.object({
 });
 export type PlanRoute = z.infer<typeof planRouteSchema>;
 
-export const ASSUMPTION_KEYS = ["first_payment_date", "fixed_rate_whole_term", "repaid_on_schedule", "monthly_interest_rounding", "optional_insurance_excluded"] as const;
-export const MISSING_KEYS = ["affordability_not_checked", "credit_assessment", "conditional_fee_unconfirmed"] as const;
+export const ASSUMPTION_KEYS = ["first_payment_date", "fixed_rate_whole_term", "rate_within_range", "rate_assumed_constant", "repaid_on_schedule", "monthly_interest_rounding", "optional_insurance_excluded"] as const;
+export const MISSING_KEYS = ["affordability_not_checked", "credit_assessment", "conditional_fee_unconfirmed", "cited_fee_not_counted", "not_in_reviewed_catalog"] as const;
 
 export const planNoteSchema = z.object({
   key: z.enum([...ASSUMPTION_KEYS, ...MISSING_KEYS]),
@@ -89,6 +90,11 @@ export const planSummarySchema = z.object({
   conversationId: z.string().min(1),
   track: trackSchema,
   label: z.literal("indicative"),
+  /**
+   * catalog: every figure from the reviewed catalog. cited_page: the demo fallback, from the rate and fees the chat's
+   * simulation cited from a public page that turn (lib/plan/cited.ts), labelled as such and never reviewed.
+   */
+  figuresFrom: z.enum(["catalog", "cited_page"]).default("catalog"),
   createdAt: z.iso.datetime({ offset: true }),
   goal: z.object({
     /** The customer's own words. */
@@ -100,8 +106,14 @@ export const planSummarySchema = z.object({
   }),
   terms: z.object({
     annualRateBps: z.number().int().min(0).max(10_000),
-    rateType: z.literal("fixed"),
+    /** assumed_constant: the cited page didn't say the rate is fixed, so the plan assumes it stays the same. */
+    rateType: z.enum(["fixed", "assumed_constant"]),
     rateTermId: z.string().min(1),
+    /**
+     * When the bank publishes only a range ("5,55% – 17,95%") and sets each customer's rate within it. The plan is
+     * then figured at the highest rate, so it never understates the cost, and `figures.atLowest` gives the other end.
+     */
+    rateRange: z.object({ minBps: z.number().int().min(0).max(10_000), maxBps: z.number().int().min(0).max(10_000) }).optional(),
     upfrontFee: z.number().int().min(0),
     monthlyFee: z.number().int().min(0),
     firstPaymentDate: z.iso.date(),
@@ -117,6 +129,8 @@ export const planSummarySchema = z.object({
     /** As a fraction. Costs not in the catalog (optional insurance) are not counted. */
     dae: z.number().min(0),
     commissions: z.array(commissionSchema).min(1),
+    /** The same loan at the lowest rate of terms.rateRange. */
+    atLowest: z.object({ annualRateBps: z.number().int().min(0).max(10_000), monthly: z.number().int(), interest: z.number().int(), total: z.number().int(), dae: z.number().min(0) }).optional(),
   }),
   routes: z.array(planRouteSchema).min(1),
   affordability: z.object({

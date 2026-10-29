@@ -4,16 +4,19 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { BadgeCheckIcon, GavelIcon, GitPullRequestArrowIcon, HandshakeIcon, LayersIcon, ScaleIcon, ShieldCheckIcon, TrendingUpIcon, UserCheckIcon, XIcon } from "lucide-react";
+import { BadgeCheckIcon, FileTextIcon, GavelIcon, GitPullRequestArrowIcon, HandshakeIcon, LayersIcon, ScaleIcon, ShieldCheckIcon, TrendingUpIcon, UserCheckIcon, XIcon } from "lucide-react";
 import { lei } from "@/lib/format";
 import { answerCheckStaffApi, pricingApi, type AnswerCheckRow, type ReviewCaseView, type WinRate, type WinRateRow } from "@/lib/agent-api";
 import { valueLabel } from "@/lib/admin-api";
 import { catalogApi, type CatalogChange } from "@/lib/catalog-api";
+import { planCheckApi, type PlanCheckRow } from "@/lib/plan-check-api";
+import { lei2 } from "@/lib/plan-view";
 import type { Role } from "@/lib/roles";
 import { ConsoleNav } from "./StaffNav";
 import { StaffShell, initials } from "./StaffShell";
 import { AnswerCheckCase, CheckStatus, checkTopic } from "./AnswerCheckCase";
 import { CHANGE_STATUS, ChangeSheet } from "./ConsoleProducts";
+import { PLAN_CHECK_STATUS, PlanCheckSheet } from "./PlanCheckSheet";
 
 /*
  * Reviews (console.html#reviews and #reviews/<id>) over Convex: one queue, oldest first, for answers customers asked a
@@ -51,10 +54,11 @@ function overall(k: WinRate) {
 
 /* ───────────── Queue ───────────── */
 
-type Kind = "all" | "check" | "offer" | "change";
+type Kind = "all" | "check" | "plan" | "offer" | "change";
 type Checks = { open: AnswerCheckRow[]; decided: AnswerCheckRow[] };
 /** One row of the shared queue; `at` orders it (created while open, decided once closed). */
-type QueueRow = { kind: "check" | "offer" | "change"; at: number; row: ReactNode };
+type QueueRow = { kind: "check" | "plan" | "offer" | "change"; at: number; row: ReactNode };
+type Plans = { open: PlanCheckRow[]; decided: PlanCheckRow[] };
 type Changes = { pending: CatalogChange[]; decided: CatalogChange[] };
 
 function checkRow(c: AnswerCheckRow): QueueRow {
@@ -85,6 +89,23 @@ function offerRow(c: ReviewCaseView): QueueRow {
   ) };
 }
 
+/** A plan the customer sent from its card (convex/planChecks.ts). */
+function planRow(c: PlanCheckRow): QueueRow {
+  const open = c.status === "open";
+  return { kind: "plan", at: open ? c.createdAt : c.decidedAt ?? c.createdAt, row: (
+    <tr key={c.id} className="rowlink">
+      <td><Link className="t-main" href={`/console/reviews?plan=${c.id}`}>{c.product}</Link>
+        <span className="t-sub mono">{c.reference} · {c.planId} v{c.version} · {lei2(c.amount)} over {c.termMonths} months</span></td>
+      <td className="hide-sm"><span className="pill line"><FileTextIcon aria-hidden="true" />Plan check</span></td>
+      <td className="hide-sm"><span className="t-main">Customer</span><span className="t-sub">{c.hasNote ? "Left a note" : "No note"}</span></td>
+      <td>{open ? <><span className="wait">{waiting(c.createdAt)}</span><span className="t-sub">since {when.format(c.createdAt)}</span></>
+        : <><span className="t-main">{c.decidedBy ?? "—"}</span><span className="t-sub">{c.decidedAt ? when.format(c.decidedAt) : ""}</span></>}</td>
+      <td className="hide-sm"><span className="t-main">Operator</span><span className="t-sub">{open ? "You can decide" : "Decided"}</span></td>
+      <td>{PLAN_CHECK_STATUS[c.status]}</td>
+    </tr>
+  ) };
+}
+
 /** A proposed catalog value (convex/catalogChanges.ts): open until an admin approves or rejects it. */
 function changeRow(c: CatalogChange, admin: boolean): QueueRow {
   const open = c.status === "pending";
@@ -102,23 +123,23 @@ function changeRow(c: CatalogChange, admin: boolean): QueueRow {
   ) };
 }
 
-const KINDS = [["all", "All"], ["check", "Answer checks"], ["offer", "Counter-offers"], ["change", "Catalog changes"]] as const;
+const KINDS = [["all", "All"], ["check", "Answer checks"], ["plan", "Plan checks"], ["offer", "Counter-offers"], ["change", "Catalog changes"]] as const;
 
-function Queue({ reviews, checks, changes, admin, kpi }: { reviews: { open: ReviewCaseView[]; decided: ReviewCaseView[] }; checks: Checks; changes: Changes; admin: boolean; kpi: WinRate }) {
+function Queue({ reviews, checks, plans, changes, admin, kpi }: { reviews: { open: ReviewCaseView[]; decided: ReviewCaseView[] }; checks: Checks; plans: Plans; changes: Changes; admin: boolean; kpi: WinRate }) {
   const [status, setStatus] = useState<"open" | "closed">("open");
   const [kind, setKind] = useState<Kind>("all");
-  const open = [...checks.open.map(checkRow), ...reviews.open.map(offerRow), ...changes.pending.map((c) => changeRow(c, admin))].sort((x, y) => x.at - y.at);
-  const closed = [...checks.decided.map(checkRow), ...reviews.decided.map(offerRow), ...changes.decided.map((c) => changeRow(c, admin))].sort((x, y) => y.at - x.at);
+  const open = [...checks.open.map(checkRow), ...plans.open.map(planRow), ...reviews.open.map(offerRow), ...changes.pending.map((c) => changeRow(c, admin))].sort((x, y) => x.at - y.at);
+  const closed = [...checks.decided.map(checkRow), ...plans.decided.map(planRow), ...reviews.decided.map(offerRow), ...changes.decided.map((c) => changeRow(c, admin))].sort((x, y) => y.at - x.at);
   const shown = status === "open" ? open : closed;
   const count = (k: Kind) => shown.filter((r) => k === "all" || r.kind === k).length;
   const rows = shown.filter((r) => kind === "all" || r.kind === kind);
-  const mine = checks.open.length + reviews.open.filter((c) => c.canDecide).length + (admin ? changes.pending.length : 0);
+  const mine = checks.open.length + plans.open.length + reviews.open.filter((c) => c.canDecide).length + (admin ? changes.pending.length : 0);
   const oldest = open.length ? open[0]!.at : null;
   return (
     <>
       <div className="page-head"><div>
         <h1>Reviews</h1>
-        <p>What customers sent to a person: answers they asked a specialist to check, and counter-offers Raiffy couldn’t settle inside its band. Also catalog changes waiting for an admin. Oldest first. You confirm information and decide prices, not credit: everything stays indicative until the bank issues it.</p>
+        <p>What customers sent to a person: answers and plans they asked a specialist to check, and counter-offers Raiffy couldn’t settle inside its band. Also catalog changes waiting for an admin. Oldest first. You confirm information and decide prices, not credit: everything stays indicative until the bank issues it.</p>
       </div></div>
 
       <div className="kpis kpis-3">
@@ -335,6 +356,8 @@ export function ReviewsConsole({ me }: { me: { name: string; role: Role } }) {
   const changeId = params.get("change");
   const reviews = useQuery(pricingApi.listReviews, {});
   const pendingChanges = useQuery(catalogApi.pending, {});
+  const plans = useQuery(planCheckApi.list, {});
+  const planId = params.get("plan");
   const decidedChanges = useQuery(catalogApi.decided, {});
   const change = changeId ? [...(pendingChanges ?? []), ...(decidedChanges ?? [])].find((c) => c.changeId === changeId) : undefined;
   const closeChange = () => router.replace("/console/reviews", { scroll: false });
@@ -343,7 +366,7 @@ export function ReviewsConsole({ me }: { me: { name: string; role: Role } }) {
   const current = caseId ? [...(reviews?.open ?? []), ...(reviews?.decided ?? [])].find((c) => c.id === caseId) : undefined;
   // Only ids from the queue reach the case query, so a hand-typed URL can't send it a malformed id
   const currentCheck = checkId ? [...(checks?.open ?? []), ...(checks?.decided ?? [])].find((c) => c.id === checkId) : undefined;
-  const open = (reviews?.open.length ?? 0) + (checks?.open.length ?? 0) + (pendingChanges?.length ?? 0);
+  const open = (reviews?.open.length ?? 0) + (checks?.open.length ?? 0) + (plans?.open.length ?? 0) + (pendingChanges?.length ?? 0);
   const onCase = !!(caseId || checkId);
 
   const nav = <ConsoleNav current={onCase ? null : "reviews"} due={{ reviews: open }} />;
@@ -354,12 +377,13 @@ export function ReviewsConsole({ me }: { me: { name: string; role: Role } }) {
   return (
     <StaffShell logoHref="/console" nav={nav} me={{ name: me.name, title, initials: initials(me.name) }} crumbs={crumbs}
       top={<span className="pill line" title="Pricing, competitors and customers are sample data">Sample pricing</span>}>
-      {!reviews || !checks || !kpi || !pendingChanges || !decidedChanges ? <p className="empty-row" role="status">Loading reviews…</p>
+      {!reviews || !checks || !kpi || !pendingChanges || !decidedChanges || !plans ? <p className="empty-row" role="status">Loading reviews…</p>
         : caseId && !current ? <p className="empty-row">That case isn’t in the last 50. <Link href="/console/reviews">Back to the queue</Link></p>
         : checkId && !currentCheck ? <p className="empty-row">That check isn’t in the last 50. <Link href="/console/reviews">Back to the queue</Link></p>
         : current ? <CaseView c={current} kpi={kpi} />
         : currentCheck ? <AnswerCheckCase row={currentCheck} />
-        : <Queue reviews={reviews} checks={checks} changes={{ pending: pendingChanges, decided: decidedChanges }} admin={me.role === "admin"} kpi={kpi} />}
+        : <Queue reviews={reviews} checks={checks} plans={plans} changes={{ pending: pendingChanges, decided: decidedChanges }} admin={me.role === "admin"} kpi={kpi} />}
+      {planId && !onCase && <PlanCheckSheet key={planId} checkId={planId} onClose={closeChange} onDone={closeChange} />}
       {change && !onCase && <ChangeSheet key={change.changeId} c={change} me={me} onClose={closeChange} onDone={closeChange} />}
     </StaffShell>
   );

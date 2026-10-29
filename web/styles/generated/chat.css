@@ -150,7 +150,11 @@
 .pg-chat .chk .vstat { max-width: none; }
 .pg-chat .chk-wait { font-size: var(--text-xs); line-height: 1.5; color: var(--text-2); }
 .pg-chat .chk-empty { padding: 20px 16px; border: 1px dashed var(--border-strong); border-radius: var(--radius-panel); font-size: var(--text-sm); color: var(--text-2); }
-.pg-chat .app.view-checks .scroll, .pg-chat .app.view-checks .composer-wrap, .pg-chat .app.view-checks .rename { display: none; }
+.pg-chat .app.view-checks .scroll, .pg-chat .app.view-checks .composer-wrap, .pg-chat .app.view-checks .rename, .pg-chat .app.view-plans .scroll, .pg-chat .app.view-plans .composer-wrap, .pg-chat .app.view-plans .rename { display: none; }
+/* Your plans (#plans): the latest version of every plan, the ones not yet checked first */
+.pg-chat .plan-row-figs { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--text-xs); color: var(--text-2); }
+.pg-chat .plan-row-figs b { color: var(--text-1); font-weight: 500; font-variant-numeric: tabular-nums; }
+.pg-chat .plan-row-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .pg-chat .me { display: flex; align-items: center; gap: 10px; padding: 10px 6px 0; border-top: 1px solid var(--border); }
 .pg-chat .me .ava { background: linear-gradient(135deg, var(--ava-a), var(--ava-b)); color: var(--ava-ink); }
 .pg-chat .me div { flex: 1; min-width: 0; line-height: 1.3; }

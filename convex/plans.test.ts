@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { anyApi } from "convex/server";
 import type { JSONValue } from "convex/values";
 import schema from "./schema";
@@ -164,6 +164,32 @@ describe("a plan from a simulation answer", () => {
     await noTemplate.t.run(async (ctx) => { for (const row of await ctx.db.query("planTemplates").collect()) await ctx.db.delete(row._id); });
     expect(await noTemplate.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: noTemplate.messageId })).toMatchObject({ status: "unavailable", why: "no_template" });
     expect(await noTemplate.t.run((ctx) => ctx.db.query("planSummaries").collect())).toEqual([]);
+  });
+
+  it("in the demo, falls back to the card's cited rate and fees, labelled, only on the deployment it names", async () => {
+    const url = "https://demo-1.eu-west-1.convex.cloud";
+    vi.stubEnv("CONVEX_CLOUD_URL", url);
+    vi.stubEnv("RAIFFY_DEMO_PLANS", "true");
+    try {
+      const cited = { ...SIM, rateMaxPercent: 17.95, termMaxMonths: 60, fees: [{ label: "Analysis fee, one time", value: "200 lei", source: SIM.source }] };
+      vi.stubEnv("RAIFFY_DEMO_PLANS_DEPLOYMENT_URL", "https://another-2.eu-west-1.convex.cloud");
+      const off = await answered([cited], false);
+      expect(await off.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: off.messageId })).toMatchObject({ status: "unavailable", why: "not_in_catalog" });
+
+      vi.stubEnv("RAIFFY_DEMO_PLANS_DEPLOYMENT_URL", url);
+      const on = await answered([cited], false);
+      const built = await on.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: on.messageId });
+      expect(built).toMatchObject({ status: "ok", version: 1 });
+      const { plan } = await on.alice.query(anyApi.plans.get, { planId: built.planId });
+      expect(plan).toMatchObject({ figuresFrom: "cited_page", goal: { productId: `cited:${SIM.source}`, product: "Credit de nevoi personale" },
+        terms: { rateRange: { minBps: 555, maxBps: 1795 }, upfrontFee: 20_000, rateType: "assumed_constant" } });
+      // The catalog still comes first where it can back the plan
+      const reviewed = await answered([cited]);
+      const fromCatalog = await reviewed.alice.mutation(anyApi.plans.buildFromAnswer, { messageId: reviewed.messageId });
+      expect((await reviewed.alice.query(anyApi.plans.get, { planId: fromCatalog.planId })).plan.figuresFrom).toBe("catalog");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("takes the amount and term the customer set on the simulator, within the card's longest term", async () => {

@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { answerCheckStatusSchema } from "./answerCheck";
+import { httpUrl } from "../email/delivery";
 
 /*
  * The service e-mails about an answer check: "received" when the customer sends it, "decided" when a specialist
  * replies. They carry only the reference, the status and the way back to the app: never the question, the answer, a
  * figure or the specialist's note, which are read in the app. Pure: the sender passes the reference and the app URL in.
  */
-
-const httpUrl = z.url({ protocol: /^https?$/ });
 
 export const answerCheckEmailInputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("received"), reference: z.string().regex(/^AC-[2-9A-HJ-NP-Z]{6}$/), appUrl: httpUrl.optional() }).strict(),
@@ -30,34 +29,7 @@ const WHY = "You’re getting this because you asked a specialist to check an an
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/**
- * Where sending is allowed, read from the Convex environment by the caller. Sending is on only where the owner turned
- * it on and pinned it to this deployment's URL, as customer memory is. `live` false is Resend's test mode: the message
- * goes to Resend's test inbox, never to the customer.
- */
-export type EmailEnvironment = {
-  enabled: boolean; deploymentUrl?: string; cloudUrl?: string; from?: string; appUrl?: string; live: boolean;
-};
-export const RESEND_TEST_INBOX = "delivered@resend.dev";
-
-export type EmailDelivery =
-  | { send: true; to: string; from: string; appUrl?: string; testMode: boolean }
-  | { send: false; reason: "off" | "not_configured" | "opted_out" | "no_address" };
-
-export function emailDelivery(env: EmailEnvironment, check: { optIn: boolean; address: string | null | undefined }): EmailDelivery {
-  if (!env.enabled || !env.deploymentUrl || env.deploymentUrl !== env.cloudUrl) return { send: false, reason: "off" };
-  if (!env.from) return { send: false, reason: "not_configured" };
-  if (!check.optIn) return { send: false, reason: "opted_out" };
-  if (!check.address || !z.email().safeParse(check.address).success) return { send: false, reason: "no_address" };
-  const appUrl = env.appUrl && httpUrl.safeParse(env.appUrl).success ? env.appUrl : undefined;
-  return { send: true, to: env.live ? check.address : RESEND_TEST_INBOX, from: env.from, testMode: !env.live, ...(appUrl ? { appUrl } : {}) };
-}
-
-/** "s•••@gmail.com": how the request panel shows the address it will write to. */
-export function maskEmail(address: string): string {
-  const at = address.lastIndexOf("@");
-  return at < 1 ? "your e-mail" : `${address[0]}•••${address.slice(at)}`;
-}
+export { emailDelivery, maskEmail, RESEND_TEST_INBOX, type EmailDelivery, type EmailEnvironment } from "../email/delivery";
 
 /** The path the e-mail points to: the customer's list of checks, behind the normal sign-in. */
 export function checksUrl(appUrl: string): string {
@@ -72,20 +44,26 @@ export function answerCheckEmail(raw: AnswerCheckEmailInput): AnswerCheckEmail {
   const where = input.kind === "received"
     ? "Their reply appears under the answer in Raiffy, and in Your specialist checks."
     : "Open Raiffy to read it, under the answer or in Your specialist checks.";
-  const url = input.appUrl ? checksUrl(input.appUrl) : null;
-  const ref = `Reference: ${input.reference}`;
+  return serviceEmail({ subject, lead, where, ref: `Reference: ${input.reference}`,
+    link: input.appUrl ? { label: "Your specialist checks", url: checksUrl(input.appUrl) } : null, why: WHY });
+}
 
-  const text = [lead, where, ref, ...(url ? [`Your specialist checks: ${url}`] : []), "", SAFETY, WHY].join("\n");
+/**
+ * The layout every check e-mail shares (answer checks here, plan checks in planCheckEmail.ts): the lead, where to read
+ * the reply, the reference, the link back into the app, and the safety and why lines.
+ */
+export function serviceEmail(e: { subject: string; lead: string; where: string; ref: string; link: { label: string; url: string } | null; why: string }): AnswerCheckEmail {
+  const text = [e.lead, e.where, e.ref, ...(e.link ? [`${e.link.label}: ${e.link.url}`] : []), "", SAFETY, e.why].join("\n");
   const p = (s: string, style = "") => `<p style="margin:0 0 12px;font:14px/1.5 Geist,Arial,sans-serif;color:#1A1A1A;${style}">${s}</p>`;
   const html = [
     `<div style="max-width:520px;padding:24px">`,
-    p(escape(lead)),
-    p(escape(where)),
-    p(escape(ref), "font-family:'Geist Mono',Menlo,monospace;font-size:13px"),
-    url ? p(`<a href="${escape(url)}" style="color:#1A1A1A">Your specialist checks</a>`) : "",
+    p(escape(e.lead)),
+    p(escape(e.where)),
+    p(escape(e.ref), "font-family:'Geist Mono',Menlo,monospace;font-size:13px"),
+    e.link ? p(`<a href="${escape(e.link.url)}" style="color:#1A1A1A">${escape(e.link.label)}</a>`) : "",
     p(escape(SAFETY), "color:#5C5C5C;font-size:13px"),
-    p(escape(WHY), "color:#5C5C5C;font-size:13px"),
+    p(escape(e.why), "color:#5C5C5C;font-size:13px"),
     `</div>`,
   ].join("");
-  return answerCheckEmailSchema.parse({ subject, text, html });
+  return answerCheckEmailSchema.parse({ subject: e.subject, text, html });
 }

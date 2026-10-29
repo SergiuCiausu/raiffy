@@ -9,9 +9,11 @@ import {
   availabilitySchema, DEFAULT_BOOKING_RULES as RULES, DEFAULT_HOURS, localDateTimeSchema, type Availability, type BookingFacts,
 } from "../lib/booking/schemas";
 import {
-  bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, openSlotsOn, pausedUntil,
-  releaseAt, shareWindow, shortName, shouldRelease, toInstant, toLocal, upcomingSlots,
+  attemptAllowed, bookingState, canCancel, canConfirm, canRecordOutcome, checkBooking, customerRef, joinWindow, openSlotsOn, pauseOf, pausedUntil,
+  releaseAt, shareWindow, shortName, shouldRelease, slotsForCustomer, toInstant, toLocal, upcomingSlots,
 } from "../lib/booking/rules";
+import { screenChat } from "../lib/agent/privacy";
+import { scheduleBookingEmails } from "./bookingEmails";
 
 /*
  * Booking a call with a specialist from the chat (console.html#calendar, the `.book` card in chat.html).
@@ -40,10 +42,12 @@ const customerBookingView = v.object({
   reminder: v.union(v.null(), v.literal("confirm"), v.literal("starts_soon")),
   joinFrom: v.number(), joinUrl: v.union(v.null(), v.string()),
   planId: v.union(v.null(), v.string()), sharePlan: v.boolean(),
+  threadId: v.union(v.null(), v.id("ragThreads")),
 });
 
 const facts = (b: Doc<"bookings">): BookingFacts =>
-  ({ operatorId: b.operatorId, start: b.start, minutes: b.minutes, status: b.status, confirmedAt: b.confirmedAt, outcomeAt: b.outcomeAt });
+  ({ operatorId: b.operatorId, start: b.start, minutes: b.minutes, status: b.status, confirmedAt: b.confirmedAt, outcomeAt: b.outcomeAt,
+    timeZone: b.timeZone, ...(b.cancelledBy ? { cancelledBy: b.cancelledBy } : {}), ...(b.cancelledAt !== undefined ? { cancelledAt: b.cancelledAt } : {}) });
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join("");
 
 function randomHex(bytes: number) {
@@ -124,7 +128,7 @@ function customerView(b: Doc<"bookings">, now: number) {
     cancelledBy: b.cancelledBy ?? null, cancelReason: b.cancelledBy === "operator" ? b.cancelReason ?? null : null,
     confirmBy: releaseAt(f, b.timeZone, RULES), canConfirm: canConfirm(f, b.timeZone, RULES, now), canCancel: canCancel(f, b.timeZone, now),
     reminder, joinFrom: join.from, joinUrl: join.open && b.channel === "video" ? b.meetingUrl ?? null : null,
-    planId: b.planId ?? null, sharePlan: b.sharePlan,
+    planId: b.planId ?? null, sharePlan: b.sharePlan, threadId: b.threadId ?? null,
   };
 }
 
@@ -135,28 +139,32 @@ export const options = query({
     operators: v.array(operatorView),
     booking: v.union(v.null(), customerBookingView),
     pausedUntil: v.union(v.null(), v.number()),
+    pauseCause: v.union(v.null(), v.literal("missed"), v.literal("cancellations")),
   }),
   handler: async (ctx) => {
     const caller = await requireUser(ctx);
     const now = Date.now();
+    const own = await ownBookings(ctx, caller.identity.tokenIdentifier);
     const operators = [];
     for (const s of (await allSpecialists(ctx)).filter((x) => x.active).slice(0, 10)) {
       const { availability } = s;
       const held = await operatorBookings(ctx, s.operatorId, toLocal(now, availability.timeZone).slice(0, 10));
       operators.push({
         operatorId: s.operatorId, name: s.name, title: s.title, initials: initialsOf(s.name), minutes: availability.slotMinutes,
-        timeZone: availability.timeZone, slots: upcomingSlots(availability, held.map(facts), now, SLOTS_SHOWN),
+        // Only times this customer could book: none at the same time as another of their calls (lib/booking/rules.ts)
+        timeZone: availability.timeZone, slots: slotsForCustomer(availability, held.map(facts), own.map(facts), now, SLOTS_SHOWN),
       });
     }
-    const own = await ownBookings(ctx, caller.identity.tokenIdentifier);
     // The open call if there is one, otherwise a recent cancellation the customer should hear about
     const open = own.find((b) => b.status === "booked" && toInstant(b.start, b.timeZone) + b.minutes * 60_000 > now);
     const notice = own.find((b) => b.status === "cancelled" && b.cancelledBy !== "customer" && now - (b.cancelledAt ?? 0) < 7 * 24 * 3_600_000);
     const shown = open ?? notice;
+    const pause = pauseOf(own.map(facts), RULES, now);
     return {
       operators,
       booking: shown ? customerView(shown, now) : null,
-      pausedUntil: pausedUntil(own.map(facts), RULES, now),
+      pausedUntil: pause?.until ?? null,
+      pauseCause: pause?.cause ?? null,
     };
   },
 });
@@ -173,10 +181,14 @@ export const book = mutation({
   ),
   handler: async (ctx, args) => {
     const caller = await requireUser(ctx);
-    if (!localDateTimeSchema.safeParse(args.start).success) throw new ConvexError("booking_start_invalid");
-    const topic = args.topic.trim();
-    if (!topic || topic.length > TOPIC_MAX) throw new ConvexError("booking_topic_invalid");
     const ownerKey = caller.identity.tokenIdentifier;
+    // Every attempt counts, refused or not, before anything else is read
+    const now = Date.now();
+    if (!await recordAttempt(ctx, ownerKey, now)) return { status: "refused" as const, reason: "too_many_attempts", pausedUntil: null };
+    if (!localDateTimeSchema.safeParse(args.start).success) throw new ConvexError("booking_start_invalid");
+    // The topic reaches the specialist's calendar, so it goes through the same privacy screen as a chat message
+    if (!args.topic.trim() || args.topic.trim().length > TOPIC_MAX) throw new ConvexError("booking_topic_invalid");
+    const topic = screenChat(args.topic).text.trim().slice(0, TOPIC_MAX);
     let planId: string | undefined;
     if (args.threadId) {
       const thread = await requireAgentThread(ctx, args.threadId);
@@ -190,7 +202,6 @@ export const book = mutation({
     const row = await specialist(ctx, args.operatorId);
     if (!row?.active) return { status: "refused" as const, reason: "slot_unavailable", pausedUntil: null };
     const { availability } = row;
-    const now = Date.now();
     const held = await operatorBookings(ctx, args.operatorId, toLocal(now, availability.timeZone).slice(0, 10));
     const own = await ownBookings(ctx, ownerKey);
     const check = checkBooking({ availability, bookings: held.map(facts), customerBookings: own.map(facts), start: args.start, now, rules: RULES });
@@ -215,7 +226,31 @@ export const book = mutation({
     const b = (await ctx.db.get(id))!;
     await event(ctx, b, "booked", "customer");
     if (check.confirmedAt !== null) await event(ctx, b, "confirmed", "customer");
+    await scheduleBookingEmails(ctx, b._id);
     return { status: "booked" as const, bookingId };
+  },
+});
+
+/** Records a booking attempt and says whether it's within the limit; attempts outside the window are deleted as they're read. */
+async function recordAttempt(ctx: MutationCtx, ownerKey: string, now: number): Promise<boolean> {
+  const since = now - RULES.attemptWindowMinutes * 60_000;
+  const old = await ctx.db.query("bookingAttempts").withIndex("by_owner_at", (q) => q.eq("ownerKey", ownerKey).lt("at", since)).take(50);
+  for (const a of old) await ctx.db.delete(a._id);
+  const recent = await ctx.db.query("bookingAttempts").withIndex("by_owner_at", (q) => q.eq("ownerKey", ownerKey).gte("at", since)).take(RULES.attemptsPerWindow + 1);
+  if (!attemptAllowed(recent.map((a) => a.at), RULES, now)) return false;
+  await ctx.db.insert("bookingAttempts", { ownerKey, at: now });
+  return true;
+}
+
+/** The customer's calls, newest first (the list at /chat/calls): no calendar, the same view as the booking card. */
+export const mine = query({
+  args: {},
+  returns: v.array(customerBookingView),
+  handler: async (ctx) => {
+    const caller = await requireUser(ctx);
+    const now = Date.now();
+    const own = await ownBookings(ctx, caller.identity.tokenIdentifier);
+    return own.sort((a, b) => toInstant(b.start, b.timeZone) - toInstant(a.start, a.timeZone)).map((b) => customerView(b, now));
   },
 });
 

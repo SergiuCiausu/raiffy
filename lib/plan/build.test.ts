@@ -91,6 +91,19 @@ describe("buildPlan", () => {
     expect(buildPlan({ ...INPUT, records: Object.values(records) })).toEqual({ status: "unavailable", gaps: [{ role: "rate", termId: RECORDS.rate!.termId, reason: "ceiling_value" }] });
   });
 
+  it("uses a published rate range only when the template allows it, figured at the top and showing the bottom", () => {
+    const records = Object.values({ ...RECORDS, rate: { ...RECORDS.rate!, value: { type: "range" as const, min: 555, max: 1795 } } });
+    expect(buildPlan({ ...INPUT, records })).toEqual({ status: "unavailable", gaps: [{ role: "rate", termId: RECORDS.rate!.termId, reason: "range_value" }] });
+    const plan = ok(buildPlan({ ...INPUT, records, template: { ...TEMPLATE, rateRange: true } }));
+    expect(plan.terms).toMatchObject({ annualRateBps: 1795, rateRange: { minBps: 555, maxBps: 1795 } });
+    // The schedule and the totals are the top of the range; the bottom is the bank's own example
+    expect(planInvariants(plan, TEMPLATE)).toEqual([]);
+    expect(Math.abs(plan.figures.atLowest!.monthly - 96_121)).toBeLessThanOrEqual(10);
+    expect(plan.figures.atLowest!.total).toBeLessThan(plan.figures.total);
+    expect(plan.assumptions).toContainEqual({ key: "rate_within_range", params: { minBps: 555, maxBps: 1795 } });
+    expect(ok(buildPlan(INPUT)).figures).not.toHaveProperty("atLowest");
+  });
+
   it("reports every gap at once, not only the first", () => {
     const records = { ...RECORDS, rate: { ...RECORDS.rate!, verification: { quoteFound: false } }, origination_fee: { ...RECORDS.origination_fee!, frequency: "monthly" as const } };
     const result = buildPlan({ ...INPUT, records: Object.values(records), amount: 100_000 });
