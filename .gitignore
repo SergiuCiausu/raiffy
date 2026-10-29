@@ -33,3 +33,6 @@ raiffeisen-rag-package/data/pdf_extracts/
 ._*
 .claude/worktrees/
 *.log
+
+# Local voice runtime, model weights and generated recordings
+.local/voice/

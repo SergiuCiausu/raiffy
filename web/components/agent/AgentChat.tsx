@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAction, useMutation, useQueries, useQuery, type RequestForQueries } from "convex/react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import {
-  ArrowDownIcon, ArrowUpIcon, BadgePercentIcon, PaperclipIcon, BriefcaseIcon, CalculatorIcon, ChartColumnIcon, InfoIcon, PencilIcon, PinIcon, ScaleIcon, SignpostIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon,
+  ArrowDownIcon, ArrowUpIcon, BadgePercentIcon, PaperclipIcon, BriefcaseIcon, CalculatorIcon, ChartColumnIcon, InfoIcon, PencilIcon, PinIcon, ScaleIcon, SignpostIcon, CompassIcon, CopyIcon, FileTextIcon, HeadsetIcon, ListChecksIcon, ListIcon, ListOrderedIcon, LogOutIcon, MenuIcon, MicIcon, Volume2Icon,
   MessageCircleIcon, PanelRightCloseIcon, PanelRightOpenIcon, RotateCcwIcon, SearchIcon, ShieldCheckIcon, SquareIcon, SquarePenIcon, ThumbsDownIcon,
   ThumbsUpIcon, UserCheckIcon, UserIcon, XIcon,
 } from "lucide-react";
@@ -30,6 +30,9 @@ import { AffordabilityCard, isAffordability } from "./AffordabilityCard";
 import { AnswerCheckButton, AnswerCheckZone, canAskSpecialist } from "./AnswerCheck";
 import { SpecialistChecks, type CheckRow } from "./SpecialistChecks";
 import { GroupList, Thinking, ThinkLines, prefersReducedMotion, useIsMac, useMedia } from "@/components/chat/parts";
+import { useVoice } from "@/components/chat/useVoice";
+import { VoiceStatus } from "@/components/chat/VoiceStatus";
+import { spokenAnswer, voiceReplyDecision } from "@/lib/voice-replies";
 
 /*
  * The live chat uses authenticated Convex requests and reactive progress. Checked final text reveals word by
@@ -122,6 +125,7 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   // New chats are personal; the business track returns with Clerk Organizations (it needs an org_id)
   const track: Track = "personal";
   const [input, setInput] = useState("");
+  const [voiceDraft, setVoiceDraft] = useState(false);
   const [pending, setPending] = useState<{ text: string; base: number; attachment?: Attachment } | null>(null);
   // The paperclip (chat.html #attach): the chosen sample customer's statement, attached to the next question
   const [attached, setAttached] = useState(false);
@@ -187,6 +191,32 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   const tabAt = tab.for === lastId ? tab.at : 0;
   const coarse = useMedia("(pointer: coarse)");
 
+  const pendingVoice = useRef<{ token: symbol; messageId: string } | null>(null);
+  const voice = useVoice((text, automatic) => {
+    if (automatic) {
+      if (busy) { cancelVoice(); return; }
+      void send(text, undefined, undefined, true, true);
+      return;
+    }
+    setInput(draft => draft.trim() ? `${draft.trimEnd()} ${text}` : text);
+    setVoiceDraft(true);
+    inputEl.current?.focus();
+    announce("Dictation added to your draft. Review it before sending. Raiffy will read its reply aloud.");
+  });
+  const dictating = ["requesting", "listening", "transcribing"].includes(voice.phase);
+  function cancelVoice() { pendingVoice.current = null; voice.cancel(); }
+
+  const receiveVoiceReply = useEffectEvent(() => {
+    const waiting = pendingVoice.current;
+    if (!waiting) return;
+    const decision = voiceReplyDecision(waiting.messageId, list);
+    if (decision.kind === "wait") return;
+    pendingVoice.current = null;
+    if (decision.kind === "cancel") voice.cancelReply(waiting.token);
+    else void voice.readReply(waiting.token, decision.messageId, decision.text);
+  });
+  useEffect(() => { receiveVoiceReply(); }, [messages]);
+
   function announce(msg: string) { setLiveMsg(""); window.setTimeout(() => setLiveMsg(msg), 60); }
 
   /* Keep the newest text in view while the customer is at the bottom; otherwise offer "Jump to latest" */
@@ -241,9 +271,12 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   }, [messages]);
 
   /* ───────────── Sending ───────────── */
-  async function send(text: string, reply?: Reply, attachment?: Attachment) {
+  async function send(text: string, reply?: Reply, attachment?: Attachment, readAloud = false, automatic = false) {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || (dictating && !automatic)) return;
+    const voiceToken = readAloud ? voice.prepareReply() : undefined;
+    if (!readAloud) cancelVoice();
+    setVoiceDraft(false);
     setSendError(null);
     setGoneNote(null);
     setPending({ text: question, base: list.length, ...(attachment ? { attachment } : {}) });
@@ -253,12 +286,15 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
     try {
       const r = await sendMutation({ question, track: activeTrack, ...(threadId ? { threadId } : {}), ...(reply && threadId ? { reply } : {}), ...(attachment ? { attachment } : {}) });
       if (!threadId) { announced.current = null; setThreadId(r.threadId); }
+      if (voiceToken) pendingVoice.current = { token: voiceToken, messageId: r.messageId };
       startedHere.current.add(r.messageId);
       void runAction({ messageId: r.messageId }).catch((error: unknown) => {
+        if (pendingVoice.current?.messageId === r.messageId) cancelVoice();
         logChatError("agent:run failed", { threadId: r.threadId, messageId: r.messageId, ...errorInfo(error) });
         setSendError("The reply was interrupted. Stop it and try again.");
       });
     } catch (error) {
+      if (voiceToken) voice.cancelReply(voiceToken);
       logChatError("agent:send failed", { threadId, hasReply: !!reply, ...errorInfo(error) });
       setPending(null);
       setInput(question);
@@ -266,10 +302,10 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
       setSendError("Your question didn't reach Raiffy. Check your connection and try again.");
     }
   }
-  function stop() { if (streaming) void stopMutation({ messageId: streaming._id }); }
+  function stop() { cancelVoice(); if (streaming) void stopMutation({ messageId: streaming._id }); }
 
   /** Typed text that is a suggestion's prompt (filled with Tab) carries that suggestion's reply, as pressing its chip does. */
-  function sendInput() { void send(input, suggestions.find((s) => s.prompt === input.trim())?.reply, attached ? "sample_statement" : undefined); }
+  function sendInput() { void send(input, suggestions.find((s) => s.prompt === input.trim())?.reply, attached ? "sample_statement" : undefined, voiceDraft); }
 
   /* Tab with an empty composer fills the first suggestion, Tab again the next one, and after the last one Tab moves
      focus as usual. Enter sends. */
@@ -293,6 +329,7 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
   }
 
   function openThread(id: ThreadId | null) {
+    cancelVoice(); setVoiceDraft(false);
     if (view === "checks") { router.push(id ? `/chat?thread=${id}` : "/chat"); return; }
     setThreadId(id);
     setRenaming(false);
@@ -533,7 +570,8 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
                     }}
                     onCopy={() => { navigator.clipboard?.writeText(m.text).catch(() => {}); announce("Answer copied."); }}
                     onRetry={() => { const qn = list[i - 1]; if (qn?.role === "user") void send(qn.text); }}
-                    retryDisabled={busy} />))}
+                    retryDisabled={busy} reading={voice.messageId === m._id && ["preparing", "speaking"].includes(voice.phase)}
+                    onRead={() => { if (voice.messageId === m._id && voice.active) cancelVoice(); else { pendingVoice.current = null; void voice.speak(m._id, spokenAnswer(m.answer?.text ?? m.text)); } }} />))}
               {showPending && (
                 <>
                   <UserBubble text={pending.text} attachment={pending.attachment} enter />
@@ -588,12 +626,15 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
                 </button>
               ))}
             </div>
+            <VoiceStatus voice={{ ...voice, cancel: cancelVoice }} />
             <form className="composer" id="composer" onSubmit={(e) => { e.preventDefault(); if (streaming) stop(); else sendInput(); }}>
               <label className="sr-only" htmlFor="input">Message Raiffy</label>
               <textarea id="input" ref={inputEl} rows={1} enterKeyHint="send" value={input} maxLength={2000}
                 placeholder={threadId ? (suggestions.length && !coarse ? "Ask a follow-up, or press Tab for a suggestion" : "Ask a follow-up") : activeTrack === "business" ? "Ask about a product for your business…" : "Ask about an account, a card, a loan, your savings…"}
                 onChange={(e) => {
+                  if (voice.handsFree) cancelVoice();
                   setInput(e.target.value);
+                  if (!e.target.value.trim()) setVoiceDraft(false);
                   // Typing over a suggestion hides the Tab hint; clearing the box puts it back on the first chip
                   if (!suggestions.some((s) => s.prompt === e.target.value.trim())) setTab({ for: lastId, at: e.target.value ? -1 : 0 });
                 }} onKeyDown={onComposerKey} />
@@ -606,10 +647,22 @@ export function AgentChat({ view = "chat" }: { view?: "chat" | "checks" }) {
                   </span>
                 )}
                 <span className="track-note">{TRACKS.find((t) => t.k === activeTrack)?.label ?? "Business profile"}</span>
+                <div className="voice-composer-actions">
+                  <button type="button" className="icon-btn voice-mic" id="voice-mic"
+                    aria-label={voice.handsFree ? "End voice conversation" : voice.phase === "listening" ? "Finish dictation" : input.trim() ? "Dictate a message" : "Start voice conversation"}
+                    aria-pressed={voice.handsFree || voice.phase === "listening"} title={input.trim() ? "Dictate in English" : "Hands-free conversation in English"}
+                    disabled={!voice.handsFree && (busy || voice.phase === "requesting" || voice.phase === "transcribing")}
+                    onClick={() => {
+                      if (voice.handsFree) cancelVoice();
+                      else if (voice.phase === "listening") voice.finishRecording();
+                      else if (input.trim()) void voice.record();
+                      else voice.startConversation();
+                    }}>{voice.handsFree || voice.phase === "listening" ? <SquareIcon /> : <MicIcon />}</button>
                 <button type="submit" className={streaming ? "btn btn-dark send is-stop" : "btn btn-dark send"} id="send"
-                  aria-label={streaming ? "Stop reply" : "Send message"} disabled={!streaming && (showPending || !input.trim())}>
+                  aria-label={streaming ? "Stop reply" : voiceDraft ? "Send message and read reply aloud" : "Send message"} disabled={!streaming && (dictating || showPending || !input.trim())}>
                   <span className="i-send"><ArrowUpIcon /></span><span className="i-stop"><SquareIcon /></span>
                 </button>
+                </div>
               </div>
             </form>
             <p className="disclaimer">AI-generated from dated public bank sources. Information may have changed and isn’t a binding offer.</p>
@@ -709,7 +762,7 @@ type AssistantProps = {
   m: Message; onGrow: () => void; vote?: "up" | "down"; onVote: (v: "up" | "down") => void; onCopy: () => void;
   why?: VoteReason; onWhy: (reason: VoteReason) => void;
   onRetry: () => void; retryDisabled: boolean; onFollowUp: (prompt: string, reply?: Reply) => void; latest: boolean;
-  threadId: ThreadId | null;
+  threadId: ThreadId | null; reading: boolean; onRead: () => void;
   track: Track; memory?: { pendingIds: ReadonlySet<string>; savedTexts: ReadonlySet<string> };
   /** Answer checks in this conversation by message id; null while they can't be loaded. */
   checks: ReadonlyMap<string, AnswerCheck> | null; announce: (msg: string) => void;
@@ -717,7 +770,7 @@ type AssistantProps = {
   pinned: boolean; onPin: (input: PinInput) => void;
 };
 
-function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory, checks, announce, litSource, onLight, pinned, onPin }: AssistantProps) {
+function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCopy, onRetry, retryDisabled, onFollowUp, latest, track, memory, checks, announce, litSource, onLight, pinned, onPin, reading, onRead }: AssistantProps) {
   const memoryBlock = m.answer?.ui?.blocks?.find((b): b is MemoryBlock => b.type === "memory");
   const handoff = m.answer?.ui?.actions.find((a) => a.kind === "handoff");
   const steps = m.answer?.searches ?? m.steps ?? [];
@@ -791,6 +844,8 @@ function AssistantMessage({ m, threadId, onGrow, vote, onVote, why, onWhy, onCop
             {canCheck && <AnswerCheckButton onOpen={() => setDrafting(true)} />}
             <div className="acts">
               {pinInput && <button type="button" className="icon-btn" aria-pressed={pinned} aria-label="Pin to context" onClick={() => onPin(pinInput)}><PinIcon /></button>}
+              <button type="button" className="icon-btn voice-read" aria-label={reading ? "Stop reading answer" : "Read answer aloud"}
+                aria-pressed={reading} onClick={onRead} disabled={retryDisabled && !reading}>{reading ? <SquareIcon /> : <Volume2Icon />}</button>
               <button type="button" className="icon-btn" aria-label="Copy answer" onClick={onCopy}><CopyIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "up"} aria-label="Helpful" onClick={() => onVote("up")}><ThumbsUpIcon /></button>
               <button type="button" className="icon-btn" aria-pressed={vote === "down"} aria-label="Not helpful" onClick={() => onVote("down")}><ThumbsDownIcon /></button>
