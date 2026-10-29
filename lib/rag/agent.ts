@@ -70,13 +70,18 @@ export type AgentInput = {
   withholdFinancialFigures?: boolean;
   /** What this customer asked Raiffy to remember, as a system note. Per customer, so it is never cached. */
   customerContext?: string;
+  /**
+   * The customer's own messages and confirmed memories. Figures in them (age, income, the amount or term asked
+   * about) are the customer's, not the bank's prices, so the answer may repeat them without a citation.
+   */
+  customerStatements?: readonly string[];
 };
 
 /**
  * Agentic RAG: Claude decides when and what to search, code runs each search scoped to the session's track,
  * the fragments go back as search_result blocks, and the final text is checked so every number is grounded.
  */
-export async function runAgent({ question, track, history = [], model, allowedCollections, withholdFinancialFigures = false, customerContext }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
+export async function runAgent({ question, track, history = [], model, allowedCollections, withholdFinancialFigures = false, customerContext, customerStatements = [] }: AgentInput, deps: AgentDeps): Promise<RagAnswer> {
   const system = customerContext ? [...buildSystem(track), { type: "text" as const, text: customerContext }] : buildSystem(track);
   // A route with no collections (an explicit "remember this") offers no search at all.
   const searchTool = allowedCollections ? { ...SEARCH_TOOL, input_schema: { ...SEARCH_TOOL.input_schema,
@@ -162,11 +167,13 @@ export async function runAgent({ question, track, history = [], model, allowedCo
       continue;
     }
     attempts++;
-    const checks = checkNumbers(segments, hits, trusted);
+    // Calculator results and the customer's own figures may appear without a citation; document prices may not.
+    const ownFigures = [...trusted, ...customerStatements];
+    const checks = checkNumbers(segments, hits, ownFigures);
     const passed = checks.ungroundedNumbers.length === 0 && checks.uncitedSegmentsWithNumbers === 0
       && !checks.invalidCitationIndexes;
     // A quoted price gets one rewrite; if it stays, the caller's catalog check still withholds the answer.
-    const quotesPrices = withholdFinancialFigures && containsFinancialFigure(segments.map((segment) => segment.text).join(""), trusted);
+    const quotesPrices = withholdFinancialFigures && containsFinancialFigure(segments.map((segment) => segment.text).join(""), ownFigures);
     if ((!passed || quotesPrices) && attempts < MAX_ANSWER_ATTEMPTS) {
       messages.push({ role: "assistant", content: response.content });
       const retryNotes = [

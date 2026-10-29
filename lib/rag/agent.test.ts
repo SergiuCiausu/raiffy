@@ -143,9 +143,43 @@ describe("runAgent", () => {
     const answer = await runAgent({ ...input, withholdFinancialFigures: true }, withheld.deps);
     expect(answer).toMatchObject({ status: "answered", text: "It is a fixed-term deposit that renews automatically." });
     expect(answer.checks.attempts).toBe(2);
-    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/without any of them/);
+    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/rewrite the answer without those/);
+    expect(String(withheld.requests[2]!.messages.at(-1)!.content)).toMatch(/Keep the figures the customer gave you/);
     const quoted = await runAgent(input, fakeDeps(script(), [[hit("dep", "dobândă 4.70% pe an")]]).deps);
     expect(quoted).toMatchObject({ text: "It pays 4.70% a year.", checks: { attempts: 1 } });
+  });
+
+  it("keeps the customer's own figures without a retry, but still withholds document prices", async () => {
+    const question = "I am 20 and want to borrow 10,000 EUR. Can I get a personal loan?";
+    const own = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "credit nevoi personale varsta", limit: 5 })]),
+      message("end_turn", [
+        cited("Applicants must be at least 21 years old.", 0),
+        { type: "text", text: " At 20 you don't meet that condition yet, so the 10,000 EUR loan isn't available to you today." },
+      ]),
+    ], [[hit("age", "Vârsta minimă: 21 de ani")]]);
+    const answer = await runAgent({ ...input, question, withholdFinancialFigures: true, customerStatements: [question] }, own.deps);
+    expect(answer).toMatchObject({ status: "answered", checks: { ungroundedNumbers: [], uncitedSegmentsWithNumbers: 0, attempts: 1 } });
+    expect(answer.text).toContain("At 20 you don't meet that condition");
+    expect(answer.text).toContain("10,000 EUR");
+
+    // Without the customer's statements the same draft is sent back for a rewrite.
+    const noStatements = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "credit", limit: 5 })]),
+      message("end_turn", [cited("At 20 you can't borrow 10,000 EUR yet.", 0)]),
+      message("end_turn", [cited("You don't meet the age condition yet.", 0)]),
+    ], [[hit("age", "Vârsta minimă: 21 de ani")]]);
+    expect((await runAgent({ ...input, question, withholdFinancialFigures: true }, noStatements.deps)).checks.attempts).toBe(2);
+
+    // A document price is still withheld even when the customer's own figures are allowed.
+    const price = fakeDeps([
+      message("tool_use", [toolUse("t1", { collection: "bank_product_docs", query: "dobanda", limit: 5 })]),
+      message("end_turn", [cited("For your 10,000 EUR the rate is 7.9% a year.", 0)]),
+      message("end_turn", [cited("For your 10,000 EUR loan, check the current rate on the product page.", 0)]),
+    ], [[hit("rate", "dobândă 7.9% pe an")]]);
+    const priced = await runAgent({ ...input, question, withholdFinancialFigures: true, customerStatements: [question] }, price.deps);
+    expect(priced.checks.attempts).toBe(2);
+    expect(priced.text).toContain("10,000 EUR");
   });
 
   it("reports failed checks when the retry is still ungrounded", async () => {

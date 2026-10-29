@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { BANKS, type ScopeField, scopeFlagsSchema, SECTION_TYPES } from "../lib/rag/schemas";
 import { memoryKind, memoryScopeFields } from "./memoryValidators";
+import { HANDOFF_REASONS } from "../lib/agent/handoff";
 
 
 /** Vector size of OpenAI text-embedding-3-small, the model the chunks and questions are embedded with. */
@@ -100,6 +101,19 @@ export default defineSchema({
   }).index("by_thread", ["threadId"]),
   agentRateLimits: defineTable({ ownerKey: v.string(), windowStart: v.number(), requests: v.number() })
     .index("by_owner", ["ownerKey"]),
+  /** Adviser requests the customer sent from an answer, with the screened messages they agreed to share. */
+  handoffRequests: defineTable({
+    ownerKey: v.string(),
+    track,
+    organizationKey: v.union(v.null(), v.string()),
+    threadId: v.id("ragThreads"),
+    messageId: v.id("ragMessages"),
+    reason: v.union(...HANDOFF_REASONS.map((reason) => v.literal(reason))),
+    reference: v.string(),
+    summary: v.array(v.string()),
+    status: v.literal("requested"),
+    createdAt: v.number(),
+  }).index("by_message", ["messageId"]).index("by_owner", ["ownerKey", "createdAt"]),
   /** Regulatory parameters for indicative checks, each with its source; imported from catalog/regulatory-limits.jsonl. */
   regulatoryLimits: defineTable({
     key: v.string(),

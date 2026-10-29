@@ -16,7 +16,12 @@ export type JevTransportResult = z.infer<typeof jevTransportResultSchema>;
 
 export function validateJevTransportResponse(raw: unknown): JevTransportResult {
   const response = jevResponseSchema.safeParse(raw);
-  if (!response.success) return jevTransportResultSchema.parse({ status: "unavailable", reason: "invalid_response" });
+  if (!response.success) {
+    // Field paths and rule names only, never the provider body or customer text, so the Convex log shows which
+    // part of a reply failed validation.
+    console.warn("jev_invalid_response", response.error.issues.slice(0, 5).map((issue) => `${issue.path.join(".")}: ${issue.message}`));
+    return jevTransportResultSchema.parse({ status: "unavailable", reason: "invalid_response" });
+  }
   if (response.data.model !== AGENT_POLICY.classifierModel) return jevTransportResultSchema.parse({ status: "unavailable", reason: "unexpected_classifier_version" });
   return jevTransportResultSchema.parse({ status: "classified", classification: response.data });
 }

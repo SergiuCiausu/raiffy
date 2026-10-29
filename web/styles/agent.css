@@ -90,3 +90,11 @@
 .pg-chat .mem-row:first-child { border-top: 0; }
 .pg-chat .mem-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .pg-chat .mem-forget-all { margin-top: 10px; width: 100%; }
+
+/* Adviser handoff (components/agent/Handoff.tsx): the button under an answer, the preview and the sent status. */
+.pg-chat .handoff-btn { margin-top: 12px; }
+.pg-chat .handoff-card { margin-top: 12px; }
+.pg-chat .handoff-card .gc-h svg { width: 14px; height: 14px; }
+.pg-chat .handoff-note { margin: 0; padding: 0 14px 12px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.pg-chat .handoff-acts { padding: 0 14px 14px; }
+.pg-chat .handoff-card .mem-status { padding: 0 14px 12px; }

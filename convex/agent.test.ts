@@ -71,6 +71,25 @@ describe("UI to Jev to RAG pipeline", () => {
     expect(searchMock).not.toHaveBeenCalled();
   });
 
+  it("retries Jev once after a malformed reply, but not after a timeout", async () => {
+    jevMock.mockResolvedValueOnce({ status: "unavailable", reason: "invalid_response" });
+    const retried = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(jevMock).toHaveBeenCalledTimes(2);
+    expect(retried.answer.routing.reason).not.toBe("invalid_response");
+    jevMock.mockReset().mockResolvedValue({ status: "unavailable", reason: "timeout" });
+    await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
+    expect(jevMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the customer's own figures in the final catalog check", async () => {
+    const question = "I am 20 and want 10,000 EUR. Can I get a personal loan?";
+    runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "At 20 you don't meet the minimum age yet, so 10,000 EUR isn't available today." });
+    const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, { ...args, question });
+    expect(result.answer.text).toContain("10,000 EUR");
+    expect(result.answer.verification.financialTermsSupported).toBe(true);
+    expect(runAgentMock.mock.calls[0]![0].customerStatements).toEqual([question]);
+  });
+
   it("withholds exact financial figures until a reviewed catalog is connected", async () => {
     runAgentMock.mockResolvedValue({ ...answer, status: "answered", text: "The interest rate is 5.5%." });
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
@@ -86,7 +105,8 @@ describe("UI to Jev to RAG pipeline", () => {
     const result = await fresh().withIdentity(identity()).action(anyApi.agent.ask, args);
     expect(result.answer.ui.mode).toBe("hardship");
     expect(result.answer.ui.flags.suppressOffers).toBe(true);
-    expect(result.answer.ui.actions).toEqual([]);
+    // No sales follow-ups; only the human callback the hardship flow calls for.
+    expect(result.answer.ui.actions).toEqual([{ kind: "handoff", label: "Talk to an adviser", reason: "hardship" }]);
     expect(runAgentMock).not.toHaveBeenCalled();
   });
 

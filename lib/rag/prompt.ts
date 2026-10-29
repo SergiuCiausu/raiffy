@@ -9,7 +9,7 @@ import type { KnowledgeGap, Passage, SearchKnowledgeResult } from "./knowledge";
 import type { Track } from "./schemas";
 
 /** Bump when the instructions or the tool change, so logs and cached answers can be told apart. */
-export const RAG_PROMPT_VERSION = "rag-agent@10";
+export const RAG_PROMPT_VERSION = "rag-agent@11";
 
 /** Searches the agent may run for one question before it must answer. */
 export const MAX_SEARCHES = 3;
@@ -128,7 +128,7 @@ export function searchAgainNote(): string {
 }
 
 export function retryNoteForNumbers(ungrounded: readonly string[]): string {
-  return `Your answer used numbers that are not in the search results (${ungrounded.join(", ")}). Answer again using only numbers that appear in the results, or say that the value isn't available.`;
+  return `Your answer used numbers that are not in the search results (${ungrounded.join(", ")}). Answer again using only numbers that appear in the results, or say that the value isn't available. Figures the customer gave you (their age, income, the amount or term they asked about) and calculator results may stay: keep them where they matter, for example to say plainly whether the customer meets a condition.`;
 }
 
 /** The number of options follows the route's answer scope (raiffy-spec/docs/individuals/answer-patterns.md). */
@@ -141,7 +141,7 @@ export function answerScopeNote(scope: "compare" | "solution" | "detail" | null)
 }
 
 export function retryNoteForFinancialFigures(): string {
-  return "Your answer quoted an interest rate, fee, percentage or money amount. Verified product prices aren't connected in this preview, so rewrite the answer without any of them, even where a search result states one. Explain the sourced conditions, terms and documents instead, and say the customer can check current figures on the bank's product page or with an adviser.";
+  return "Your answer quoted an interest rate, fee, percentage or money amount from the bank's documents. Verified product prices aren't connected in this preview, so rewrite the answer without those, even where a search result states one. Keep the figures the customer gave you (their age, income, the amount or term they asked about) and calculator results, and still say plainly whether the customer meets each condition. Explain the sourced conditions, terms and documents instead, and say the customer can check current figures on the bank's product page or with an adviser.";
 }
 
 /** Closes every retry note: the customer only ever sees the rewritten answer. */

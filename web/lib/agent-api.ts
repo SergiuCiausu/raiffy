@@ -29,7 +29,17 @@ export type Answer = {
   sources: Source[];
   searches: { query: string; collection: string; status: "ok" | "unavailable"; results: number }[];
   routing?: { handler: string; inquiry: string | null; confidence: number | null; classifierModel: string | null; reason: string };
-  ui?: { flags: { aiDisclosure: true; suppressOffers: boolean }; actions: { kind: "followup"; label: string; prompt: string }[]; blocks?: Block[] };
+  ui?: { flags: { aiDisclosure: true; suppressOffers: boolean }; actions: Action[]; blocks?: Block[] };
+};
+
+export type HandoffReason = "customer_request" | "offer_review" | "complaint" | "missing_evidence" | "hardship" | "fraud";
+export type Action = { kind: "followup"; label: string; prompt: string } | { kind: "handoff"; label: string; reason: HandoffReason };
+export type HandoffRequest = { reference: string; status: "requested"; createdAt: number };
+
+/** Adviser requests (convex/handoff.ts). The customer sees `preview`, exactly what the adviser gets, before sending. */
+export const handoffApi = {
+  forMessage: makeFunctionReference<"query", { messageId: MessageId }, { preview: string[]; request: HandoffRequest | null }>("handoff:forMessage"),
+  request: makeFunctionReference<"mutation", { messageId: MessageId; reason: HandoffReason }, HandoffRequest>("handoff:request"),
 };
 
 /** One route card, reshaped by the backend composer from the checked answer's route list (lib/agent/routes.ts). */
