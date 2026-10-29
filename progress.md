@@ -2,7 +2,17 @@
 
 Tracks what has been built, what's in progress, and what's next. Update it whenever a piece lands.
 
-Last updated: 2026-10-28 (routing fix after live chat testing). Branch: `main`.
+Last updated: 2026-10-29 (demo fixes: Jev, follow-ups, customer figures, adviser handoff, Docker). Branch: `codex/demo-fixes`.
+
+## Demo fixes, 2026-10-29
+
+- **Jev `invalid_response`:** the parser rejected rounded distributions. Over 14 labels, two-decimal rounding can sum to 0.97 or 1.03, past the old 0.01 limit, and labels at 0 may be omitted. The tolerance now scales with the label count (`lib/agent/jev.ts`), missing labels count as 0, the distribution is normalized and confidence recomputed. Invented labels, a non-maximal choice or larger errors are still rejected. A rejected reply logs only the failing field paths (`jev_invalid_response`), and `agent:run` retries once after `invalid_response` or `provider_error` (not after a timeout).
+- **Follow-up chips:** they now name the product or route (`followUps` in `lib/agent/composer.ts`): "Which documents do I need for Flexicredit?", "Compare X with Y for my situation". Without a named Raiffeisen product there are no chips, instead of generic ones Jev couldn't route.
+- **Customer figures:** the customer's own messages and confirmed memories are passed as `customerStatements`. Their figures (age, income, amount, term) no longer trigger the number or price retry or the final catalog check, and the retry notes say to keep them and still state plainly whether the customer meets a condition. Document prices stay withheld (`rag-agent@11`).
+- **Book an adviser:** answers about loans, comparisons and offers, complaints, hardship, fraud and unverifiable answers carry a handoff action (`lib/agent/handoff.ts`). The button first shows exactly what the adviser receives (the customer's last six messages, screened again), and "Send request" records a `handoffRequests` row with a reference (`convex/handoff.ts`). The status stays "requested"; no adviser queue is connected, and the UI says so. Complaints now get this path instead of the generic unavailable text.
+- **Docker:** `web/Dockerfile` (the app), root `Dockerfile` (tests and type checks), `docker-compose.yml` with `web`, `checks` and a `deploy` profile that pushes the functions to the deployment of `CONVEX_DEPLOY_KEY`. `convex/_generated/` is now committed, as Convex recommends, so a fresh clone or container can test without a deployment. Docker wasn't available on the authoring machine: the web production build and every check passed outside Docker, the images themselves weren't built.
+- **Repo hygiene:** removed the two spec zips and `.gstack/` logs from git; `.gitignore` now covers archives, logs, macOS `._*` files and `.claude/worktrees/`; `.github/pull_request_template.md` has the pre-PR checklist. Fixed the unfilled `esbuild` build approval in `web/pnpm-workspace.yaml` that made every web install exit with an error.
+- Validation: 257 backend tests, root and Convex type checks, agent setup check; web 20 tests, type check, lint and production build. Not deployed: nothing was pushed to the shared dev deployment.
 
 ## Live chat testing: routing and retry fixes, 2026-10-28
 
